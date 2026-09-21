@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Deploy this in the Firebase console under
+// Firestore Database → Rules (project: tracka-app-f97e1), or via the CLI:
+//   firebase deploy --only firestore:rules
+//
+// Every signed-in user's tracker data lives in exactly one document,
+// users/{their own auth uid} (see firebase-init.js). These rules make sure
+// a request can only read or write the document whose ID matches the
+// requester's own uid — nobody can read or write anyone else's data, and a
+// signed-out request can't touch any of it.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Everything else is denied by default (no matching rule = no access).
+  }
+}
