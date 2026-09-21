@@ -21,7 +21,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body class="ft-locked landing">
+<body class="ft-locked">
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
   <div class="auth-card">
     <div class="auth-logo">🌱</div>
@@ -46,56 +46,6 @@
     <p class="auth-note">🔒 Sign in with your username and password from any device to access your tracker.</p>
   </div>
 </div>
-
-<div id="landing-page">
-  <div class="landing-inner">
-
-    <header class="landing-nav">
-      <div class="landing-brand"><span class="landing-mark">🌱</span> Tracka</div>
-      <button type="button" class="landing-nav-signin" id="landing-signin-nav-btn">Sign in</button>
-    </header>
-
-    <section class="landing-hero">
-      <div class="landing-hero-copy">
-        <span class="landing-eyebrow">💸 One log that never resets</span>
-        <h1>See where your money actually goes — month after month, in one place.</h1>
-        <p class="landing-sub">Track income, debts, gifts, and savings in a single continuous log. Watch your debt-free countdown tick down, budget by category, and level up as you go.</p>
-        <div class="landing-cta-row">
-          <button type="button" class="landing-cta-primary" id="landing-signin-btn">Sign in to your tracker</button>
-          <button type="button" class="landing-cta-secondary" id="landing-signup-btn">Create a free account</button>
-        </div>
-        <p class="landing-trust">🔒 Private to you, on any device · 📲 Installs like an app · 💾 Nothing is ever sold or shared</p>
-      </div>
-      <div class="landing-hero-art" aria-hidden="true">
-        <div class="landing-card-mock">
-          <div class="lm-row"><span>🌟 Level 4</span><span class="lm-pill">920 XP</span></div>
-          <div class="lm-track"><div class="lm-fill" style="width:64%"></div></div>
-          <div class="lm-row lm-small"><span>🎯 Days until debt-free</span><b>212</b></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="landing-features">
-      <h2>Everything your budget spreadsheet was missing</h2>
-      <div class="landing-feature-grid">
-        <div class="landing-feature"><div class="lf-ic">💳</div><h3>Debt payoff plan</h3><p>Add every debt once and watch a live countdown to debt-free, month by month.</p></div>
-        <div class="landing-feature"><div class="lf-ic">🎁</div><h3>Gift savings goals</h3><p>Set aside a little each month for birthdays and holidays — it clears from the list once it's actually bought.</p></div>
-        <div class="landing-feature"><div class="lf-ic">🐷</div><h3>Savings, locked in</h3><p>Top-ups lock away for 3 months, so "just this once" can't touch them.</p></div>
-        <div class="landing-feature"><div class="lf-ic">🏠</div><h3>Categorized expenses</h3><p>Budget by category, see daily trends, and know instantly when you're over.</p></div>
-        <div class="landing-feature"><div class="lf-ic">🌟</div><h3>XP &amp; badges</h3><p>Every entry you log earns XP, so the boring parts get a little more fun.</p></div>
-        <div class="landing-feature"><div class="lf-ic">📲</div><h3>Works like an app</h3><p>Install it on your phone's home screen and open it offline, anytime.</p></div>
-      </div>
-    </section>
-
-    <section class="landing-final-cta">
-      <h2>Ready to see where your money actually goes?</h2>
-      <button type="button" class="landing-cta-primary" id="landing-signin-btn-2">Sign in to get started</button>
-    </section>
-
-    <footer class="landing-footer">🌱 Tracka — one continuous log, nothing resets.</footer>
-  </div>
-</div>
-
 <canvas id="confetti-canvas"></canvas>
 <button class="theme-toggle" id="theme-toggle-btn" title="Toggle dark / cozy mode">🌙</button>
 <div class="cat-companion" id="cat-companion" title="Click me!">
@@ -386,6 +336,5 @@
 <script type="module" src="firebase-init.js"></script>
 <script src="app.js" defer></script>
 <script src="pwa.js" defer></script>
-<script src="landing.js" defer></script>
 </body>
 </html>
