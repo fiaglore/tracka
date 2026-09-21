@@ -2,8 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Tracka - Your Money Tracker</title>
+
+<!-- PWA: installability -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#D98E2B">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
+
+<!-- PWA: iOS-specific install/appearance tags (iOS ignores manifest.json for these) -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tracka">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
@@ -53,6 +66,7 @@
       </div>
       <div class="xl-user-wrap" style="margin-left:0;">
         <span class="xl-user" id="xl-user"></span>
+        <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Tracka as an app on this device">📲 Install app</button>
         <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
       </div>
     </div>
@@ -321,5 +335,6 @@
 
 <script type="module" src="firebase-init.js"></script>
 <script src="app.js" defer></script>
+<script src="pwa.js" defer></script>
 </body>
 </html>
