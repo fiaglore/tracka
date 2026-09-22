@@ -16,7 +16,7 @@
   --radius-sm:10px; --radius-md:16px; --radius-lg:22px;
   --shadow-sm:0 2px 8px rgba(60,42,10,0.06);
   --shadow-md:0 8px 24px rgba(60,42,10,0.10);
-  --font-display:'Baloo 2',sans-serif; --font-body:'Quicksand',sans-serif; --font-mono:'Space Mono',monospace;
+  --font-display:'Quicksand',sans-serif; --font-body:'Quicksand',sans-serif; --font-mono:'Quicksand',sans-serif;
 }
 
 /* ---- 1. Meadow (default) ---- */
