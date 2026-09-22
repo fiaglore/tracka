@@ -229,10 +229,15 @@ body.ft-locked #auth-overlay{display:flex;}
 
 /* ============================================================
    LANDING PAGE — marketing page (index.html). Lives on its own
-   document now, separate from the sign-in/app page (sign-in.html),
-   so it just displays normally — no lock-gate classes needed.
+   document now, separate from the sign-in/app page (sign-in.html).
+   #landing-page is a direct child of <body>, so the sign-in gate
+   rule above (body.ft-locked > * { display:none !important; })
+   would hide the whole page if that class ever ends up on <body>
+   here (e.g. a stale service-worker cache). The !important below
+   is required — a plain `display:block` cannot win against that
+   rule and silently renders as background-only, no text.
    ============================================================ */
-#landing-page{display:block;}
+#landing-page{display:block !important;}
 
 .landing-inner{max-width:1040px; margin:0 auto; padding:0 20px 60px;}
 
