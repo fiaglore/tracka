@@ -16,7 +16,7 @@
   --radius-sm:10px; --radius-md:16px; --radius-lg:22px;
   --shadow-sm:0 2px 8px rgba(60,42,10,0.06);
   --shadow-md:0 8px 24px rgba(60,42,10,0.10);
-  --font-display:'Quicksand',sans-serif; --font-body:'Quicksand',sans-serif; --font-mono:'Quicksand',sans-serif;
+  --font-display:'Baloo 2',sans-serif; --font-body:'Quicksand',sans-serif; --font-mono:'Space Mono',monospace;
 }
 
 /* ---- 1. Meadow (default) ---- */
@@ -423,3 +423,15 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
 }
+
+/* ============================================================
+   IDLE / SESSION-CAP SIGN-OUT WARNING (see auto-logout.js)
+   Shown on the signed-in app page only — separate from the
+   body.ft-locked sign-in gate above.
+   ============================================================ */
+#idle-warning-overlay{display:none; position:fixed; inset:0; z-index:6000; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.4);}
+#idle-warning-overlay.open{display:flex;}
+#idle-warning-overlay .auth-card{max-width:360px; text-align:center;}
+#idle-warning-overlay #idle-warning-count{font-weight:700; color:var(--accent);}
+#idle-warning-overlay .auth-submit{margin-top:6px;}
+#idle-warning-overlay .auth-link{margin-top:10px;}
