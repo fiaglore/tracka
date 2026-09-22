@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tracka - Your Money Tracker</title>
+
+<!-- PWA: installability -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#D98E2B">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
+
+<!-- PWA: iOS-specific install/appearance tags (iOS ignores manifest.json for these) -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tracka">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="ft-locked">
+<div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <div class="auth-card">
+    <a href="index.html" class="auth-logo" title="Back to Tracka" style="text-decoration:none;">🌱</a>
+    <h2 id="auth-title">Welcome back</h2>
+    <p class="auth-sub" id="auth-sub">Sign in to open your tracker.</p>
+    <div class="auth-tabs">
+      <button type="button" id="auth-tab-in" class="active">Sign in</button>
+      <button type="button" id="auth-tab-new">Create account</button>
+    </div>
+    <form id="auth-form" autocomplete="on" novalidate>
+      <label class="auth-field">Username<input id="auth-user" type="text" autocomplete="username" maxlength="30" autocapitalize="none" spellcheck="false"></label>
+      <label class="auth-field">Password<input id="auth-pass" type="password" autocomplete="current-password"></label>
+      <label class="auth-field" id="auth-confirm-wrap" style="display:none">Confirm password<input id="auth-pass2" type="password" autocomplete="new-password"></label>
+      <div class="auth-row">
+        <label class="auth-check"><input type="checkbox" id="auth-show"> Show password</label>
+        <label class="auth-check"><input type="checkbox" id="auth-keep"> Keep me signed in on this device</label>
+      </div>
+      <div class="auth-error" id="auth-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="auth-submit">Sign in</button>
+    </form>
+    <button type="button" class="auth-link" id="auth-forgot">Forgot password?</button>
+    <p class="auth-note">🔒 Sign in with your username and password from any device to access your tracker.</p>
+  </div>
+</div>
+<canvas id="confetti-canvas"></canvas>
+<button class="theme-toggle" id="theme-toggle-btn" title="Toggle dark / cozy mode">🌙</button>
+<div class="cat-companion" id="cat-companion" title="Click me!">
+  <div class="cat-speech" id="cat-speech-text">Purring along — nothing checked yet this month!</div>
+  <div class="cat-face" id="cat-face">😺</div>
+</div>
+
+<div class="app-shell">
+
+  <div class="topbar">
+    <div class="brand-row">
+      <div class="brand">
+        <div class="brand-mark">🌱</div>
+        <div class="brand-text">
+          <h1>Tracka - Your Money Tracker</h1>
+          <div class="tag">One continuous log — switch months, nothing resets. <span id="period-desc"></span></div>
+        </div>
+      </div>
+      <div class="xl-user-wrap" style="margin-left:0;">
+        <span class="xl-user" id="xl-user"></span>
+        <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Tracka as an app on this device">📲 Install app</button>
+        <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
+      </div>
+    </div>
+
+    <div class="meta-chips">
+      <div class="chip">
+        <span class="lbl">⏰ Right now</span>
+        <span class="val" id="live-clock">--:--:--</span>
+      </div>
+      <div class="chip countdown">
+        <span class="lbl">🎯 Days until debt-free</span>
+        <span class="val" id="countdown-days">—</span>
+      </div>
+    </div>
+
+    <div class="toolbar" id="xl-bar">
+      <span class="xl-title">Data &amp; settings</span>
+      <button class="xl-btn" id="xl-import-btn" type="button" title="Load a filled-in workbook (replaces what is in the tracker now)">📥 Import</button>
+      <button class="xl-btn primary" id="xl-export-btn" type="button" title="Download everything in the tracker as an .xlsx workbook">📤 Export</button>
+      <button class="xl-btn" id="xl-template-btn" type="button" title="Download an empty workbook with the right sheets and columns">📄 Blank template</button>
+      <label class="xl-set">Currency <select id="set-currency"></select></label>
+      <label class="xl-set">Month starts on day <select id="set-payday"></select></label>
+      <input type="file" id="xl-file-input" accept=".xlsx,.xlsm" style="display:none">
+      <div class="theme-picker">
+        <span class="theme-picker-label">Theme</span>
+        <div class="theme-swatches" id="theme-swatches"></div>
+      </div>
+      <div class="xl-status" id="xl-status"></div>
+    </div>
+  </div>
+
+  <div class="month-bar">
+    <div class="tabs-outer">
+      <div class="tabs" id="tabs"></div>
+    </div>
+    <div class="month-period" id="month-period"></div>
+    <div class="time-message" id="time-message">🌅 Loading...</div>
+  </div>
+
+  <nav class="page-nav" id="page-nav">
+    <button type="button" class="page-nav-btn active" data-page="overview"><span class="ic">🏡</span>Overview</button>
+    <button type="button" class="page-nav-btn" data-page="income"><span class="ic">💸</span>Income</button>
+    <button type="button" class="page-nav-btn" data-page="debts"><span class="ic">💳</span>Debts</button>
+    <button type="button" class="page-nav-btn" data-page="gifts"><span class="ic">🎁</span>Gifts</button>
+    <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
+    <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
+  </nav>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div class="app-page active" id="page-overview" data-page="overview">
+
+    <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
+
+    <div class="xp-panel">
+      <div class="xp-head">
+        <div class="xp-level"><span class="badge-icon">🌟</span><span id="xp-level-num">Level 1</span></div>
+      </div>
+      <div class="xp-track"><div class="xp-fill" id="xp-fill"></div></div>
+      <div class="xp-sub" id="xp-sub">0 / 150 XP to level 2</div>
+      <div class="badge-row" id="badge-row"></div>
+    </div>
+
+    <div class="overall">
+      <div class="overall-head">
+        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
+        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
+      </div>
+      <div class="overall-nums">
+        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
+        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
+        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
+        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
+      </div>
+      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="budget-health" id="budget-health">
+      <div class="bh-left">
+        <div class="bh-icon" id="bh-icon">✅</div>
+        <div>
+          <div class="bh-status" id="bh-status">Within budget</div>
+          <div class="bh-sub" id="bh-sub"></div>
+        </div>
+      </div>
+      <div class="bh-right">
+        <div class="bh-amt" id="bh-amt">0</div>
+        <div class="bh-amt-lbl" id="bh-amt-lbl">surplus</div>
+      </div>
+      <div class="bh-breakdown" id="bh-breakdown"></div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-row row1">
+        <div class="summary-card"><div class="lbl">Income received</div><div class="num green mono" id="sum-income">0</div></div>
+        <div class="summary-card"><div class="lbl">Expenses paid</div><div class="num coral mono" id="sum-expense">0</div></div>
+        <div class="summary-card"><div class="lbl">Surplus / (Shortfall)</div><div class="num gold mono" id="sum-net">0</div></div>
+        <div class="summary-card"><div class="lbl">Extra income this month</div><div class="num mono" id="sum-extra">0</div></div>
+        <div class="summary-card"><div class="lbl">Days left in period</div><div class="num mono" id="sum-days-left" style="color:var(--accent)">—</div><div class="subnote" id="sum-days-left-sub"></div></div>
+      </div>
+      <div class="summary-row row2">
+        <div class="summary-card"><div class="lbl">% of balance saved</div><div class="num mono" id="sum-savings-pct" style="color:var(--accent)">0%</div><div class="subnote">cumulative savings ÷ cumulative balance</div></div>
+        <div class="summary-card"><div class="lbl">Cumulative balance</div><div class="num mono" id="sum-cumulative" style="color:var(--good)">0</div><div class="subnote" id="sum-cumulative-sub">through this month</div></div>
+      </div>
+    </div>
+
+    <div class="mvl-card" id="mvl-card">
+      <h3>This month vs last month</h3>
+      <div id="mvl-body"></div>
+    </div>
+
+  </div>
+
+  <!-- ============ INCOME ============ -->
+  <div class="app-page" id="page-income" data-page="income">
+    <section>
+      <div class="section-head"><h2>💸 Income</h2><div class="head-right"><div class="totals" id="income-totals"></div><button class="select-btn" id="income-select-btn" title="Check off all income items for this month">✓ Select all</button><button class="reset-btn" id="income-reset-btn" title="Uncheck all income items for this month">↺ Reset all</button></div></div>
+      <div class="extra-add">
+        <input type="text" id="income-desc" placeholder="Add a source, e.g. Side gig payout">
+        <input type="number" id="income-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <button id="income-add-btn">Add</button>
+      </div>
+      <div class="card-list" id="income-list"></div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>🍾 Extra / windfall income</h2><div class="head-right"><div class="totals">Freelance, refunds, gifts received — logged with a date, kept forever</div><button class="reset-btn" id="extra-reset-btn" title="Delete all extra income entries for this month">↺ Reset all</button></div></div>
+      <div class="extra-add">
+        <input type="text" id="extra-desc" placeholder="What was it? e.g. Freelance payout">
+        <input type="number" id="extra-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <button id="extra-add-btn">Add</button>
+      </div>
+      <div class="card-list" id="extra-list"></div>
+    </section>
+  </div>
+
+  <!-- ============ DEBTS ============ -->
+  <div class="app-page" id="page-debts" data-page="debts">
+    <section>
+      <div class="section-head"><h2>💳 Debt payments due</h2><div class="head-right"><div class="totals" id="debt-totals"></div><button class="select-btn" id="debt-select-btn" title="Check off all debt payments for this month">✓ Select all</button><button class="reset-btn" id="debt-reset-btn" title="Uncheck all debt payments for this month">↺ Reset all</button></div></div>
+      <div class="payoff-panel" id="payoff-panel">
+        <h3>🏁 Payoff plan — every debt you've added</h3>
+        <div class="payoff-head" id="payoff-head"></div>
+        <div id="payoff-list"></div>
+      </div>
+      <div class="extra-add">
+        <input type="text" id="debt-desc" placeholder="Add a debt/payment, e.g. New loan installment">
+        <input type="number" id="debt-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <input type="number" id="debt-duration" placeholder="Duration (months)" min="1" style="width:130px;">
+        <button id="debt-add-btn">Add</button>
+      </div>
+      <div class="card-list" id="debt-list"></div>
+    </section>
+  </div>
+
+  <!-- ============ GIFTS ============ -->
+  <div class="app-page" id="page-gifts" data-page="gifts">
+    <section>
+      <div class="section-head"><h2>🎁 Gift deductions</h2><div class="head-right"><div class="totals" id="gift-totals"></div><button class="select-btn" id="gift-select-btn" title="Check off all gift deductions for this month">✓ Select all</button><button class="reset-btn" id="gift-reset-btn" title="Uncheck and reset gift deductions for this month">↺ Reset all</button></div></div>
+      <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">Money set aside each month toward a future gift. Contributions run for N months leading up to the target month — the goal disappears from the list once its target month arrives, because that's when it's actually bought.</p>
+
+      <div class="goal-list" id="goal-list"></div>
+
+      <div class="extra-add">
+        <input type="text" id="goal-name" placeholder="Gift name, e.g. Pixel Watch & Buds">
+        <input type="number" id="goal-total" placeholder="Total amount {c}" data-ph="Total amount {c}">
+        <input type="number" id="goal-months" placeholder="Months to save" min="1" max="13" style="width:110px;">
+        <select id="goal-target"></select>
+        <button id="goal-add-btn">Add goal 🎀</button>
+      </div>
+
+      <div class="card-list" id="gift-list"></div>
+    </section>
+  </div>
+
+  <!-- ============ SAVINGS ============ -->
+  <div class="app-page" id="page-savings" data-page="savings">
+    <section>
+      <div class="section-head"><h2>🐷 Savings</h2><div class="head-right"><div class="totals" id="savings-totals"></div><button class="reset-btn" id="savings-reset-btn" title="Delete all savings top-ups added this month">↺ Reset all</button></div></div>
+      <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">Top up whenever you like, any amount. Each deposit locks away for 3 months from the month you add it — untouchable until then — and is subtracted from your spendable cumulative balance below the whole time it's saved.</p>
+
+      <div class="savings-goal">
+        <div class="savings-goal-head">
+          <span class="sg-label">🌻 Savings goal</span>
+          <div class="savings-goal-set">
+            <input type="number" id="savings-goal-amt" placeholder="Target {c}" data-ph="Target {c}">
+            <button id="savings-goal-set-btn">Set goal</button>
+          </div>
+        </div>
+        <div class="savings-goal-track"><div class="savings-goal-fill" id="savings-goal-fill" style="width:0%"></div></div>
+        <div class="savings-goal-nums">
+          <span><b id="savings-goal-current">0</b> saved of <b id="savings-goal-target">0</b></span>
+          <span class="savings-goal-pct" id="savings-goal-pct">0%</span>
+        </div>
+      </div>
+
+      <div class="savings-goal savings-apps-block">
+        <div class="savings-goal-head">
+          <span class="sg-label">📱 Savings apps — monthly top-up</span>
+          <span class="totals mono" id="savingsapps-totals"></span>
+          <button class="select-btn" id="savingsapps-select-btn" title="Check off all app top-ups for this month">✓ Select all</button>
+        </div>
+        <p class="note">Set this month's top-up for each app and tick it once it's actually gone in. Balances roll forward automatically — whatever an app holds at the end of a month is its opening balance the next month. Ticked top-ups count toward the 🌻 savings goal above, alongside the free-form ledger below.</p>
+        <div class="payoff-panel" id="accounts-panel">
+          <h3>🏦 App balances — carried forward month to month</h3>
+          <div class="payoff-head" id="accounts-head"></div>
+          <div id="accounts-list"></div>
+        </div>
+        <div class="card-list" id="savingsapps-list"></div>
+        <div class="extra-add">
+          <input type="text" id="savingsapps-desc" placeholder="Add another app, e.g. Cowrywise">
+          <input type="number" id="savingsapps-amt" placeholder="Top up {c}" data-ph="Top up {c}">
+          <button id="savingsapps-add-btn">Add app</button>
+        </div>
+      </div>
+
+      <div class="extra-add">
+        <input type="text" id="savings-desc" placeholder="What's it for? e.g. Emergency fund top-up">
+        <input type="number" id="savings-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <button id="savings-add-btn">Add to savings</button>
+      </div>
+
+      <div class="card-list" id="savings-list"></div>
+    </section>
+  </div>
+
+  <!-- ============ EXPENSES ============ -->
+  <div class="app-page" id="page-expenses" data-page="expenses">
+    <section>
+      <div class="section-head"><h2>🏠 Living expenses</h2><div class="head-right"><div class="totals" id="living-totals"></div></div></div>
+
+      <div class="living-subpanel">
+        <h3>By category, this billing period</h3>
+        <div id="living-cat-chart"></div>
+      </div>
+
+      <div class="living-subpanel">
+        <h3>Daily trend · bars above the dashed line beat the implied daily budget</h3>
+        <div class="chart-scroll"><svg id="living-daily-chart" width="100%" height="138"></svg></div>
+      </div>
+
+      <div class="extra-add">
+        <input type="date" id="living-entry-date">
+        <select id="living-entry-category"></select>
+        <input type="text" id="living-entry-desc" placeholder="What was it? e.g. Bread & eggs">
+        <input type="number" id="living-entry-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <button id="living-entry-add-btn">Add</button>
+      </div>
+
+      <div class="manage-cats">
+        <div class="manage-cats-head">Categories &amp; budget — <span id="manage-cats-month-label"></span></div>
+        <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px;max-width:600px;">Each category's budget below applies to the billing period you're currently viewing only — switch months to set a different budget for that month.</p>
+        <div class="cat-manage-list" id="living-cat-manage-list"></div>
+        <div class="new-cat-form">
+          <input type="text" id="new-living-cat-name" placeholder="New category">
+          <input type="number" id="new-living-cat-budget" placeholder="Budget {c}" data-ph="Budget {c}">
+          <button id="add-living-cat-btn">+ Add category</button>
+        </div>
+      </div>
+
+      <div id="living-list"></div>
+    </section>
+  </div>
+
+  <footer>💾 Saved locally in this browser · figures in <span id="footer-cur">—</span> · reopen anytime, nothing is sent anywhere · covers <span id="footer-coverage">—</span> · <span id="footer-period"></span></footer>
+</div>
+
+<script type="module" src="firebase-init.js"></script>
+<script src="app.js" defer></script>
+<script src="pwa.js" defer></script>
+<script src="app-entry.js" defer></script>
+</body>
+</html>
