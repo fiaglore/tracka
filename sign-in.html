@@ -109,6 +109,20 @@
       </div>
       <div class="xl-status" id="xl-status"></div>
     </div>
+
+    <div class="overall">
+      <div class="overall-head">
+        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
+        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
+      </div>
+      <div class="overall-nums">
+        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
+        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
+        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
+        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
+      </div>
+      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
+    </div>
   </div>
 
   <div class="month-bar">
@@ -140,20 +154,6 @@
       <div class="xp-track"><div class="xp-fill" id="xp-fill"></div></div>
       <div class="xp-sub" id="xp-sub">0 / 150 XP to level 2</div>
       <div class="badge-row" id="badge-row"></div>
-    </div>
-
-    <div class="overall">
-      <div class="overall-head">
-        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
-        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
-      </div>
-      <div class="overall-nums">
-        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
-        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
-        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
-        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
-      </div>
-      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
     </div>
 
     <div class="budget-health" id="budget-health">
