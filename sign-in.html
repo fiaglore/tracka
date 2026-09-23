@@ -23,7 +23,7 @@
 </head>
 <body class="ft-locked">
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-  <div class="auth-card">
+  <div class="auth-card" id="auth-form-card">
     <a href="index.html" class="auth-logo" title="Back to Tracka" style="text-decoration:none;">🌱</a>
     <h2 id="auth-title">Welcome back</h2>
     <p class="auth-sub" id="auth-sub">Sign in to open your tracker.</p>
@@ -44,6 +44,14 @@
     </form>
     <button type="button" class="auth-link" id="auth-forgot">Forgot password?</button>
     <p class="auth-note">🔒 Sign in with your username and password from any device to access your tracker.</p>
+  </div>
+  <!-- Shown in place of the form above from the moment sign-in/create-account is submitted
+       until the tracker's data has loaded and is ready to display — signing in and loading
+       the Firestore document both take a moment, and without this the screen just sat there
+       looking frozen in between. -->
+  <div class="auth-card auth-loading-box" id="auth-loading-box" hidden role="status" aria-live="polite">
+    <span class="auth-loading-spin" aria-hidden="true">🌱</span>
+    <p id="auth-loading-text">Signing you in…</p>
   </div>
 </div>
 <canvas id="confetti-canvas"></canvas>
