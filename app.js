@@ -2681,6 +2681,22 @@ window.__ftStart = function(){
   }
   function setError(msg){ $('auth-error').textContent = msg || ''; }
 
+  // Covers the gap between submitting sign-in/create-account and the tracker
+  // actually being ready — both the Firebase Auth round trip and the
+  // Firestore document fetch in begin() can take a moment on a slow
+  // connection, and with nothing shown the sign-in card just looked frozen.
+  function showAuthLoading(msg){
+    var box = $('auth-loading-box'), card = $('auth-form-card'), text = $('auth-loading-text');
+    if(text) text.textContent = msg || 'Loading…';
+    if(box) box.hidden = false;
+    if(card) card.hidden = true;
+  }
+  function hideAuthLoading(){
+    var box = $('auth-loading-box'), card = $('auth-form-card');
+    if(box) box.hidden = true;
+    if(card) card.hidden = false;
+  }
+
   function friendlyAuthError(e){
     const code = (e && e.code) || '';
     if(code === 'auth/email-already-in-use') return 'That username is already taken — sign in instead.';
@@ -2697,18 +2713,21 @@ window.__ftStart = function(){
     if(started) return;
     started = true;
     window.__ftUid = user.uid;
+    showAuthLoading('Loading your tracker…');
     let cloudData = null;
     try{
       cloudData = await window.Tracka.loadUserDoc(user.uid);
     }catch(e){
       console.error(e);
       setError('Could not reach the server. Check your connection and reload.');
+      hideAuthLoading();
       started = false;
       window.__ftUid = null;
       return;
     }
     window.__ftCloudData = cloudData || {};
     $('xl-user').textContent = '👤 ' + (user.displayName || window.__ftCloudData.displayName || 'you');
+    hideAuthLoading();
     document.body.classList.remove('ft-locked');
     $('auth-pass').value = ''; $('auth-pass2').value = '';
     window.__ftStart();
@@ -2726,12 +2745,15 @@ window.__ftStart = function(){
       if(mode === 'create'){
         if(pw.length < 6){ setError('Password must be at least 6 characters.'); return; }
         if(pw !== $('auth-pass2').value){ setError('The two passwords do not match.'); return; }
+        showAuthLoading('Creating your account…');
         await window.Tracka.signUp(name, pw, remember);
-        // The auth-state listener below picks up the new session and calls begin().
+        // The auth-state listener below picks up the new session and calls begin(),
+        // which takes the loading card the rest of the way (or hides it on failure).
       } else {
+        showAuthLoading('Signing in…');
         await window.Tracka.signIn(name, pw, remember);
       }
-    }catch(e){ console.error(e); setError(friendlyAuthError(e)); }
+    }catch(e){ console.error(e); setError(friendlyAuthError(e)); hideAuthLoading(); }
     finally{ btn.disabled = false; }
   }
 
