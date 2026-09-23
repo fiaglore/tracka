@@ -1374,6 +1374,10 @@ window.__ftStart = function(){
     if(xpFillEl) xpFillEl.style.width = Math.min(100,(xpIntoLevel/xpPerLevel)*100)+'%';
     const xpSubEl = document.getElementById('xp-sub');
     if(xpSubEl) xpSubEl.textContent = xpIntoLevel+' / '+xpPerLevel+' XP to level '+(level+1)+' · '+totalXP+' XP total';
+    // Same level the XP panel above already shows — mirrored into the
+    // persistent top chip row so it's visible on every tab, not just Overview.
+    const chipLevelEl = document.getElementById('chip-level-val');
+    if(chipLevelEl) chipLevelEl.textContent = String(level);
 
     // ===== Gamification: achievement badges =====
     let maxSaved = 0;
@@ -2788,6 +2792,41 @@ window.__ftStart = function(){
       });
       wrap.appendChild(b);
     });
+  })();
+
+  // ===== Daily visit streak =====
+  // Counts consecutive calendar days the tracker has been opened — a small,
+  // purely-for-fun addition alongside the existing XP/badge system. Persists
+  // the same way currency/payStart/petSpecies etc. do; streakLastDate is
+  // what makes this idempotent, so opening the app twice in one day (or on
+  // two devices) doesn't double-count.
+  (function(){
+    const chipVal = document.getElementById('chip-streak-val');
+    if(!chipVal) return;
+    const chipEl = document.getElementById('chip-streak');
+    const chipLbl = document.getElementById('chip-streak-lbl');
+    const today = todayKey();
+    const y = new Date(); y.setDate(y.getDate()-1);
+    const yesterday = dateKey(y);
+    const lastDate = cloud.streakLastDate || null;
+    let count = Number(cloud.streakCount) || 0;
+    let grew = false;
+    if(lastDate !== today){
+      count = (lastDate === yesterday) ? count+1 : 1;
+      grew = true;
+      cloud.streakLastDate = today;
+      cloud.streakCount = count;
+      if(window.__ftUid){
+        window.Trakka.saveUserDoc(window.__ftUid, { streakCount: count, streakLastDate: today })
+          .catch(function(e){ console.error('Save failed:', e); });
+      }
+    }
+    const fire = count>=30 ? '🔥🔥🔥' : count>=7 ? '🔥🔥' : '🔥';
+    if(chipLbl) chipLbl.textContent = fire+' Streak';
+    chipVal.textContent = count + (count===1 ? ' day' : ' days');
+    if(chipEl) chipEl.classList.toggle('streak-zero', count===0);
+    // Celebrate coming BACK, not just the first-ever visit (count going 0→1).
+    if(grew && count>1) triggerConfetti();
   })();
 
   applyStaticSettings();

@@ -290,6 +290,9 @@ button,input,select,textarea{font-family:inherit;}
 .chip .lbl{font-size:9.5px; letter-spacing:.04em; color:var(--muted); font-family:var(--font-display); font-weight:600;}
 .chip .val{font-size:16px; font-weight:700; color:var(--ink);}
 .chip.countdown .val{color:var(--accent);}
+.chip.level .val{color:var(--accent);}
+.chip.streak .val{color:var(--bad);}
+.chip.streak.streak-zero .val{color:var(--muted);} /* no streak yet today — don't flex a fire emoji at 0 */
 .chip .val span{font-size:10.5px; color:var(--muted); font-weight:400; margin-left:4px; font-family:var(--font-body);}
 
 /* toolbar (excel + currency/payday + user + theme) */
