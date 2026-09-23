@@ -3,11 +3,26 @@
 // Signs the user out automatically in two situations:
 //   1. Inactivity — no mouse/keyboard/scroll/touch activity for
 //      INACTIVITY_MS. A "Still there?" dialog then counts down
-//      WARNING_MS before signing out; any activity, or clicking
-//      "Stay signed in", cancels it and restarts the idle clock.
+//      WARNING_MS before signing out. Once it's up, only its own buttons
+//      ("Stay signed in" / "Sign out now") dismiss it — activity elsewhere
+//      on the page (a passing mousemove, a scroll) is ignored on purpose,
+//      so the warning can't disappear without an actual decision.
 //   2. Session cap — SESSION_CAP_MS after sign-in (kept across reloads in the same tab), unconditionally.
 //      Not reset by activity or by dismissing the inactivity warning —
 //      it's a hard ceiling on how long a session can last.
+//
+// Both are tracked as wall-clock deadlines, re-checked on a 1s tick and
+// immediately on every visibility change (tab hidden/backgrounded, or the
+// screen locked — most platforms report that as hidden too), not as a
+// plain setTimeout. That's what makes leaving the screen count the same as
+// leaving the mouse alone: idle time keeps accruing in the background, and
+// whichever of "tab comes back" or "tab goes away" happens next re-checks
+// it immediately, so a tab left hidden past both windows signs out as soon
+// as that's noticed rather than only whenever it's next looked at. (A
+// browser's own screen-dim/brightness state isn't something any webpage
+// can read — it's blocked for privacy — so visibility/backgrounding is the
+// closest real signal available, and inactivity that leads to a dim screen
+// was already being counted by the mouse/keyboard timer regardless.)
 //
 // Wired to window.Trakka (see firebase-init.js) for auth state and
 // sign-out, so it only runs while someone is actually signed in, and
@@ -97,14 +112,24 @@
 
   function onActivity() {
     if (loggingOut) return;
+    // Once the warning is up, only its own buttons ("Stay signed in" / "Sign
+    // out now") dismiss it — a passing mousemove or scroll used to silently
+    // cancel it, which defeated the point of asking "Still there?" at all.
+    if (warningOpen()) return;
     const now = Date.now();
-    if (warningOpen()) { dismissWarning(); return; }
     if (now - lastActivityAt < ACTIVITY_THROTTLE_MS) return;
     lastActivityAt = now;
   }
 
   function onVisibilityChange() {
-    if (document.visibilityState === "visible") tick();
+    // Re-check immediately in both directions. Going hidden — the tab was
+    // switched away, minimized, or (on most platforms) the screen locked —
+    // is itself a real signal, and getting one authoritative tick() in
+    // right as it happens matters because background tabs get their timers
+    // throttled or fully suspended, so the regular 1s interval may not fire
+    // again (accurately or at all) until the tab is visible again. Coming
+    // back needs the same catch-up, for time that passed while suspended.
+    tick();
   }
 
   // Firestore's pending-write retry carries the auth context it was created with, so signing
