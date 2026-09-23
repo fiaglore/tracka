@@ -72,6 +72,48 @@ window.__ftStart = function(){
   let CUR = loadCur();
   let PSTART = loadPay();
   function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+  // ===== Pet companion species =====
+  // Each species defines the emoji shown for every mood, a matching speech-
+  // bubble line, and a "blink" variant used for the idle animation (see
+  // startCatIdleLoop()). Stored/loaded the same way currency/payStart are —
+  // one field on the user doc, defaulting to 'cat' so nobody's companion
+  // silently changes when this shipped.
+  const PET_SPECIES = {
+    cat:    { name:'Cat',    neutral:'😺', onTrack:'😻', overBudget:'😿', milestone:'🐈', blink:'😽',
+              neutralSpeech:"Purring along — nothing checked yet this month!",
+              onTrackSpeech:"You're on track this month — great job!",
+              overBudgetSpeech:'A bit tight this month — check off more when you can.',
+              milestoneSpeech:'Yesss! New milestone — look at you go! 🎉' },
+    dog:    { name:'Dog',    neutral:'🐶', onTrack:'🐕', overBudget:'🐩', milestone:'🦮', blink:'🐶',
+              neutralSpeech:"Tail's waiting to wag — nothing checked yet this month!",
+              onTrackSpeech:"Good human — you're on track this month!",
+              overBudgetSpeech:'Ruff month — check off more when you can.',
+              milestoneSpeech:'WOOF! New milestone unlocked! 🎉' },
+    fox:    { name:'Fox',    neutral:'🦊', onTrack:'✨', overBudget:'🥀', milestone:'🔥', blink:'🦊',
+              neutralSpeech:"Lying low — nothing checked yet this month!",
+              onTrackSpeech:'Sly and on track — nicely done this month.',
+              overBudgetSpeech:'Tight month — check off more when you can.',
+              milestoneSpeech:'A new milestone! Foxes love a win. 🎉' },
+    owl:    { name:'Owl',    neutral:'🦉', onTrack:'🌟', overBudget:'😵‍💫', milestone:'🌙', blink:'🦉',
+              neutralSpeech:"Wide awake — nothing checked yet this month!",
+              onTrackSpeech:"Wise choice — you're on track this month.",
+              overBudgetSpeech:'A tough month — check off more when you can.',
+              milestoneSpeech:'Hoo hoo! New milestone reached! 🎉' },
+    rabbit: { name:'Rabbit', neutral:'🐰', onTrack:'🐇', overBudget:'😔', milestone:'🥕', blink:'🐰',
+              neutralSpeech:"Ears up — nothing checked yet this month!",
+              onTrackSpeech:"Hop hop, you're on track this month!",
+              overBudgetSpeech:'A bit thin this month — check off more when you can.',
+              milestoneSpeech:'New milestone — time to hop for joy! 🎉' },
+    plant:  { name:'Plant',  neutral:'🌱', onTrack:'🌿', overBudget:'🥀', milestone:'🌸', blink:'🌱',
+              neutralSpeech:"Just sprouting — nothing checked yet this month!",
+              onTrackSpeech:'Growing nicely — you’re on track this month!',
+              overBudgetSpeech:'Needs some water — check off more when you can.',
+              milestoneSpeech:'In full bloom — new milestone reached! 🎉' }
+  };
+  function loadPetSpecies(){ return PET_SPECIES[cloud.petSpecies] ? cloud.petSpecies : 'cat'; }
+  let petSpeciesId = loadPetSpecies();
+  function getSpecies(){ return PET_SPECIES[petSpeciesId] || PET_SPECIES.cat; }
   function periodShort(){ return PSTART===1 ? 'calendar month' : ordinal(PSTART)+' → '+ordinal(PSTART-1); }
   function periodSentence(){
     return PSTART===1 ? 'Each month runs from the 1st to the last day of the calendar month.'
@@ -1163,6 +1205,48 @@ window.__ftStart = function(){
     });
   }
 
+  // ===== Cat companion: mood + reactions =====
+  // catMilestoneUntil holds a timestamp (Date.now()+N) while the celebratory
+  // milestone face is showing, so render()'s normal mood calc (net/checked
+  // -based) leaves it alone until it expires — nothing else re-runs render()
+  // on a plain timer, so the expiry is driven by its own setTimeout below.
+  let catMilestoneUntil = 0;
+  let catMilestoneTimer = null;
+  function computeNormalCatMood(){
+    const species = getSpecies();
+    const monthNet = netForMonth(activeMonth);
+    const monthItems = allItemsForMonth(activeMonth);
+    const anyChecked = monthItems.some(x=>x.checked);
+    if(!anyChecked) return {emoji:species.neutral, speech:species.neutralSpeech};
+    if(monthNet>=0) return {emoji:species.onTrack, speech:species.onTrackSpeech};
+    return {emoji:species.overBudget, speech:species.overBudgetSpeech};
+  }
+  function applyCatMood(mood){
+    const catFaceEl = document.getElementById('cat-face');
+    const catSpeechEl = document.getElementById('cat-speech-text');
+    if(catFaceEl) catFaceEl.textContent = mood.emoji;
+    if(catSpeechEl) catSpeechEl.textContent = mood.speech;
+  }
+  // Brief, self-cleaning bounce + emoji-pop reaction — used both for a
+  // direct click/pet and for an immediate "nice!" on ticking a checkbox, so
+  // the companion feels alive right when something happens rather than only
+  // catching up on the next render() pass.
+  function pulseCatCompanion(popEmoji){
+    const face = document.getElementById('cat-face');
+    const pop = document.getElementById('cat-pop');
+    if(face){
+      face.classList.remove('petted');
+      void face.offsetWidth; // restart the animation even on rapid repeat clicks
+      face.classList.add('petted');
+    }
+    if(pop){
+      pop.textContent = popEmoji || '💕';
+      pop.classList.remove('pop');
+      void pop.offsetWidth;
+      pop.classList.add('pop');
+    }
+  }
+
   function render(){
     renderTabs();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
@@ -1348,25 +1432,31 @@ window.__ftStart = function(){
     if(newlyEarned){
       saveBadgeMemory(badgeMemory);
       triggerConfetti();
+      // Celebratory pet state for a few seconds, then fall back to the
+      // normal net/checked-based mood — see catMilestoneUntil above.
+      const species = getSpecies();
+      applyCatMood({emoji:species.milestone, speech:species.milestoneSpeech});
+      pulseCatCompanion('🎉');
+      catMilestoneUntil = Date.now() + 4000;
+      clearTimeout(catMilestoneTimer);
+      catMilestoneTimer = setTimeout(function(){
+        catMilestoneUntil = 0;
+        applyCatMood(computeNormalCatMood());
+      }, 4000);
     }
 
     // ===== Cat companion mood =====
-    const catFaceEl = document.getElementById('cat-face');
-    const catSpeechEl = document.getElementById('cat-speech-text');
-    if(catFaceEl){
-      const monthNet = netForMonth(activeMonth);
-      const monthItems = allItemsForMonth(activeMonth);
-      const anyChecked = monthItems.some(x=>x.checked);
-      let mood='😺', speech="Purring along — nothing checked yet this month!";
-      if(anyChecked && monthNet>=0){ mood='😻'; speech="You're on track this month — great job!"; }
-      else if(anyChecked && monthNet<0){ mood='😿'; speech='A bit tight this month — check off more when you can.'; }
-      catFaceEl.textContent = mood;
-      if(catSpeechEl) catSpeechEl.textContent = speech;
+    if(document.getElementById('cat-face') && Date.now() >= catMilestoneUntil){
+      applyCatMood(computeNormalCatMood());
     }
   }
 
   document.addEventListener('change', function(e){
-    if(e.target.matches('.checkbox') && e.target.checked) playDing();
+    // Immediate reaction on ticking anything off — save() below triggers a
+    // full render() (which recomputes the mood too), but that can land
+    // seconds later depending on what else render() does, so give the
+    // companion its own instant "nice!" pulse right here.
+    if(e.target.matches('.checkbox') && e.target.checked){ playDing(); pulseCatCompanion('✨'); }
     if(e.target.matches('.checkbox[data-kind]')){
       const kind = e.target.dataset.kind, idx = +e.target.dataset.idx;
       const item = state.months[activeMonth][kind][idx];
@@ -2642,6 +2732,77 @@ window.__ftStart = function(){
     if(f) xlDoImport(f).finally(()=>{ try{ this.value = ''; }catch(e){} });
   });
 
+
+  // ===== Pet companion: click-to-toggle, idle variety =====
+  (function(){
+    const companion = document.getElementById('cat-companion');
+    if(companion){
+      // Tapping the companion (not just hovering) shows/hides the speech
+      // bubble — .cat-speech was only ever shown via :hover before, which
+      // meant it never appeared at all on touch devices.
+      companion.addEventListener('click', function(e){
+        e.stopPropagation();
+        companion.classList.toggle('show-speech');
+        pulseCatCompanion('💕');
+      });
+      document.addEventListener('click', function(e){
+        if(companion.classList.contains('show-speech') && !companion.contains(e.target)){
+          companion.classList.remove('show-speech');
+        }
+      });
+    }
+
+    const face = document.getElementById('cat-face');
+    const pop = document.getElementById('cat-pop');
+    if(face) face.addEventListener('animationend', function(ev){ if(ev.animationName==='catPet') face.classList.remove('petted'); });
+    if(pop) pop.addEventListener('animationend', function(ev){ if(ev.animationName==='catPop') pop.classList.remove('pop'); });
+
+    // Idle variety: swap to a "blink" variant every ~20-30s while the tab is
+    // visible and nothing else is animating the companion, so it doesn't sit
+    // static between renders. Off entirely under prefers-reduced-motion.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!reduceMotion && face){
+      (function scheduleIdleBlink(){
+        const delay = 20000 + Math.random()*10000; // 20-30s
+        setTimeout(function(){
+          if(document.visibilityState==='visible' && Date.now()>=catMilestoneUntil && !face.classList.contains('petted')){
+            const species = getSpecies();
+            const original = face.textContent;
+            face.textContent = species.blink;
+            setTimeout(function(){ if(face.textContent===species.blink) face.textContent = original; }, 400);
+          }
+          scheduleIdleBlink();
+        }, delay);
+      })();
+    }
+  })();
+
+  // ===== Pet species picker (same swatch-row look as the theme picker) =====
+  (function(){
+    const wrap = document.getElementById('pet-swatches');
+    if(!wrap) return;
+    Object.keys(PET_SPECIES).forEach(function(id){
+      const sp = PET_SPECIES[id];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pet-swatch';
+      b.textContent = sp.neutral;
+      b.title = sp.name;
+      b.setAttribute('data-pet-id', id);
+      b.classList.toggle('active', id === petSpeciesId);
+      b.addEventListener('click', function(){
+        if(petSpeciesId === id) return;
+        petSpeciesId = id;
+        saveCloudField('petSpecies', id);
+        Array.prototype.forEach.call(wrap.children, function(btn){
+          btn.classList.toggle('active', btn.getAttribute('data-pet-id') === id);
+        });
+        if(Date.now() >= catMilestoneUntil) applyCatMood(computeNormalCatMood());
+        pulseCatCompanion('💕');
+      });
+      wrap.appendChild(b);
+    });
+  })();
 
   applyStaticSettings();
   populateTargetSelect();
