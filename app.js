@@ -2764,7 +2764,11 @@ window.__ftStart = function(){
   function initAuth(){
     window.Tracka.onAuthChange(function(user){
       if(user){ begin(user); }
-      else if(!started){ const u = $('auth-user'); if(u) setTimeout(()=>u.focus(), 50); }
+      // Signed out while the tracker was open (auto-logout, or sign-out in another tab):
+      // nothing else re-locks the UI, so leave for the signed-out page instead of
+      // leaving the tracker visible with no session behind it.
+      else if(started){ started = false; window.__ftUid = null; location.replace('signed-out.html'); }
+      else { const u = $('auth-user'); if(u) setTimeout(()=>u.focus(), 50); }
     });
   }
   if(window.Tracka) initAuth();
