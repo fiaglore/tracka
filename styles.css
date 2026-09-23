@@ -163,6 +163,9 @@ button,input,select,textarea{font-family:inherit;}
 .theme-swatch{width:22px; height:22px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
 .theme-swatch.active{box-shadow:0 0 0 2px var(--accent);}
 .theme-toggle{display:none;} /* superseded by the theme picker above */
+.pet-swatches{display:flex; gap:5px; flex-wrap:wrap;}
+.pet-swatch{width:24px; height:24px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative; background:var(--bg-soft); font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center;}
+.pet-swatch.active{box-shadow:0 0 0 2px var(--accent);}
 
 /* ============================================================
    MONTH TABS + PERIOD BAR (persists above page nav)
@@ -550,6 +553,15 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 .cat-companion:hover .cat-speech,.cat-companion.show-speech .cat-speech{display:block;}
 .cat-face{width:50px; height:50px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:var(--shadow-md); cursor:pointer; animation:catBob 3s ease-in-out infinite;}
 @keyframes catBob{0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);}}
+/* .petted replaces the idle catBob loop with a one-shot bounce (higher
+   specificity than .cat-face alone, so it wins for the animation's
+   duration) — a distinct "that landed" reaction to a click or a tick,
+   separate from the ambient float. */
+.cat-face.petted{animation:catPet .5s ease;}
+@keyframes catPet{0%{transform:scale(1);} 35%{transform:scale(1.22);} 65%{transform:scale(.92);} 100%{transform:scale(1);}}
+.cat-pop{position:absolute; right:6px; bottom:58px; font-size:17px; opacity:0; pointer-events:none;}
+.cat-pop.pop{animation:catPop .9s ease forwards;}
+@keyframes catPop{0%{opacity:0; transform:translateY(0) scale(.6);} 25%{opacity:1; transform:translateY(-8px) scale(1.1);} 100%{opacity:0; transform:translateY(-32px) scale(.9);}}
 
 /* ===== Confetti / sparkle (kept, toned down) ===== */
 #confetti-canvas{position:fixed; inset:0; pointer-events:none; z-index:60;}
