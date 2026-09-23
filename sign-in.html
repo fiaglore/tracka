@@ -53,6 +53,41 @@
     <span class="auth-loading-spin" aria-hidden="true">🌱</span>
     <p id="auth-loading-text">Signing you in…</p>
   </div>
+  <!-- Shown instead of #auth-form-card right after an auto sign-out (idle
+       timeout or session cap — never a manual "🔒 Sign out" click), when a
+       quick-unlock PIN is cached on this device. See auto-logout.js and
+       app.js's auth IIFE for how that's decided and this card gets swapped in. -->
+  <div class="auth-card" id="pin-unlock-card" hidden>
+    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;">🌱</a>
+    <h2>Welcome back</h2>
+    <p class="auth-sub" id="pin-unlock-sub">You were signed out. Enter your quick-unlock PIN to continue.</p>
+    <form id="pin-unlock-form" autocomplete="off" novalidate>
+      <label class="auth-field">PIN<input id="pin-unlock-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12"></label>
+      <div class="auth-error" id="pin-unlock-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="pin-unlock-submit">Unlock</button>
+    </form>
+    <button type="button" class="auth-link" id="pin-unlock-fallback">Not you? Sign in with password instead</button>
+  </div>
+</div>
+
+<!-- Quick-unlock PIN setup/change/remove — opened from the "🔢 Quick-unlock
+     PIN" button next to "🔒 Sign out" in the signed-in app's toolbar, not
+     part of the sign-in gate above (this only ever opens while already
+     signed in). Same fixed-overlay/.auth-card pattern as #idle-warning-overlay. -->
+<div id="pin-setup-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pin-setup-title">
+  <div class="auth-card" id="pin-setup-card">
+    <h2 id="pin-setup-title">Quick-unlock PIN</h2>
+    <p class="auth-sub">A short PIN to get back in after you're auto signed-out, without retyping your password on this device. It doesn't replace your account password as what actually secures your account — think of it as a shortcut, not a stronger lock.</p>
+    <form id="pin-setup-form" autocomplete="off" novalidate>
+      <label class="auth-field">Current password<input id="pin-setup-password" type="password" autocomplete="current-password"></label>
+      <label class="auth-field">New PIN (6+ digits)<input id="pin-setup-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12"></label>
+      <label class="auth-field">Confirm PIN<input id="pin-setup-pin2" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12"></label>
+      <div class="auth-error" id="pin-setup-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="pin-setup-save">Save PIN</button>
+    </form>
+    <button type="button" class="auth-link" id="pin-setup-remove" hidden>Remove PIN from this account</button>
+    <button type="button" class="auth-link" id="pin-setup-close">Cancel</button>
+  </div>
 </div>
 <canvas id="confetti-canvas"></canvas>
 <div class="cat-companion" id="cat-companion" title="Click me!">
@@ -76,6 +111,7 @@
         <span class="xl-user" id="xl-user"></span>
         <button class="xl-btn theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>
         <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
+        <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Quick-unlock PIN</button>
         <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
       </div>
     </div>
