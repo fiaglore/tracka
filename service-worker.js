@@ -1,13 +1,13 @@
 // service-worker.js
 //
-// Makes Tracka installable and gives it an offline app shell. It only
+// Makes Trakka installable and gives it an offline app shell. It only
 // caches the tracker's own static files (HTML/CSS/JS/icons) — it never
 // touches Firebase Auth/Firestore requests or the Google Fonts CDN, so
 // sign-in and cloud sync always go straight to the network.
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v8";
+const CACHE_VERSION = "tracka-shell-v9";
 
 const SHELL_FILES = [
   "./",

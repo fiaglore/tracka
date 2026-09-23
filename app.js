@@ -58,7 +58,7 @@ window.__ftStart = function(){
   function saveCloudField(field, value){
     if(!window.__ftUid) return;
     const patch = {}; patch[field] = value;
-    window.Tracka.saveUserDoc(window.__ftUid, patch).catch(function(e){ console.error('Save failed:', e); });
+    window.Trakka.saveUserDoc(window.__ftUid, patch).catch(function(e){ console.error('Save failed:', e); });
   }
 
   // ===== Display settings (currency + the day each month starts) =====
@@ -700,7 +700,7 @@ window.__ftStart = function(){
     const snapshot = JSON.parse(JSON.stringify(state));
     __savePending = __savePending
       .catch(function(){})
-      .then(function(){ return window.Tracka.saveUserDoc(window.__ftUid, {trackerState: snapshot}); })
+      .then(function(){ return window.Trakka.saveUserDoc(window.__ftUid, {trackerState: snapshot}); })
       .catch(function(err){
         console.error('Save failed:', err);
         xlSetStatus('Couldn\u2019t save your last change — check your connection.', 'err');
@@ -2877,7 +2877,7 @@ window.__ftStart = function(){
     showAuthLoading('Loading your tracker…');
     let cloudData = null;
     try{
-      cloudData = await window.Tracka.loadUserDoc(user.uid);
+      cloudData = await window.Trakka.loadUserDoc(user.uid);
     }catch(e){
       console.error(e);
       setError('Could not reach the server. Check your connection and reload.');
@@ -2907,12 +2907,12 @@ window.__ftStart = function(){
         if(pw.length < 6){ setError('Password must be at least 6 characters.'); return; }
         if(pw !== $('auth-pass2').value){ setError('The two passwords do not match.'); return; }
         showAuthLoading('Creating your account…');
-        await window.Tracka.signUp(name, pw, remember);
+        await window.Trakka.signUp(name, pw, remember);
         // The auth-state listener below picks up the new session and calls begin(),
         // which takes the loading card the rest of the way (or hides it on failure).
       } else {
         showAuthLoading('Signing in…');
-        await window.Tracka.signIn(name, pw, remember);
+        await window.Trakka.signIn(name, pw, remember);
       }
     }catch(e){ console.error(e); setError(friendlyAuthError(e)); hideAuthLoading(); }
     finally{ btn.disabled = false; }
@@ -2927,7 +2927,7 @@ window.__ftStart = function(){
   async function forgotPassword(){
     const name = $('auth-user').value.trim();
     if(name.length < 2){ setError('Type your email above first, then press "Forgot password?".'); return; }
-    try{ await window.Tracka.resetPassword(name); }catch(e){ /* deliberately ignored, see above */ }
+    try{ await window.Trakka.resetPassword(name); }catch(e){ /* deliberately ignored, see above */ }
     setError('If that\'s the email address on your account, a reset link is on its way.');
   }
 
@@ -2937,7 +2937,7 @@ window.__ftStart = function(){
   $('auth-forgot').addEventListener('click', forgotPassword);
   $('auth-show').addEventListener('change', function(){ const t = this.checked ? 'text' : 'password'; $('auth-pass').type = t; $('auth-pass2').type = t; });
   $('auth-signout').addEventListener('click', async function(){
-    try{ await window.Tracka.signOutUser(); }catch(e){}
+    try{ await window.Trakka.signOutUser(); }catch(e){}
     location.reload();
   });
 
@@ -2946,7 +2946,7 @@ window.__ftStart = function(){
   // ----- start: Firebase tells us if a session already exists (e.g. "keep me
   // signed in" from a previous visit); otherwise wait at the sign-in page -----
   function initAuth(){
-    window.Tracka.onAuthChange(function(user){
+    window.Trakka.onAuthChange(function(user){
       if(user){ begin(user); }
       // Signed out while the tracker was open (auto-logout, or sign-out in another tab):
       // nothing else re-locks the UI, so leave for the signed-out page instead of
@@ -2955,8 +2955,8 @@ window.__ftStart = function(){
       else { const u = $('auth-user'); if(u) setTimeout(()=>u.focus(), 50); }
     });
   }
-  if(window.Tracka) initAuth();
-  else window.addEventListener('tracka:ready', initAuth, { once:true });
+  if(window.Trakka) initAuth();
+  else window.addEventListener('trakka:ready', initAuth, { once:true });
 })();
 
 
@@ -2994,7 +2994,7 @@ window.__ftStart = function(){
   }
   function saveThemePreset(id){
     if(!window.__ftUid) return;
-    window.Tracka.saveUserDoc(window.__ftUid, { themePreset: id }).catch(function(e){ console.error('Save failed:', e); });
+    window.Trakka.saveUserDoc(window.__ftUid, { themePreset: id }).catch(function(e){ console.error('Save failed:', e); });
   }
   function applyThemePreset(id){
     document.body.setAttribute('data-theme-preset', id);
