@@ -21,6 +21,11 @@
 //                      that write fails or the device is offline)
 //     petSpecies    — chosen cat-companion species (cat/dog/fox/owl/rabbit/
 //                      plant), defaults to 'cat' if unset
+//     streakCount   — consecutive calendar days the tracker has been opened
+//     streakLastDate — the last "YYYY-MM-DD" day streakCount was updated for
+//                      (see app.js's daily-visit-streak IIFE — this is what
+//                      makes opening the app twice in a day, or from two
+//                      devices, not double-count)
 //
 // One document per signed-in user, and Firestore security rules (see
 // firestore.rules) only let a user read/write the document whose ID matches
