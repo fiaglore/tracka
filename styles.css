@@ -194,8 +194,6 @@ button,input,select,textarea{font-family:inherit;}
 .overall-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; flex-wrap:wrap; gap:8px;}
 .overall-head h2{font-size:13.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:600;}
 .overall-nums{display:flex; gap:24px; flex-wrap:wrap;}
-.overall-nums .n .lbl{font-size:9.5px; text-transform:uppercase; color:var(--muted); letter-spacing:.05em;}
-.overall-nums .n .val{font-family:var(--font-mono); font-size:17px; font-weight:700; margin-top:3px;}
 .overall-track{height:8px; background:var(--bg-soft); border-radius:6px; overflow:hidden; margin-top:12px;}
 .overall-fill{height:100%; background:var(--good); border-radius:6px; transition:width .3s ease;}
 
@@ -329,7 +327,35 @@ body.ft-locked #auth-overlay{display:flex;}
 
 .payoff-panel{border:1px dashed var(--line); border-radius:var(--radius-md); padding:14px 16px; margin:0 0 16px; background:var(--bg-soft);}
 .payoff-panel h3{font-size:13px; font-weight:700; margin-bottom:8px;}
-.payoff-head{display:flex; justify-content:space-between; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); padding:0 4px 6px;}
+/* .payoff-head (id="payoff-head"/"accounts-head") holds the same .n/.lbl/.val
+   stat blocks as .overall-nums — lay it out the same way, not as the plain
+   single-line label row this rule used to be. */
+.payoff-head{display:flex; gap:20px; flex-wrap:wrap; margin-bottom:12px;}
+.payoff-head .n .lbl, .overall-nums .n .lbl{font-size:9.5px; text-transform:uppercase; color:var(--muted); letter-spacing:.05em;}
+.payoff-head .n .val, .overall-nums .n .val{font-family:var(--font-mono); font-size:17px; font-weight:700; margin-top:3px;}
+
+/* ============================================================
+   DEBT-SERIES / SAVINGS-ACCOUNT ROWS (#payoff-list, #accounts-list —
+   see renderDebtOverview()/renderSavingsAccounts() in app.js). These
+   rows (.ds-row and friends) had no rules at all, so they rendered as
+   unstyled, default-font text the moment a debt or savings app was added.
+   ============================================================ */
+#payoff-list, #accounts-list{display:flex; flex-direction:column; gap:10px;}
+.ds-row{border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); padding:13px 15px;}
+.ds-top{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
+.ds-name{font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--ink);}
+.ds-left{font-family:var(--font-mono); font-weight:700; font-size:12.5px; color:var(--bad);}
+.ds-left.clear{color:var(--good);}
+.ds-track{height:8px; background:var(--bg-soft); border-radius:6px; overflow:hidden; margin-bottom:8px;}
+.ds-fill{height:100%; background:var(--accent); border-radius:6px; transition:width .3s ease;}
+.ds-meta{font-size:11.5px; color:var(--muted); font-family:var(--font-mono);}
+.ds-pay{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:11px; padding-top:11px; border-top:1px dashed var(--line);}
+.ds-extra-input,.acct-wd-input{font-family:var(--font-body); font-size:13px; padding:8px 11px; border-radius:9px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink); width:160px;}
+.ds-extra-input:focus,.acct-wd-input:focus{border-color:var(--accent);}
+.ds-pay-btn,.acct-wd-btn{font-family:var(--font-display); font-weight:700; font-size:12px; padding:8px 13px; border-radius:9px; border:none; background:var(--accent); color:#fff; cursor:pointer; white-space:nowrap;}
+.ds-pay-btn:hover,.acct-wd-btn:hover{filter:brightness(.95);}
+.ds-clear-btn{background:var(--surface); color:var(--ink); border:1px solid var(--line);}
+.hint{font-size:10.5px; color:var(--muted);}
 
 .goal-list{display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
 .savings-goal{border:1px solid var(--line); border-radius:var(--radius-md); background:var(--bg-soft); padding:14px 16px; margin-bottom:16px;}
