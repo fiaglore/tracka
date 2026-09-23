@@ -18,9 +18,10 @@
 (function () {
   "use strict";
 
-  const INACTIVITY_MS  = 30 * 1000;       // idle time before the warning appears
+  const INACTIVITY_MS  = 2 * 60 * 1000;   // idle time before the warning appears
   const WARNING_MS     = 60 * 1000;       // how long the warning stays up before forcing sign-out
-  const SESSION_CAP_MS = 10 * 60 * 1000;  // hard cap on total signed-in time
+  const SESSION_CAP_MS = 20 * 60 * 1000;  // hard cap on total signed-in time
+  const SAVE_FLUSH_TIMEOUT_MS = 3000;     // how long forceLogout waits for a pending save to land
 
   const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "wheel", "scroll", "touchstart"];
   const ACTIVITY_THROTTLE_MS = 1000; // don't rearm the idle timer more than once/sec
@@ -96,11 +97,25 @@
     armInactivityTimer();
   }
 
+  // Firestore's pending-write retry carries the auth context it was created with, so signing
+  // out while a write is still in flight fails the security rule (request.auth.uid == userId)
+  // — and that failure was console-only, meaning the user's last change before an auto-logout
+  // could vanish with nothing shown. app.js exposes __ftFlushSave() (see save()/flushSave());
+  // we wait on it, with a short ceiling so a dead connection can't block sign-out forever.
   function forceLogout() {
     stopTracking();
-    if (window.Tracka && typeof window.Tracka.signOutUser === "function") {
-      window.Tracka.signOutUser().catch(function () {});
+    var flush;
+    try {
+      flush = (window.__ftFlushSave && window.__ftFlushSave()) || Promise.resolve();
+    } catch (e) {
+      flush = Promise.resolve();
     }
+    var ceiling = new Promise(function (resolve) { setTimeout(resolve, SAVE_FLUSH_TIMEOUT_MS); });
+    Promise.race([Promise.resolve(flush).catch(function () {}), ceiling]).then(function () {
+      if (window.Tracka && typeof window.Tracka.signOutUser === "function") {
+        window.Tracka.signOutUser().catch(function () {});
+      }
+    });
   }
 
   function startTracking() {
@@ -123,10 +138,24 @@
     hideWarning();
   }
 
-  // firebase-init.js dispatches this once window.Tracka is ready.
-  window.addEventListener("tracka:ready", function () {
+  // firebase-init.js sets window.Tracka and fires "tracka:ready" from the
+  // top level of a <script type="module">. Per the script tags in
+  // sign-in.html, that module always appears first and (per the
+  // HTML spec's script-ordering rules for defer/module scripts) always
+  // finishes running before this classic deferred script starts. So by
+  // the time this file runs, "tracka:ready" has *already* fired — an
+  // addEventListener for it here would wait forever and auto-logout would
+  // never engage. Check for window.Tracka directly first; keep the event
+  // listener only as a fallback in case the script order ever changes.
+  function wireUpAuthTracking() {
     window.Tracka.onAuthChange(function (user) {
       if (user) startTracking(); else stopTracking();
     });
-  });
+  }
+
+  if (window.Tracka) {
+    wireUpAuthTracking();
+  } else {
+    window.addEventListener("tracka:ready", wireUpAuthTracking);
+  }
 })();

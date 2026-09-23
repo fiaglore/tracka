@@ -7,18 +7,24 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v1";
+const CACHE_VERSION = "tracka-shell-v3";
 
 const SHELL_FILES = [
   "./",
   "./index.html",
+  "./sign-in.html",
+  "./signed-out.html",
   "./styles.css",
   "./app.js",
   "./firebase-init.js",
+  "./pwa.js",
+  "./app-entry.js",
+  "./auto-logout.js",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-512-maskable.png"
+  "./icon-512-maskable.png",
+  "./apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -53,17 +59,22 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Page navigations: try the network first so a returning user with a
-  // connection always gets the latest shell; fall back to the cached
-  // shell when offline.
+  // connection always gets the latest shell. Offline, fall back to
+  // whichever page was actually requested (e.g. a signed-in user
+  // reopening sign-in.html should land back on sign-in.html, not get
+  // bounced to the marketing landing page) and only fall back to the cached landing
+  // page as a last resort if that exact page was never cached.
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put("./index.html", copy));
+          caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
           return res;
         })
-        .catch(() => caches.match("./index.html"))
+        .catch(() =>
+          caches.match(req).then((cached) => cached || caches.match("./index.html"))
+        )
     );
     return;
   }

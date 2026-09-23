@@ -374,13 +374,17 @@ window.__ftStart = function(){
     }
     return dt < periodBounds(0).start ? 0 : N-1;
   }
+  // Which billing period an already-logged expense belongs to. Entries now carry the month
+  // index they were logged under, because periodBounds() always reads the CURRENT PSTART:
+  // without this, changing "month starts on day" retroactively moved every historical expense
+  // between periods. Entries logged before this change have no monthIndex and fall back to the
+  // old date-derived behaviour.
+  function entryMonthIndex(e){
+    if(typeof e.monthIndex === 'number') return e.monthIndex;
+    return dateToMonthIndex(e.date);
+  }
   function livingEntriesForMonth(mi){
-    const {start,end} = periodBounds(mi);
-    return state.livingEntries.filter(e=>{
-      const [y,m,d] = e.date.split('-').map(Number);
-      const dt = new Date(y,m-1,d);
-      return dt>=start && dt<=end;
-    });
+    return state.livingEntries.filter(e=> entryMonthIndex(e)===mi);
   }
   function livingCategoryById(id){ return state.livingCategories.find(c=>c.id===id) || {id:'unknown', name:'Uncategorized', color:'#9C8B72', budget:0}; }
   function sumLivingForMonth(mi){ return livingEntriesForMonth(mi).reduce((s,e)=>s+Number(e.amount||0),0); }
@@ -512,28 +516,41 @@ window.__ftStart = function(){
         a.appId = byName[nameKey];
       });
     }
-    // Drop accidental duplicates of the same account inside one month (from re-adding it by hand).
+    // Collapse duplicates of the same account inside one month (from re-adding it by hand).
+    // The amounts are MERGED rather than the second row silently dropped: if the two rows were
+    // genuinely distinct entries that happened to share a label before the appId migration,
+    // discarding one lost real money with no warning.
     for(let i=0;i<N;i++){
       const list = state.months[i].savingsApps;
-      const seen = new Set();
+      const firstOf = {};
       state.months[i].savingsApps = list.filter(a=>{
         if(a.withdrawal) return true;
         const k = appKeyOf(a);
-        if(seen.has(k)) return false;
-        seen.add(k);
+        if(firstOf[k]){
+          firstOf[k].amount  = (Number(firstOf[k].amount)||0) + (Number(a.amount)||0);
+          firstOf[k].checked = firstOf[k].checked || a.checked;
+          if(a.lastTicked && !firstOf[k].lastTicked) firstOf[k].lastTicked = a.lastTicked;
+          return false;
+        }
+        firstOf[k] = a;
         return true;
       });
     }
-    // Fill the account forward into every later month it's missing from.
+    // Fill the account forward into every later month it's missing from — but stop at a
+    // tombstone (discontinuedAfter). Without that the loop always ran to N-1, so an account
+    // the user deliberately ended partway through came back as placeholder unticked rows on
+    // the very next load.
     allSavingsAppIds().forEach(key=>{
-      let first = -1, template = null;
+      let first = -1, template = null, stopAt = N-1;
       for(let i=0;i<N;i++){
         const found = (state.months[i].savingsApps||[]).find(a=>appKeyOf(a)===key && !a.withdrawal);
-        if(found){ first = i; template = found; break; }
+        if(!found) continue;
+        if(first===-1){ first = i; template = found; }
+        if(typeof found.discontinuedAfter === 'number') stopAt = Math.min(stopAt, found.discontinuedAfter);
       }
       if(first===-1 || !template) return;
       let lastAmount = Number(template.amount)||0;
-      for(let i=first;i<N;i++){
+      for(let i=first;i<=stopAt;i++){
         const row = (state.months[i].savingsApps||[]).find(a=>appKeyOf(a)===key && !a.withdrawal);
         if(row){ lastAmount = Number(row.amount)||0; row.label = template.label; continue; }
         state.months[i].savingsApps.push({
@@ -548,7 +565,15 @@ window.__ftStart = function(){
       }
     });
   }
-  migrateSavingsApps();
+  // Run the migration and persist it immediately if it actually changed anything. Previously
+  // its output sat in memory until some unrelated action happened to save, which made the
+  // rewritten rows look like they were caused by whatever the user clicked next.
+  (function runStartupMigration(){
+    const before = JSON.stringify(state.months);
+    migrateSavingsApps();
+    // saveCloudField, not save() — save() calls render(), which isn't wired up this early.
+    if(JSON.stringify(state.months) !== before) saveCloudField('trackerState', state);
+  })();
 
   // ===== Gamification: badge/milestone memory =====
   // Kept in a separate Firestore field (not the main trackerState blob) so it can be
@@ -558,6 +583,22 @@ window.__ftStart = function(){
   }
   function saveBadgeMemory(obj){ saveCloudField('badges', obj); }
   let badgeMemory = loadBadgeMemory();
+
+  // "Month complete" badges used to be keyed by raw month index, so importing a workbook with
+  // a different month range re-pointed a badge at whatever now sat at that index. Keyed by the
+  // month's own label instead ("monthdone_Aug_2026"), which travels with the month.
+  // (Threshold badges are keyed by amount and were already stable.)
+  function monthBadgeKey(i){ return 'monthdone_' + monthLabels[i] + '_' + yearTags[i]; }
+
+  // One-time remap so users who already earned index-keyed badges don't lose them.
+  (function remapLegacyBadgeKeys(){
+    let changed = false;
+    for(let i=0;i<N;i++){
+      const old = 'monthdone_'+i;
+      if(badgeMemory[old]){ badgeMemory[monthBadgeKey(i)] = badgeMemory[old]; delete badgeMemory[old]; changed = true; }
+    }
+    if(changed) saveBadgeMemory(badgeMemory);
+  })();
 
   function triggerConfetti(){
     const canvas = document.getElementById('confetti-canvas');
@@ -599,14 +640,51 @@ window.__ftStart = function(){
     })();
   }
 
+  // ===== Saving =====
+  // render() stays synchronous so the UI never lags behind a click, but the NETWORK write is
+  // debounced on a trailing edge and chained behind whatever write is already in flight.
+  // Firestore replaces the whole `months` array on every write (it never merges arrays
+  // partially), so two rapid toggles each firing their own write meant the one that happened
+  // to LAND last won — silently discarding the other click on a flaky connection.
+  let __saveTimer = null;
+  let __savePending = Promise.resolve();
+  const SAVE_DEBOUNCE_MS = 400;
+
+  // Sends the LATEST captured state, never a stale snapshot, and surfaces failures instead of
+  // burying them in the console. Returns the promise so auto-logout.js can wait on it.
+  function flushSave(){
+    if(__saveTimer){ clearTimeout(__saveTimer); __saveTimer = null; }
+    if(!window.__ftUid) return __savePending;
+    const snapshot = JSON.parse(JSON.stringify(state));
+    __savePending = __savePending
+      .catch(function(){})
+      .then(function(){ return window.Tracka.saveUserDoc(window.__ftUid, {trackerState: snapshot}); })
+      .catch(function(err){
+        console.error('Save failed:', err);
+        xlSetStatus('Couldn\u2019t save your last change — check your connection.', 'err');
+      });
+    return __savePending;
+  }
+
   function save(){
     // Remember which months are being tracked, so an imported month range survives a reload.
     state.monthLabels = monthLabels.slice();
     state.yearTags = yearTags.slice();
-    saveCloudField('trackerState', state);
+    if(__saveTimer) clearTimeout(__saveTimer);
+    __saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
     render();
     updateClockAndCountdown();
   }
+
+  // A pending debounced write must not die with the tab.
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden') flushSave();
+  });
+
+  // auto-logout.js awaits this before clearing the auth token, so a write still in flight
+  // can't fail the security rule (request.auth.uid == userId) mid-retry.
+  window.__ftFlushSave = function(){ return flushSave(); };
 
   function fmt(n){ n=Number(n)||0; return CUR+Math.round(n).toLocaleString('en-NG'); }
   function escapeAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1255,8 +1333,9 @@ window.__ftStart = function(){
       if(b.earned && !badgeMemory['badge_'+b.id]){ badgeMemory['badge_'+b.id]=true; newlyEarned = true; }
     });
     for(let i=0;i<N;i++){
-      if(monthCompleteness(i)==='complete' && !badgeMemory['monthdone_'+i]){
-        badgeMemory['monthdone_'+i] = true; newlyEarned = true;
+      const mk = monthBadgeKey(i);
+      if(monthCompleteness(i)==='complete' && !badgeMemory[mk]){
+        badgeMemory[mk] = true; newlyEarned = true;
       }
     }
     const fullCumBalance = cumulativeBalanceUpTo(N-1);
@@ -1413,10 +1492,20 @@ window.__ftStart = function(){
         for(let i=activeMonth;i<N;i++){
           state.months[i].savingsApps = state.months[i].savingsApps.filter(a=> !(appKeyOf(a)===key && !a.withdrawal));
         }
+        // Mark the last surviving row as the end of the account. migrateSavingsApps() respects
+        // this; without it the account is refilled forward to N-1 on the next load and the
+        // deletion silently undoes itself. Stamped on the row so it survives export/import.
+        for(let i=activeMonth-1;i>=0;i--){
+          const last = (state.months[i].savingsApps||[]).find(a=>appKeyOf(a)===key && !a.withdrawal);
+          if(last){ last.discontinuedAfter = i; break; }
+        }
         save();
         return;
       }
       state.months[activeMonth][kind].splice(idx,1);
+      // Deleting one instalment out of a multi-month loan leaves the survivors' "Month 3 of 4"
+      // labels stale, so the run has to be renumbered against what's actually left.
+      if(kind==='debts' && item && item.seriesId) renumberSeries(item.seriesId);
       save();
     }
     if(e.target.matches('.entry-del[data-living-entry-id]')){
@@ -1536,7 +1625,20 @@ window.__ftStart = function(){
 
   function addRecurringItem(kind, label, amount, duration){
     const seriesId = makeCustomId(kind);
-    const months = Math.max(1, Math.min(duration||1, N-activeMonth));
+    // This used to clamp silently to whatever was left on the tracker, so asking for a
+    // 12-month debt while sitting on the last tracked month gave you 1 month, with no
+    // "Month 1 of 12" label (sub only renders when months>1) and no hint that 11 were dropped.
+    // Offer to extend the tracker instead, and say so plainly if the user declines.
+    let months = Math.max(1, duration||1);
+    if(activeMonth + months > N){
+      const needed = activeMonth + months;
+      if(confirm('This runs for '+months+' months, past the '+N+' months currently tracked.\n\nExtend the tracker to '+needed+' months?')){
+        extendMonthsTo(needed);
+      } else {
+        months = Math.max(1, N - activeMonth);
+        alert('Added as '+months+' month'+(months>1?'s':'')+' only — the remaining months were dropped.');
+      }
+    }
     for(let k=0;k<months;k++){
       const mi = activeMonth+k;
       const sub = months>1 ? `Month ${k+1} of ${months}` : '';
@@ -1755,8 +1857,10 @@ window.__ftStart = function(){
     const amount = Number(amtEl.value)||0;
     if(amount<=0) return;
     const desc = descEl.value.trim() || livingCategoryById(categoryId).name;
-    state.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date, categoryId, desc, amount});
-    activeMonth = dateToMonthIndex(date);
+    // monthIndex is stamped at write time — see entryMonthIndex() for why.
+    const entryMi = dateToMonthIndex(date);
+    state.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date, monthIndex:entryMi, categoryId, desc, amount});
+    activeMonth = entryMi;
     descEl.value=''; amtEl.value='';
     save();
   });
@@ -2415,7 +2519,8 @@ window.__ftStart = function(){
       if(!p){ warn('Living Expenses', rec, 'date "'+xlStr(rec.date)+'" not understood — row skipped'); return; }
       const amt = xlNum(rec.amount); if(amt<=0){ warn('Living Expenses', rec, 'amount must be more than 0 — row skipped'); return; }
       const cat = addCat(xlStr(rec.cat) || 'Uncategorized', 0, '');
-      ns.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date:xlPartsKey(p), categoryId:cat.id, desc: xlStr(rec.desc) || cat.name, amount:amt}); counts.living++;
+      const dkey = xlPartsKey(p);
+      ns.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date:dkey, monthIndex:dateToMonthIndex(dkey), categoryId:cat.id, desc: xlStr(rec.desc) || cat.name, amount:amt}); counts.living++;
     });
 
     return {newLabels, newTags, ns, counts, warnings, impCur, impPay};
@@ -2431,6 +2536,19 @@ window.__ftStart = function(){
     const keys = new Set();
     state.months.forEach(m=> m.debts.forEach(it=>{ if(!it.extraPayment) keys.add(seriesKeyOf(it)); }));
     keys.forEach(k=> renumberSeries(k));
+    // The workbook has no column for a tombstone, so re-derive it: an account with no rows
+    // after month k was ended at k. Without this, importing a workbook that reflects a
+    // deliberately-truncated savings account re-inflates it with placeholder top-up rows.
+    allSavingsAppIds().forEach(key=>{
+      let last = -1;
+      for(let i=0;i<N;i++){
+        if((state.months[i].savingsApps||[]).some(a=>appKeyOf(a)===key && !a.withdrawal)) last = i;
+      }
+      if(last > -1 && last < N-1){
+        const row = state.months[last].savingsApps.find(a=>appKeyOf(a)===key && !a.withdrawal);
+        if(row) row.discontinuedAfter = last;
+      }
+    });
     migrateSavingsApps();
     if(parsed.impCur){ CUR = parsed.impCur; saveCloudField('currency', CUR); }
     if(parsed.impPay){ PSTART = parsed.impPay; saveCloudField('payStart', PSTART); }
