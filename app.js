@@ -1261,7 +1261,7 @@ window.__ftStart = function(){
 
     const cumBalance = cumulativeBalanceUpTo(activeMonth);
     document.getElementById('sum-cumulative').textContent = (cumBalance<0?'-':'') + fmt(Math.abs(cumBalance));
-    document.getElementById('sum-cumulative').style.color = cumBalance>=0 ? 'var(--green)' : 'var(--coral)';
+    document.getElementById('sum-cumulative').style.color = cumBalance>=0 ? 'var(--good)' : 'var(--bad)';
     document.getElementById('sum-cumulative-sub').textContent = 'through '+monthLabels[activeMonth]+' '+yearTags[activeMonth]+', after debts, living & gifts';
 
     const savedPct = cumBalance>0 ? (cumSavings/cumBalance*100) : 0;
@@ -1585,8 +1585,8 @@ window.__ftStart = function(){
     const prevTag = activeMonth>0 ? (monthLabels[activeMonth-1]+' '+yearTags[activeMonth-1]) : 'the start';
     head.innerHTML = `
       <div class="n"><div class="lbl">Brought forward from ${prevTag}</div><div class="val">${fmt(opening)}</div></div>
-      <div class="n"><div class="lbl">Movement this month</div><div class="val" style="color:${movement<0?'var(--coral)':'var(--green)'}">${movement<0?'-':'+'}${fmt(Math.abs(movement))}</div></div>
-      <div class="n"><div class="lbl">Balance at end of ${currentMonthTag()}</div><div class="val" style="color:var(--gold)">${fmt(closing)}</div></div>
+      <div class="n"><div class="lbl">Movement this month</div><div class="val" style="color:${movement<0?'var(--bad)':'var(--good)'}">${movement<0?'-':'+'}${fmt(Math.abs(movement))}</div></div>
+      <div class="n"><div class="lbl">Balance at end of ${currentMonthTag()}</div><div class="val" style="color:var(--accent)">${fmt(closing)}</div></div>
       <div class="n"><div class="lbl">Accounts</div><div class="val">${accts.length}</div></div>
     `;
     const maxBal = Math.max(...accts.map(a=>a.closing), 1);
@@ -1780,9 +1780,9 @@ window.__ftStart = function(){
 
     head.innerHTML = `
       <div class="n"><div class="lbl">Total debt taken on</div><div class="val">${fmt(totalBorrowed)}</div></div>
-      <div class="n"><div class="lbl">Repaid so far</div><div class="val" style="color:var(--green)">${fmt(totalPaid)}</div></div>
-      <div class="n"><div class="lbl">Still outstanding</div><div class="val" style="color:${totalLeft>0?'var(--coral)':'var(--green)'}">${fmt(totalLeft)}</div></div>
-      <div class="n"><div class="lbl">Last payment due</div><div class="val" style="color:var(--gold)">${target ? shortDate(target) : 'Cleared 🎉'}</div></div>
+      <div class="n"><div class="lbl">Repaid so far</div><div class="val" style="color:var(--good)">${fmt(totalPaid)}</div></div>
+      <div class="n"><div class="lbl">Still outstanding</div><div class="val" style="color:${totalLeft>0?'var(--bad)':'var(--good)'}">${fmt(totalLeft)}</div></div>
+      <div class="n"><div class="lbl">Last payment due</div><div class="val" style="color:var(--accent)">${target ? shortDate(target) : 'Cleared 🎉'}</div></div>
       <div class="n"><div class="lbl">Months still to run</div><div class="val">${lastIdx===-1 ? '0' : (lastIdx - activeMonth + 1 > 0 ? lastIdx - activeMonth + 1 : 0)}</div></div>
     `;
 
@@ -2672,7 +2672,7 @@ window.__ftStart = function(){
     $('auth-tab-in').classList.toggle('active', !creating);
     $('auth-tab-new').classList.toggle('active', creating);
     $('auth-title').textContent = creating ? 'Create your account' : 'Welcome back';
-    $('auth-sub').textContent = creating ? 'Pick a username and password to get your own private tracker.' : 'Sign in to open your tracker.';
+    $('auth-sub').textContent = creating ? 'Pick an email and password to get your own private tracker.' : 'Sign in to open your tracker.';
     $('auth-confirm-wrap').style.display = creating ? 'block' : 'none';
     $('auth-submit').textContent = creating ? 'Create account' : 'Sign in';
     $('auth-pass').autocomplete = creating ? 'new-password' : 'current-password';
@@ -2699,9 +2699,9 @@ window.__ftStart = function(){
 
   function friendlyAuthError(e){
     const code = (e && e.code) || '';
-    if(code === 'auth/email-already-in-use') return 'That username is already taken — sign in instead.';
+    if(code === 'auth/email-already-in-use') return 'That email is already registered — sign in instead.';
     if(code === 'auth/weak-password') return 'Password must be at least 6 characters.';
-    if(code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Incorrect username or password.';
+    if(code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Incorrect email or password.';
     if(code === 'auth/too-many-requests') return 'Too many attempts. Please wait a bit and try again.';
     if(code === 'auth/network-request-failed') return 'Could not reach the server. Check your connection.';
     return 'Something went wrong: ' + ((e && e.message) || e);
@@ -2737,7 +2737,7 @@ window.__ftStart = function(){
     ev.preventDefault();
     setError('');
     const name = $('auth-user').value.trim(), pw = $('auth-pass').value;
-    if(name.length < 2){ setError('Username must be at least 2 characters.'); return; }
+    if(name.length < 2){ setError('Enter your email address.'); return; }
     if(!pw){ setError('Enter your password.'); return; }
     const btn = $('auth-submit'); btn.disabled = true;
     try{
@@ -2757,16 +2757,17 @@ window.__ftStart = function(){
     finally{ btn.disabled = false; }
   }
 
-  // There's no email inbox behind a plain username, so this only actually
-  // delivers a reset link if the username happens to be a real address the
-  // person can access (see the note in firebase-init.js). Either way we show
-  // the same message — Firebase deliberately doesn't reveal whether an
-  // account exists for a given address.
+  // The field is labeled "Email", but accounts created before this field was
+  // renamed may hold a plain username instead of a real address (see
+  // usernameToEmail() in firebase-init.js) — a reset link only actually
+  // delivers if what's typed here is a real, accessible email address.
+  // Either way we show the same message — Firebase deliberately doesn't
+  // reveal whether an account exists for a given address.
   async function forgotPassword(){
     const name = $('auth-user').value.trim();
-    if(name.length < 2){ setError('Type your username above first, then press "Forgot password?".'); return; }
+    if(name.length < 2){ setError('Type your email above first, then press "Forgot password?".'); return; }
     try{ await window.Tracka.resetPassword(name); }catch(e){ /* deliberately ignored, see above */ }
-    setError('If that username is an email address you can access, a reset link is on its way.');
+    setError('If that\'s the email address on your account, a reset link is on its way.');
   }
 
   $('auth-tab-in').addEventListener('click', () => setMode('signin'));

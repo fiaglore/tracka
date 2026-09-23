@@ -32,7 +32,7 @@
       <button type="button" id="auth-tab-new">Create account</button>
     </div>
     <form id="auth-form" autocomplete="on" novalidate>
-      <label class="auth-field">Username<input id="auth-user" type="text" autocomplete="username" maxlength="30" autocapitalize="none" spellcheck="false"></label>
+      <label class="auth-field">Email<input id="auth-user" type="text" autocomplete="email" maxlength="100" autocapitalize="none" spellcheck="false" placeholder="you@example.com"></label>
       <label class="auth-field">Password<input id="auth-pass" type="password" autocomplete="current-password"></label>
       <label class="auth-field" id="auth-confirm-wrap" style="display:none">Confirm password<input id="auth-pass2" type="password" autocomplete="new-password"></label>
       <div class="auth-row">
@@ -43,7 +43,7 @@
       <button type="submit" class="auth-submit" id="auth-submit">Sign in</button>
     </form>
     <button type="button" class="auth-link" id="auth-forgot">Forgot password?</button>
-    <p class="auth-note">🔒 Sign in with your username and password from any device to access your tracker.</p>
+    <p class="auth-note">🔒 Sign in with your email and password from any device to access your tracker.</p>
   </div>
   <!-- Shown in place of the form above from the moment sign-in/create-account is submitted
        until the tracker's data has loaded and is ready to display — signing in and loading
