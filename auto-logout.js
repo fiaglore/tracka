@@ -9,7 +9,7 @@
 //      Not reset by activity or by dismissing the inactivity warning —
 //      it's a hard ceiling on how long a session can last.
 //
-// Wired to window.Tracka (see firebase-init.js) for auth state and
+// Wired to window.Trakka (see firebase-init.js) for auth state and
 // sign-out, so it only runs while someone is actually signed in, and
 // reuses the same signOutUser() the "🔒 Sign out" button calls, then sends
 // the user to signed-out.html (app.js's auth listener does the same).
@@ -124,8 +124,8 @@
     }
     var ceiling = new Promise(function (resolve) { setTimeout(resolve, SAVE_FLUSH_TIMEOUT_MS); });
     Promise.race([Promise.resolve(flush).catch(function () {}), ceiling]).then(function () {
-      var out = (window.Tracka && typeof window.Tracka.signOutUser === "function")
-        ? window.Tracka.signOutUser()
+      var out = (window.Trakka && typeof window.Trakka.signOutUser === "function")
+        ? window.Trakka.signOutUser()
         : Promise.resolve();
       // app.js's auth listener also redirects on sign-out; this is the backstop
       // so the tracker never stays on screen after a forced logout.
@@ -168,17 +168,17 @@
     hideWarning();
   }
 
-  // firebase-init.js sets window.Tracka and fires "tracka:ready" from the
+  // firebase-init.js sets window.Trakka and fires "trakka:ready" from the
   // top level of a <script type="module">. Per the script tags in
   // sign-in.html, that module always appears first and (per the
   // HTML spec's script-ordering rules for defer/module scripts) always
   // finishes running before this classic deferred script starts. So by
-  // the time this file runs, "tracka:ready" has *already* fired — an
+  // the time this file runs, "trakka:ready" has *already* fired — an
   // addEventListener for it here would wait forever and auto-logout would
-  // never engage. Check for window.Tracka directly first; keep the event
+  // never engage. Check for window.Trakka directly first; keep the event
   // listener only as a fallback in case the script order ever changes.
   function wireUpAuthTracking() {
-    window.Tracka.onAuthChange(function (user) {
+    window.Trakka.onAuthChange(function (user) {
       if (user) startTracking();
       else {
         stopTracking();
@@ -187,9 +187,9 @@
     });
   }
 
-  if (window.Tracka) {
+  if (window.Trakka) {
     wireUpAuthTracking();
   } else {
-    window.addEventListener("tracka:ready", wireUpAuthTracking);
+    window.addEventListener("trakka:ready", wireUpAuthTracking);
   }
 })();

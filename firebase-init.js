@@ -1,7 +1,7 @@
 // firebase-init.js
 //
 // Sets up Firebase (Auth + Firestore) and exposes a small async API on
-// `window.Tracka` that app.js — a classic (non-module) script — calls into.
+// `window.Trakka` that app.js — a classic (non-module) script — calls into.
 // app.js can't use `import`, so this is the bridge between the two.
 //
 // Data model:
@@ -79,7 +79,7 @@ function userDocRef(uid) {
   return doc(db, "users", uid);
 }
 
-window.Tracka = {
+window.Trakka = {
   // ----- auth -----
   async signUp(username, password, remember) {
     await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
@@ -119,4 +119,4 @@ window.Tracka = {
   }
 };
 
-window.dispatchEvent(new CustomEvent("tracka:ready"));
+window.dispatchEvent(new CustomEvent("trakka:ready"));

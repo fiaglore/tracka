@@ -11,7 +11,7 @@
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./service-worker.js").catch((err) => {
-      console.warn("Tracka: service worker registration failed", err);
+      console.warn("Trakka: service worker registration failed", err);
     });
   });
 }
