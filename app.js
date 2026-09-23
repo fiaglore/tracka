@@ -48,8 +48,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 /* ===== next script block ===== */
 
 window.__ftStart = function(){
-  const THEME_KEY = 'financialTrackerPublicThemeV1';   // device-level light/dark toggle, not per-user tracker data — stays in localStorage
-
   // Everything that used to be a per-user localStorage key now lives in one
   // Firestore document (users/{uid}), fetched into window.__ftCloudData
   // before window.__ftStart() is called — see the sign-in IIFE below. A tiny
@@ -139,23 +137,11 @@ window.__ftStart = function(){
     }
   }
 
-  function loadTheme(){ try{ return localStorage.getItem(THEME_KEY) || 'cozy'; }catch(e){ return 'cozy'; } }
-  function applyTheme(theme){
-    const btn = document.getElementById('theme-toggle-btn');
-    if(theme === 'dark'){
-      document.body.setAttribute('data-theme','dark');
-      if(btn) btn.textContent = '☀️';
-    } else {
-      document.body.removeAttribute('data-theme');
-      if(btn) btn.textContent = '🌙';
-    }
-  }
-  document.getElementById('theme-toggle-btn').addEventListener('click', function(){
-    const isDark = document.body.getAttribute('data-theme') === 'dark';
-    const next = isDark ? 'cozy' : 'dark';
-    try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
-    applyTheme(next);
-  });
+  // Light/dark mode now lives in the theme-preset picker's own IIFE further
+  // down (see applyThemeMode()/window.setThemeMode()) alongside the preset
+  // swatches it now shares a toolbar row with — this used to be a separate,
+  // dead implementation here (data-theme="dark", never matched by any CSS
+  // selector) that has been fully replaced, not just superseded.
 
   const monthLabels = [], yearTags = [];
   (function(){
@@ -2823,9 +2809,17 @@ window.__ftStart = function(){
   let mode = 'signin', started = false;
 
   // Matches the device's last light/dark choice even before the tracker
-  // itself has started. This is a device-level display setting, not tracker
-  // data, so it stays in localStorage rather than moving to Firestore.
-  try{ if(localStorage.getItem('financialTrackerPublicThemeV1') === 'dark') document.body.setAttribute('data-theme','dark'); }catch(e){}
+  // itself has started, so the sign-in screen doesn't flash light then
+  // switch to dark once the app unlocks. Mode is device-level and always
+  // available synchronously via localStorage (see the theme-preset IIFE's
+  // loadThemeMode()/saveThemeMode(), which also mirror it to Firestore
+  // once signed in); the preset itself stays 'meadow' pre-auth exactly as
+  // before, since which preset an *account* prefers isn't knowable before
+  // that account has signed in.
+  try{
+    if(!document.body.getAttribute('data-theme-preset')) document.body.setAttribute('data-theme-preset','meadow');
+    document.body.setAttribute('data-mode', localStorage.getItem('financialTrackerPublicThemeV1')==='dark' ? 'dark' : 'light');
+  }catch(e){}
 
   function setMode(m){
     mode = m;
@@ -2964,10 +2958,19 @@ window.__ftStart = function(){
 /* ===== next script block ===== */
 
 /* ================================================================
-   Additive UI layer — page navigation + 10-theme preset picker.
+   Additive UI layer — page navigation + 14-theme preset picker with
+   an independent light/dark mode toggle.
    This never touches the tracker's own data/render logic above;
    it only adds page-switching chrome and a per-profile theme
    choice on top of the existing markup and element IDs.
+
+   Preset (color/pattern identity, e.g. "Harbor") and mode (light/dark)
+   are two independent settings — see styles.css's THEME TOKENS section
+   for the body[data-theme-preset][data-mode] selectors this drives.
+   Both persist per-user the same way (window.Trakka.saveUserDoc), with
+   the mode additionally mirrored to localStorage so it still applies
+   instantly on reload before the Firestore round trip lands, or at all
+   if that write fails/the device is offline.
    ================================================================ */
 (function(){
   var THEMES = [
@@ -2980,17 +2983,29 @@ window.__ftStart = function(){
     { id:'plum',        name:'Plum' },
     { id:'terracotta',  name:'Terracotta' },
     { id:'slate',       name:'Slate' },
-    { id:'citrus',      name:'Citrus' }
+    { id:'citrus',      name:'Citrus' },
+    { id:'sunrise',     name:'Sunrise (gradient)' },
+    { id:'lagoon',      name:'Lagoon (gradient)' },
+    { id:'orchard',     name:'Orchard (dot pattern)' },
+    { id:'contour',     name:'Contour (line pattern)' }
   ];
-  var SWATCH_COLOR = {
+  // A flat hex works as a swatch's background for the 10 plain-color
+  // presets, but says nothing about "this one has a gradient/pattern" —
+  // so the 4 new presets get a real (tiny, swatch-sized) CSS background
+  // instead: the same gradients/patterns styles.css uses, just scaled
+  // down, giving the swatch itself a visual hint of what it looks like.
+  var SWATCH_BG = {
     meadow:'#D98E2B', dusk:'#F0B457', harbor:'#1E8C99', midnight:'#6E8CF0',
     bloom:'#D9587B', fern:'#4B7F3C', plum:'#B984E8', terracotta:'#C1592F',
-    slate:'#3E6BD1', citrus:'#E0A014'
+    slate:'#3E6BD1', citrus:'#E0A014',
+    sunrise: 'linear-gradient(135deg, #F6D9A8 0%, #F0A97E 100%)',
+    lagoon:  'linear-gradient(135deg, #9FD8E8 0%, #7C8FE0 100%)',
+    orchard: 'radial-gradient(circle, rgba(40,55,27,.5) 1px, transparent 1.6px) #B7DE8F',
+    contour: 'repeating-linear-gradient(120deg, rgba(27,35,55,.35) 0px, rgba(27,35,55,.35) 1px, transparent 1px, transparent 4px) #AFC2EC'
   };
-
   function loadThemePreset(){
     var cloud = window.__ftCloudData;
-    return (cloud && cloud.themePreset) || 'meadow';
+    return (cloud && THEMES.some(function(t){ return t.id===cloud.themePreset; })) ? cloud.themePreset : 'meadow';
   }
   function saveThemePreset(id){
     if(!window.__ftUid) return;
@@ -3019,15 +3034,60 @@ window.__ftStart = function(){
       b.className = 'theme-swatch';
       b.setAttribute('data-theme-id', t.id);
       b.title = t.name;
-      b.style.background = SWATCH_COLOR[t.id];
+      b.style.background = SWATCH_BG[t.id];
+      if(t.id==='orchard'){ b.style.backgroundSize = '6px 6px, auto'; }
       b.addEventListener('click', function(){ window.setThemePreset(t.id); });
       wrap.appendChild(b);
+    });
+  }
+
+  // ----- light/dark mode (independent of which preset is selected) -----
+  var MODE_STORAGE_KEY = 'financialTrackerPublicThemeV1'; // same key the old, dead toggle already used — see below
+  function loadThemeMode(){
+    var cloud = window.__ftCloudData;
+    if(cloud && (cloud.themeMode==='light' || cloud.themeMode==='dark')) return cloud.themeMode;
+    // Fall back to whatever's on this device — covers offline/pre-Firestore-
+    // sync reloads, and honors anyone who'd already flipped the old (visually
+    // dead) toggle: it wrote 'dark'/'cozy' to this same key, so map those too.
+    try{
+      var stored = localStorage.getItem(MODE_STORAGE_KEY);
+      if(stored==='dark') return 'dark';
+      if(stored==='light' || stored==='cozy') return 'light';
+    }catch(e){}
+    return 'light';
+  }
+  function saveThemeMode(mode){
+    try{ localStorage.setItem(MODE_STORAGE_KEY, mode); }catch(e){}
+    if(!window.__ftUid) return;
+    window.Trakka.saveUserDoc(window.__ftUid, { themeMode: mode }).catch(function(e){ console.error('Save failed:', e); });
+  }
+  function applyThemeMode(mode){
+    document.body.setAttribute('data-mode', mode);
+    var btn = document.getElementById('theme-toggle-btn');
+    if(btn){
+      // Icon shows the mode a click will switch TO, matching the rest of
+      // the app's icon-buttons (e.g. 🔒 Sign out shows the action, not state).
+      btn.textContent = mode==='dark' ? '☀️' : '🌙';
+      btn.title = mode==='dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+  }
+  window.setThemeMode = function(mode){
+    if(mode!=='light' && mode!=='dark') return;
+    applyThemeMode(mode);
+    saveThemeMode(mode);
+  };
+  var toggleBtn = document.getElementById('theme-toggle-btn');
+  if(toggleBtn){
+    toggleBtn.addEventListener('click', function(){
+      var current = document.body.getAttribute('data-mode');
+      window.setThemeMode(current==='dark' ? 'light' : 'dark');
     });
   }
 
   function refreshThemeForCurrentUser(){
     buildSwatches();
     applyThemePreset(loadThemePreset());
+    applyThemeMode(loadThemeMode());
   }
 
   // Apply the signed-in profile's theme choice once the app unlocks

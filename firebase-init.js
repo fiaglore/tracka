@@ -12,7 +12,15 @@
 //     badges        — earned-badge memory (was "financialTrackerPublicBadgesV1")
 //     currency      — chosen currency symbol (was "financialTrackerPublicCurrencyV1")
 //     payStart      — chosen "month starts on day N" (was "financialTrackerPublicPeriodStartV1")
-//     themePreset   — chosen color theme (was "financialTrackerThemePresetV1")
+//     themePreset   — chosen color/pattern theme (was "financialTrackerThemePresetV1")
+//     themeMode     — chosen "light" or "dark" mode, independent of themePreset
+//                      (also mirrored to localStorage under
+//                      "financialTrackerPublicThemeV1" — see app.js's
+//                      loadThemeMode()/saveThemeMode() — so it still applies
+//                      before the Firestore round trip lands, or at all if
+//                      that write fails or the device is offline)
+//     petSpecies    — chosen cat-companion species (cat/dog/fox/owl/rabbit/
+//                      plant), defaults to 'cat' if unset
 //
 // One document per signed-in user, and Firestore security rules (see
 // firestore.rules) only let a user read/write the document whose ID matches

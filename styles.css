@@ -1,94 +1,239 @@
 /* Debt-Free & Budget Tracker — stylesheet v2
-   Modern, paginated layout with 10 selectable theme presets.
+   Modern, paginated layout with 14 selectable theme presets, each
+   available in a light and a dark variant (10 flat-color presets +
+   2 gradient-sweep presets + 2 subtle-pattern presets).
    Keep this file in the same folder as the tracker .html file. */
 
 /* ============================================================
    THEME TOKENS
-   Every preset only redefines the variables below. Everything
-   else in this file reads from these variables, so a theme
-   change never needs a second stylesheet.
+   Every preset defines two blocks — [data-mode="light"] and
+   [data-mode="dark"] — that redefine the same set of custom
+   properties below. Preset (color/pattern identity) and mode
+   (light/dark) are independent axes: switching one never changes
+   the other. Everything else in this file reads from these
+   variables, so neither axis ever needs a second stylesheet.
+
+   --bg-image/--bg-size are an optional extra layer on top of the
+   --bg/--bg-soft tokens — only the gradient/pattern presets (Sunrise,
+   Lagoon, Orchard, Contour) set them; every other preset leaves them
+   at the :root default (none/auto) and renders as a flat --bg color,
+   same as before.
    ============================================================ */
 :root{
   --bg:#F6F1E6; --bg-soft:#EFE7D4; --surface:#FFFFFF; --surface-2:#FBF6EA;
   --ink:#3B2F22; --muted:#8B7A5E; --line:#E6D9BC;
   --accent:#D98E2B; --accent-ink:#5C3B0E;
   --good:#4E8F5A; --bad:#D2603F; --info:#4E7FB8;
+  --bg-image:none; --bg-size:auto;
   --radius-sm:10px; --radius-md:16px; --radius-lg:22px;
   --shadow-sm:0 2px 8px rgba(60,42,10,0.06);
   --shadow-md:0 8px 24px rgba(60,42,10,0.10);
   --font-display:'Quicksand',sans-serif; --font-body:'Quicksand',sans-serif; --font-mono:'Quicksand',sans-serif;
 }
-
-/* ---- 1. Meadow (default) ---- */
-body[data-theme-preset="meadow"], body:not([data-theme-preset]){
+/* Safety fallback for a page that never sets data-theme-preset/data-mode
+   at all (shouldn't happen once the picker/toggle have run, but matches
+   :root's own values so there's no flash of anything else either way). */
+body:not([data-theme-preset]), body:not([data-mode]){
   --bg:#F6F1E6; --bg-soft:#EFE7D4; --surface:#FFFFFF; --surface-2:#FBF6EA;
   --ink:#3B2F22; --muted:#8B7A5E; --line:#E6D9BC;
   --accent:#D98E2B; --accent-ink:#5C3B0E;
   --good:#4E8F5A; --bad:#D2603F; --info:#4E7FB8;
 }
-/* ---- 2. Dusk (dark) ---- */
-body[data-theme-preset="dusk"]{
+
+/* ---- 1. Meadow (default) ---- */
+body[data-theme-preset="meadow"][data-mode="light"]{
+  --bg:#F6F1E6; --bg-soft:#EFE7D4; --surface:#FFFFFF; --surface-2:#FBF6EA;
+  --ink:#3B2F22; --muted:#8B7A5E; --line:#E6D9BC;
+  --accent:#D98E2B; --accent-ink:#5C3B0E;
+  --good:#4E8F5A; --bad:#D2603F; --info:#4E7FB8;
+}
+body[data-theme-preset="meadow"][data-mode="dark"]{
+  --bg:#1C1811; --bg-soft:#252018; --surface:#2D2720; --surface-2:#362F26;
+  --ink:#F1ECE4; --muted:#B8A894; --line:#4B3F30;
+  --accent:#E8B673; --accent-ink:#E0CAAE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 2. Dusk ---- */
+body[data-theme-preset="dusk"][data-mode="light"]{
+  --bg:#F6F3EF; --bg-soft:#EDE7DE; --surface:#FFFFFF; --surface-2:#F9F8F6;
+  --ink:#372C1B; --muted:#8D7A5E; --line:#E5DDD1;
+  --accent:#C68B2F; --accent-ink:#3F2E12;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="dusk"][data-mode="dark"]{
   --bg:#1B1712; --bg-soft:#221C15; --surface:#262019; --surface-2:#2C251C;
   --ink:#F1E7D3; --muted:#B2A181; --line:#463A29;
-  --accent:#F0B457; --accent-ink:#2A1B04;
+  --accent:#F0B457; --accent-ink:#E0CCAE;
   --good:#7FCB86; --bad:#EF8768; --info:#7CA9E0;
 }
-/* ---- 3. Harbor (blue/teal) ---- */
-body[data-theme-preset="harbor"]{
+/* ---- 3. Harbor ---- */
+body[data-theme-preset="harbor"][data-mode="light"]{
   --bg:#EFF5F6; --bg-soft:#E3EEF0; --surface:#FFFFFF; --surface-2:#F5FAFB;
   --ink:#173238; --muted:#5E7C82; --line:#CFE2E5;
   --accent:#1E8C99; --accent-ink:#0B3A40;
   --good:#3F9E6B; --bad:#D0603F; --info:#2D6FA8;
 }
-/* ---- 4. Midnight (deep navy dark) ---- */
-body[data-theme-preset="midnight"]{
+body[data-theme-preset="harbor"][data-mode="dark"]{
+  --bg:#111B1C; --bg-soft:#182425; --surface:#202B2D; --surface-2:#263436;
+  --ink:#E4F0F1; --muted:#94B4B8; --line:#30484B;
+  --accent:#73DCE8; --accent-ink:#AEDBE0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 4. Midnight ---- */
+body[data-theme-preset="midnight"][data-mode="light"]{
+  --bg:#EFF0F6; --bg-soft:#DEE1ED; --surface:#FFFFFF; --surface-2:#F6F6F9;
+  --ink:#1B2137; --muted:#5E698D; --line:#D1D6E5;
+  --accent:#2F52C6; --accent-ink:#121D3F;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="midnight"][data-mode="dark"]{
   --bg:#10141F; --bg-soft:#151A28; --surface:#1A2032; --surface-2:#1E2537;
   --ink:#E7EAF5; --muted:#8F97B3; --line:#2C3450;
-  --accent:#6E8CF0; --accent-ink:#0A0E1C;
+  --accent:#6E8CF0; --accent-ink:#AEB9E0;
   --good:#63C98A; --bad:#EA7B72; --info:#7FA6F2;
 }
-/* ---- 5. Bloom (rose/pink) ---- */
-body[data-theme-preset="bloom"]{
+/* ---- 5. Bloom ---- */
+body[data-theme-preset="bloom"][data-mode="light"]{
   --bg:#FBF0F1; --bg-soft:#F6E4E6; --surface:#FFFFFF; --surface-2:#FDF3F4;
   --ink:#4A2027; --muted:#9C6E76; --line:#F0D2D6;
   --accent:#D9587B; --accent-ink:#59101F;
   --good:#4E9166; --bad:#C64A3F; --info:#5E7CB0;
 }
-/* ---- 6. Fern (deep green) ---- */
-body[data-theme-preset="fern"]{
+body[data-theme-preset="bloom"][data-mode="dark"]{
+  --bg:#1C1114; --bg-soft:#25181C; --surface:#2D2023; --surface-2:#36262A;
+  --ink:#F1E4E8; --muted:#B8949E; --line:#4B3037;
+  --accent:#E87393; --accent-ink:#E0AEBB;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 6. Fern ---- */
+body[data-theme-preset="fern"][data-mode="light"]{
   --bg:#EEF3EA; --bg-soft:#E3EBDC; --surface:#FFFFFF; --surface-2:#F5F8F1;
   --ink:#1F2E1A; --muted:#6C7C5E; --line:#D3E0C6;
   --accent:#4B7F3C; --accent-ink:#17280F;
   --good:#3F8F52; --bad:#C15C3E; --info:#3F7A8C;
 }
-/* ---- 7. Plum (violet dark) ---- */
-body[data-theme-preset="plum"]{
+body[data-theme-preset="fern"][data-mode="dark"]{
+  --bg:#141C11; --bg-soft:#1B2518; --surface:#232D20; --surface-2:#2A3626;
+  --ink:#E7F1E4; --muted:#9CB894; --line:#364B30;
+  --accent:#8DE873; --accent-ink:#B9E0AE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 7. Plum ---- */
+body[data-theme-preset="plum"][data-mode="light"]{
+  --bg:#F2EFF6; --bg-soft:#E6DEED; --surface:#FFFFFF; --surface-2:#F7F6F9;
+  --ink:#2A1B37; --muted:#775E8D; --line:#DCD1E5;
+  --accent:#7F2FC6; --accent-ink:#2A123F;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="plum"][data-mode="dark"]{
   --bg:#1B1420; --bg-soft:#221A29; --surface:#271E30; --surface-2:#2C2237;
   --ink:#EFE4F5; --muted:#AC97BD; --line:#3E304C;
-  --accent:#B984E8; --accent-ink:#20122B;
+  --accent:#B984E8; --accent-ink:#C8AEE0;
   --good:#7BCB93; --bad:#EA8478; --info:#8AA6EE;
 }
-/* ---- 8. Terracotta (warm clay) ---- */
-body[data-theme-preset="terracotta"]{
+/* ---- 8. Terracotta ---- */
+body[data-theme-preset="terracotta"][data-mode="light"]{
   --bg:#F7EEE6; --bg-soft:#F0E0D2; --surface:#FFFFFF; --surface-2:#FBF3EC;
   --ink:#3E2417; --muted:#93715A; --line:#E9D2BC;
   --accent:#C1592F; --accent-ink:#4E1D0A;
   --good:#4C8F5E; --bad:#B7412A; --info:#4E6E9A;
 }
-/* ---- 9. Slate (neutral grey, low-key) ---- */
-body[data-theme-preset="slate"]{
+body[data-theme-preset="terracotta"][data-mode="dark"]{
+  --bg:#1C1511; --bg-soft:#251C18; --surface:#2D2320; --surface-2:#362B26;
+  --ink:#F1E8E4; --muted:#B89E94; --line:#4B3730;
+  --accent:#E89473; --accent-ink:#E0BCAE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 9. Slate ---- */
+body[data-theme-preset="slate"][data-mode="light"]{
   --bg:#F1F2F3; --bg-soft:#E6E8EA; --surface:#FFFFFF; --surface-2:#F7F8F9;
   --ink:#23272C; --muted:#6C737B; --line:#DBDEE2;
   --accent:#3E6BD1; --accent-ink:#0E1F45;
   --good:#3E9457; --bad:#C74C3B; --info:#3E6BD1;
 }
-/* ---- 10. Citrus (bright, energetic) ---- */
-body[data-theme-preset="citrus"]{
+body[data-theme-preset="slate"][data-mode="dark"]{
+  --bg:#11151C; --bg-soft:#181C25; --surface:#20242D; --surface-2:#262B36;
+  --ink:#E4E8F1; --muted:#949FB8; --line:#30384B;
+  --accent:#7397E8; --accent-ink:#AEBDE0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 10. Citrus ---- */
+body[data-theme-preset="citrus"][data-mode="light"]{
   --bg:#FBF6E4; --bg-soft:#F4EBC6; --surface:#FFFFFF; --surface-2:#FCF9EA;
   --ink:#33280A; --muted:#8C7C3E; --line:#EBDD9C;
   --accent:#E0A014; --accent-ink:#402A02;
   --good:#4C8F3E; --bad:#D2552F; --info:#3F82AE;
 }
+body[data-theme-preset="citrus"][data-mode="dark"]{
+  --bg:#1C1911; --bg-soft:#252118; --surface:#2D2920; --surface-2:#363126;
+  --ink:#F1EDE4; --muted:#B8AC94; --line:#4B4230;
+  --accent:#E8C373; --accent-ink:#E0D0AE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+
+/* ---- 11. Sunrise (warm gradient sweep) ---- */
+body[data-theme-preset="sunrise"][data-mode="light"]{
+  --bg:#F6F2EF; --bg-soft:#EDE5DE; --surface:#FFFFFF; --surface-2:#F9F7F6;
+  --ink:#37281B; --muted:#8D745E; --line:#E5DBD1;
+  --accent:#C6752F; --accent-ink:#3F2712;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:linear-gradient(135deg, #F6F2EE 0%, #F3F4EB 100%);
+}
+body[data-theme-preset="sunrise"][data-mode="dark"]{
+  --bg:#1C1711; --bg-soft:#251E18; --surface:#2D2620; --surface-2:#362D26;
+  --ink:#F1EAE4; --muted:#B8A594; --line:#4B3C30;
+  --accent:#E8A973; --accent-ink:#E0C5AE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #1C1712 0%, #202216 100%);
+}
+/* ---- 12. Lagoon (cool gradient sweep) ---- */
+body[data-theme-preset="lagoon"][data-mode="light"]{
+  --bg:#EFF4F6; --bg-soft:#DEE9ED; --surface:#FFFFFF; --surface-2:#F6F8F9;
+  --ink:#1B3037; --muted:#5E818D; --line:#D1E0E5;
+  --accent:#2FA0C6; --accent-ink:#12343F;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:linear-gradient(135deg, #EEF4F6 0%, #EBECF4 100%);
+}
+body[data-theme-preset="lagoon"][data-mode="dark"]{
+  --bg:#111A1C; --bg-soft:#182225; --surface:#202A2D; --surface-2:#263236;
+  --ink:#E4EEF1; --muted:#94AFB8; --line:#30444B;
+  --accent:#73CBE8; --accent-ink:#AED4E0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #12191C 0%, #161722 100%);
+}
+/* ---- 13. Orchard (dot-grid texture) ---- */
+body[data-theme-preset="orchard"][data-mode="light"]{
+  --bg:#F2F6EF; --bg-soft:#E5EDDE; --surface:#FFFFFF; --surface-2:#F7F9F6;
+  --ink:#28371B; --muted:#748D5E; --line:#DBE5D1;
+  --accent:#75C62F; --accent-ink:#273F12;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:radial-gradient(circle, rgba(40,55,27,.07) 1px, transparent 1.6px);
+  --bg-size:18px 18px;
+}
+body[data-theme-preset="orchard"][data-mode="dark"]{
+  --bg:#171C11; --bg-soft:#1E2518; --surface:#262D20; --surface-2:#2D3626;
+  --ink:#EAF1E4; --muted:#A5B894; --line:#3C4B30;
+  --accent:#A9E873; --accent-ink:#C5E0AE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:radial-gradient(circle, rgba(234,241,228,.06) 1px, transparent 1.6px);
+  --bg-size:18px 18px;
+}
+/* ---- 14. Contour (topographic-line texture) ---- */
+body[data-theme-preset="contour"][data-mode="light"]{
+  --bg:#EFF1F6; --bg-soft:#DEE2ED; --surface:#FFFFFF; --surface-2:#F6F7F9;
+  --ink:#1B2337; --muted:#5E6C8D; --line:#D1D7E5;
+  --accent:#2F5CC6; --accent-ink:#12203F;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:repeating-linear-gradient(120deg, rgba(27,35,55,.05) 0px, rgba(27,35,55,.05) 1px, transparent 1px, transparent 15px);
+}
+body[data-theme-preset="contour"][data-mode="dark"]{
+  --bg:#11151C; --bg-soft:#181C25; --surface:#20242D; --surface-2:#262B36;
+  --ink:#E4E8F1; --muted:#949FB8; --line:#30384B;
+  --accent:#7396E8; --accent-ink:#AEBDE0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:repeating-linear-gradient(120deg, rgba(228,232,241,.045) 0px, rgba(228,232,241,.045) 1px, transparent 1px, transparent 15px);
+}
+
 
 /* ============================================================
    BASE
@@ -104,9 +249,13 @@ body[data-theme-preset="citrus"]{
 [hidden]{display:none !important;}
 html{-webkit-text-size-adjust:100%; scroll-padding-top:env(safe-area-inset-top, 0px);}
 body{
-  margin:0; background:var(--bg); color:var(--ink);
+  margin:0; background-color:var(--bg); color:var(--ink);
+  /* The gradient/pattern presets layer a background-image on top of the
+     flat --bg color via these two tokens; every other preset leaves them
+     at the :root default (none/auto), so this is a no-op for them. */
+  background-image:var(--bg-image); background-size:var(--bg-size); background-attachment:fixed;
   font-family:var(--font-body); line-height:1.55; -webkit-font-smoothing:antialiased;
-  min-height:100vh; transition:background .25s ease, color .25s ease;
+  min-height:100vh; transition:background-color .25s ease, color .25s ease;
   /* When installed as an app, keep content clear of the notch/status bar
      and the home-indicator area. env() is 0px in an ordinary browser tab. */
   padding-top:env(safe-area-inset-top, 0px);
@@ -162,7 +311,10 @@ button,input,select,textarea{font-family:inherit;}
 .theme-swatches{display:flex; gap:5px; flex-wrap:wrap;}
 .theme-swatch{width:22px; height:22px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
 .theme-swatch.active{box-shadow:0 0 0 2px var(--accent);}
-.theme-toggle{display:none;} /* superseded by the theme picker above */
+/* Icon-only variant of .xl-btn — the light/dark mode toggle sits with the
+   other top-right toolbar controls (see #theme-toggle-btn in sign-in.html)
+   rather than floating fixed on the page like its old, dead incarnation did. */
+.theme-toggle{padding:7px 10px; font-size:14px; line-height:1;}
 .pet-swatches{display:flex; gap:5px; flex-wrap:wrap;}
 .pet-swatch{width:24px; height:24px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative; background:var(--bg-soft); font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center;}
 .pet-swatch.active{box-shadow:0 0 0 2px var(--accent);}
