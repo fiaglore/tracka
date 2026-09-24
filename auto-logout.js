@@ -26,8 +26,18 @@
 //
 // Wired to window.Trakka (see firebase-init.js) for auth state and
 // sign-out, so it only runs while someone is actually signed in, and
-// reuses the same signOutUser() the "🔒 Sign out" button calls, then sends
-// the user to signed-out.html (app.js's auth listener does the same).
+// reuses the same signOutUser() the "🔒 Sign out" button calls. Where it
+// sends the user afterward depends on whether a quick-unlock PIN is cached
+// on this device (window.Trakka.hasPinConfigured(), see firebase-init.js):
+// sign-in.html (which then shows the PIN-unlock card instead of the full
+// form — see app.js's auth IIFE) if so, otherwise signed-out.html as
+// before. A sessionStorage flag, set here right before signing out, is what
+// tells app.js's own onAuthChange listener (which reacts to the same
+// sign-out independently, and could otherwise race this one to decide
+// where to land) to make the same choice — see the comment in
+// forceLogout() below. That flag is only ever set here, never by the
+// manual "🔒 Sign out" button, which is what keeps a manual sign-out always
+// landing on the plain form.
 
 (function () {
   "use strict";
@@ -149,6 +159,16 @@
     }
     var ceiling = new Promise(function (resolve) { setTimeout(resolve, SAVE_FLUSH_TIMEOUT_MS); });
     Promise.race([Promise.resolve(flush).catch(function () {}), ceiling]).then(function () {
+      // Set this BEFORE signing out, not after: app.js's own onAuthChange
+      // listener reacts to the very same signOut() call directly (it's not
+      // just observing what this function does afterward), so by the time
+      // that listener runs it may already have raced ahead of us — the flag
+      // has to be in place before signOut() fires for both of us to agree
+      // on where this lands. Only set here, never by the manual "🔒 Sign
+      // out" button, so that one keeps landing on the plain sign-in form.
+      var canOfferPin = false;
+      try { canOfferPin = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured()); } catch (e) {}
+      if (canOfferPin) { try { sessionStorage.setItem("trakkaAutoLogoutPending", "1"); } catch (e) {} }
       var out = (window.Trakka && typeof window.Trakka.signOutUser === "function")
         ? window.Trakka.signOutUser()
         : Promise.resolve();
@@ -156,7 +176,7 @@
       // so the tracker never stays on screen after a forced logout.
       return Promise.resolve(out).catch(function () {}).then(function () {
         try { sessionStorage.removeItem(SESSION_START_KEY); } catch (e) {}
-        location.replace("signed-out.html");
+        location.replace(canOfferPin ? "sign-in.html" : "signed-out.html");
       });
     });
   }

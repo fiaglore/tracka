@@ -2976,15 +2976,137 @@ window.__ftStart = function(){
 
   setMode('signin');
 
+  // ----- quick-unlock PIN: unlock card (replaces the sign-in form after an
+  // auto-logout, if this device has a PIN cached) -----
+  var PIN_UNLOCK_MAX_ATTEMPTS = 5;
+  var pinUnlockAttempts = 0;
+
+  function showPinUnlockCard(){
+    var formCard = $('auth-form-card'), pinCard = $('pin-unlock-card');
+    if(!formCard || !pinCard) return;
+    pinUnlockAttempts = 0;
+    $('pin-unlock-error').textContent = '';
+    $('pin-unlock-input').value = '';
+    formCard.hidden = true;
+    pinCard.hidden = false;
+    setTimeout(function(){ $('pin-unlock-input').focus(); }, 50);
+  }
+  function showPlainSignInForm(msg){
+    var formCard = $('auth-form-card'), pinCard = $('pin-unlock-card');
+    if(pinCard) pinCard.hidden = true;
+    if(formCard) formCard.hidden = false;
+    setError(msg || '');
+    setTimeout(function(){ var u = $('auth-user'); if(u) u.focus(); }, 50);
+  }
+  // Consumed once, right when the page that follows an auto-logout loads —
+  // sessionStorage.removeItem here means a plain reload of sign-in.html
+  // afterward (e.g. the user reloads while looking at the PIN card) won't
+  // keep re-triggering this; the PIN card itself stays up via its own
+  // hidden-attribute state across that reload regardless.
+  function checkPinUnlockEligibility(){
+    var flagged = false;
+    try{ flagged = sessionStorage.getItem('trakkaAutoLogoutPending') === '1'; }catch(e){}
+    if(!flagged) return;
+    try{ sessionStorage.removeItem('trakkaAutoLogoutPending'); }catch(e){}
+    if(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured()){
+      showPinUnlockCard();
+    }
+  }
+
+  $('pin-unlock-form').addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('pin-unlock-error');
+    errEl.textContent = '';
+    var pin = $('pin-unlock-input').value.trim();
+    if(!pin){ errEl.textContent = 'Enter your PIN.'; return; }
+    var btn = $('pin-unlock-submit');
+    btn.disabled = true;
+    try{
+      var result = await window.Trakka.unlockWithPin(pin);
+      if(result && result.ok){
+        // window.Trakka.signIn() inside unlockWithPin() fires the same
+        // onAuthChange listener below as a normal sign-in — begin() takes
+        // it from here.
+      } else {
+        pinUnlockAttempts++;
+        $('pin-unlock-input').value = '';
+        $('pin-unlock-input').focus();
+        var left = PIN_UNLOCK_MAX_ATTEMPTS - pinUnlockAttempts;
+        if(left <= 0) showPlainSignInForm('Too many incorrect PIN attempts — sign in with your password instead.');
+        else errEl.textContent = 'Incorrect PIN. ' + left + ' attempt' + (left === 1 ? '' : 's') + ' left.';
+      }
+    }catch(e){
+      console.error(e);
+      errEl.textContent = 'Something went wrong — try your password instead.';
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('pin-unlock-fallback').addEventListener('click', function(){ showPlainSignInForm(); });
+
+  // ----- quick-unlock PIN: setup/remove overlay (from the signed-in app) -----
+  function openPinSetup(){
+    $('pin-setup-password').value = '';
+    $('pin-setup-pin').value = '';
+    $('pin-setup-pin2').value = '';
+    $('pin-setup-error').textContent = '';
+    var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
+    $('pin-setup-remove').hidden = !already;
+    $('pin-setup-overlay').hidden = false;
+    setTimeout(function(){ $('pin-setup-password').focus(); }, 50);
+  }
+  function closePinSetup(){
+    $('pin-setup-overlay').hidden = true;
+  }
+  var pinSetupOpenBtn = $('pin-setup-open');
+  if(pinSetupOpenBtn) pinSetupOpenBtn.addEventListener('click', openPinSetup);
+  $('pin-setup-close').addEventListener('click', closePinSetup);
+  $('pin-setup-form').addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('pin-setup-error');
+    errEl.textContent = '';
+    var password = $('pin-setup-password').value;
+    var pin = $('pin-setup-pin').value.trim();
+    var pin2 = $('pin-setup-pin2').value.trim();
+    if(!password){ errEl.textContent = 'Enter your current password.'; return; }
+    if(!/^\d{6,}$/.test(pin)){ errEl.textContent = 'PIN must be at least 6 digits.'; return; }
+    if(pin !== pin2){ errEl.textContent = 'The two PINs do not match.'; return; }
+    var btn = $('pin-setup-save');
+    btn.disabled = true;
+    try{
+      await window.Trakka.setupPin(password, pin);
+      closePinSetup();
+    }catch(e){
+      console.error(e);
+      errEl.textContent = friendlyAuthError(e);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('pin-setup-remove').addEventListener('click', async function(){
+    try{ await window.Trakka.clearPin(); }catch(e){ console.error(e); }
+    closePinSetup();
+  });
+
   // ----- start: Firebase tells us if a session already exists (e.g. "keep me
   // signed in" from a previous visit); otherwise wait at the sign-in page -----
   function initAuth(){
+    checkPinUnlockEligibility();
     window.Trakka.onAuthChange(function(user){
       if(user){ begin(user); }
       // Signed out while the tracker was open (auto-logout, or sign-out in another tab):
       // nothing else re-locks the UI, so leave for the signed-out page instead of
-      // leaving the tracker visible with no session behind it.
-      else if(started){ started = false; window.__ftUid = null; location.replace('signed-out.html'); }
+      // leaving the tracker visible with no session behind it. If auto-logout.js just
+      // flagged this as its own doing (set *before* it called signOutUser(), so it's
+      // already here even if this listener runs first), reload instead — the PIN-unlock
+      // check above picks that flag up and shows the PIN card rather than the full form.
+      else if(started){
+        started = false; window.__ftUid = null;
+        let autoLogoutPin = false;
+        try{ autoLogoutPin = sessionStorage.getItem('trakkaAutoLogoutPending') === '1'; }catch(e){}
+        if(autoLogoutPin) location.reload();
+        else location.replace('signed-out.html');
+      }
       else { const u = $('auth-user'); if(u) setTimeout(()=>u.focus(), 50); }
     });
   }
