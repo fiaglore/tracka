@@ -740,9 +740,129 @@ window.__ftStart = function(){
     state.yearTags = yearTags.slice();
     if(__saveTimer) clearTimeout(__saveTimer);
     __saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+    scheduleUndoCommit();
     render();
     updateClockAndCountdown();
   }
+
+  // ===== Undo / redo ("for all items") =====
+  // Every mutating action in the tracker — ticking a box, adding or deleting
+  // an income/debt/gift/savings/living row, editing an amount, importing a
+  // workbook — already funnels through save() above, so that's the one
+  // choke point undo/redo hook into instead of instrumenting each of the
+  // ~50 individual handlers separately. The approach: keep a "baseline"
+  // snapshot of `state` from before the change(s) currently in progress;
+  // each call to save() re-arms a short timer, and when it fires (or an
+  // undo/redo is requested before it does, which flushes it immediately)
+  // the baseline is pushed onto the undo stack and a fresh baseline is
+  // taken. Consecutive save() calls within that window — e.g. every
+  // keystroke while typing a new amount — collapse into ONE undo step
+  // instead of one per keystroke, which is what "undo" actually means to
+  // someone editing a number, not "undo the last character."
+  let __undoStack = [];
+  let __redoStack = [];
+  let __undoBaseline = JSON.stringify(state);
+  let __undoBatchTimer = null;
+  const UNDO_BATCH_MS = 800;
+  const UNDO_MAX = 50;
+
+  function commitUndoBatch(){
+    if(__undoBatchTimer){ clearTimeout(__undoBatchTimer); __undoBatchTimer = null; }
+    const current = JSON.stringify(state);
+    if(current !== __undoBaseline){
+      __undoStack.push(__undoBaseline);
+      if(__undoStack.length > UNDO_MAX) __undoStack.shift();
+      __redoStack = []; // a real change invalidates whatever could have been redone
+    }
+    __undoBaseline = current;
+    updateUndoRedoButtons();
+  }
+  function scheduleUndoCommit(){
+    if(__undoBatchTimer) clearTimeout(__undoBatchTimer);
+    __undoBatchTimer = setTimeout(commitUndoBatch, UNDO_BATCH_MS);
+  }
+
+  // Restores monthLabels/yearTags/N/activeMonth to match a snapshot just
+  // swapped into `state` — these live as their own module-level variables
+  // (see load()) and are only mirrored onto state.monthLabels/yearTags
+  // inside save(), so an undo/redo has to pull them back out explicitly or
+  // the month tabs would keep showing whatever was active before the jump.
+  function syncMonthMetaFromState(){
+    if(Array.isArray(state.monthLabels) && Array.isArray(state.yearTags) && state.monthLabels.length){
+      monthLabels.length = 0; yearTags.length = 0;
+      state.monthLabels.forEach(function(l,i){ monthLabels.push(l); yearTags.push(state.yearTags[i]); });
+      N = monthLabels.length;
+    }
+    if(activeMonth >= N) activeMonth = N-1;
+    if(activeMonth < 0) activeMonth = 0;
+  }
+
+  function doUndo(){
+    commitUndoBatch(); // whatever was still "in progress" becomes its own step first
+    if(__undoStack.length===0) return;
+    const prev = __undoStack.pop();
+    __redoStack.push(JSON.stringify(state));
+    if(__redoStack.length > UNDO_MAX) __redoStack.shift();
+    state = JSON.parse(prev);
+    __undoBaseline = prev;
+    syncMonthMetaFromState();
+    render();
+    updateClockAndCountdown();
+    updateUndoRedoButtons();
+    flushSave();
+  }
+  function doRedo(){
+    if(__redoStack.length===0) return;
+    const next = __redoStack.pop();
+    __undoStack.push(JSON.stringify(state));
+    if(__undoStack.length > UNDO_MAX) __undoStack.shift();
+    state = JSON.parse(next);
+    __undoBaseline = next;
+    syncMonthMetaFromState();
+    render();
+    updateClockAndCountdown();
+    updateUndoRedoButtons();
+    flushSave();
+  }
+  function updateUndoRedoButtons(){
+    const u = document.getElementById('undo-btn'), r = document.getElementById('redo-btn');
+    if(u) u.disabled = __undoStack.length===0;
+    if(r) r.disabled = __redoStack.length===0;
+  }
+
+  const undoBtnEl = document.getElementById('undo-btn'), redoBtnEl = document.getElementById('redo-btn');
+  if(undoBtnEl) undoBtnEl.addEventListener('click', doUndo);
+  if(redoBtnEl) redoBtnEl.addEventListener('click', doRedo);
+  updateUndoRedoButtons();
+
+  // Ctrl/Cmd+Z (undo) and Ctrl/Cmd+Shift+Z or Ctrl+Y (redo) — but only when
+  // focus isn't in a text field. Hijacking Ctrl+Z while someone is mid-typing
+  // in an amount/description input would fight the browser's own per-field
+  // undo (which people expect to fix a typo, not roll back the last add/
+  // delete elsewhere in the tracker), so this steps aside whenever the
+  // active element is a normal, editable input/textarea.
+  document.addEventListener('keydown', function(e){
+    if(!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if(key !== 'z' && key !== 'y') return;
+    const el = document.activeElement;
+    // Checkboxes/buttons/selects have no meaningful native undo of their own
+    // and shouldn't block Ctrl+Z right after clicking one — only step aside
+    // for the text-like fields whose own undo (fixing a typo) people expect
+    // Ctrl+Z to serve instead.
+    const TEXTY_INPUT_TYPES = ['text','number','email','password','search','tel','url','date'];
+    const inEditableField = el && (
+      (el.tagName==='INPUT' && TEXTY_INPUT_TYPES.indexOf(el.type)!==-1) ||
+      el.tagName==='TEXTAREA' ||
+      el.isContentEditable
+    ) && !el.readOnly && !el.disabled;
+    if(inEditableField) return;
+    if(key==='y'){ e.preventDefault(); doRedo(); return; }
+    if(key==='z'){
+      e.preventDefault();
+      if(e.shiftKey) doRedo(); else doUndo();
+    }
+  });
 
   // A pending debounced write must not die with the tab.
   window.addEventListener('pagehide', flushSave);
