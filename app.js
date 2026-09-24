@@ -118,6 +118,46 @@ window.__ftStart = function(){
       : 'Each month runs from the '+ordinal(PSTART)+' through the '+ordinal(PSTART-1)+' of the next, matching payday.';
   }
   function currencyCode(){ const c = CURRENCIES.find(x=>x.sym===CUR); return c ? c.code : CUR; }
+
+  // ===== Currency conversion (live FX rate) =====
+  // Switching the currency used to just relabel every amount with the new
+  // symbol — same numbers, different sign in front. This instead fetches a
+  // live exchange rate and rescales every monetary value in `state` by it,
+  // so e.g. a $500 debt becomes the equivalent amount in Naira, not a
+  // relabeled "₦500". open.er-api.com is free, needs no API key, and is
+  // CORS-enabled for browser use — the app's only outbound network call
+  // besides Firebase. If the fetch fails (offline, API down), the currency
+  // switch is aborted entirely rather than relabeling amounts that were
+  // never actually converted.
+  const FX_API_BASE = 'https://open.er-api.com/v6/latest/';
+  async function fetchFxRate(fromCode, toCode){
+    if(fromCode === toCode) return 1;
+    const res = await fetch(FX_API_BASE + encodeURIComponent(fromCode));
+    if(!res.ok) throw new Error('FX request failed (HTTP ' + res.status + ').');
+    const data = await res.json();
+    const rate = data && data.rates && data.rates[toCode];
+    if(!(rate > 0)) throw new Error('No live rate available for ' + fromCode + '→' + toCode + '.');
+    return rate;
+  }
+  // Every field below is a monetary amount somewhere in `state` — see load()/
+  // buildDefaults() for the full shape. Rounded to 2dp same as the rest of
+  // the app's money math (see e.g. the gift-goal monthly-amount calc above).
+  function convertAllAmounts(rate){
+    const r = n => Math.round((Number(n)||0) * rate * 100) / 100;
+    state.months.forEach(function(m){
+      (m.income||[]).forEach(function(it){ it.amount = r(it.amount); });
+      (m.debts||[]).forEach(function(it){ it.amount = r(it.amount); });
+      (m.savingsApps||[]).forEach(function(it){ it.amount = r(it.amount); });
+    });
+    state.extra.forEach(function(it){ it.amount = r(it.amount); });
+    state.giftGoals.forEach(function(g){ g.totalAmount = r(g.totalAmount); });
+    Object.keys(state.giftProgress).forEach(function(k){ state.giftProgress[k].amount = r(state.giftProgress[k].amount); });
+    state.savings.forEach(function(it){ it.amount = r(it.amount); });
+    state.savingsGoal = r(state.savingsGoal);
+    state.livingCategories.forEach(function(c){ c.budget = r(c.budget); });
+    state.livingEntries.forEach(function(it){ it.amount = r(it.amount); });
+    Object.keys(state.livingBudgetOverrides).forEach(function(k){ state.livingBudgetOverrides[k] = r(state.livingBudgetOverrides[k]); });
+  }
   function applyStaticSettings(){
     document.querySelectorAll('[data-ph]').forEach(el=>{ el.placeholder = el.dataset.ph.replace('{c}', CUR); });
     const set = (id, txt)=>{ const el=document.getElementById(id); if(el) el.textContent = txt; };
@@ -2706,9 +2746,42 @@ window.__ftStart = function(){
     }
   }
 
-  document.getElementById('set-currency').addEventListener('change', function(){
-    CUR = this.value; saveCloudField('currency', CUR);
-    applyStaticSettings(); render(); updateClockAndCountdown();
+  document.getElementById('set-currency').addEventListener('change', async function(){
+    const select = this;
+    const fromSym = CUR, toSym = select.value;
+    if(toSym === fromSym) return;
+    const fromCode = currencyCode();
+    const toEntry = CURRENCIES.find(c=>c.sym===toSym);
+    const toCode = toEntry ? toEntry.code : toSym;
+
+    select.disabled = true;
+    xlSetStatus('Looking up the live ' + fromCode + '→' + toCode + ' rate…', 'warn');
+    let rate;
+    try{
+      rate = await fetchFxRate(fromCode, toCode);
+    }catch(e){
+      console.error(e);
+      select.value = fromSym;
+      select.disabled = false;
+      xlSetStatus('Could not fetch a live exchange rate — currency left unchanged. ' + ((e && e.message) || ''), 'err');
+      return;
+    }
+    select.disabled = false;
+
+    const ok = confirm(
+      'Convert every amount in your tracker from ' + fromCode + ' to ' + toCode + ' at today’s rate ' +
+      '(1 ' + fromCode + ' = ' + rate.toFixed(4) + ' ' + toCode + ')?\n\n' +
+      'This rescales income, debts, savings, gift goals, budgets and living expenses — ' +
+      'it is not automatically reversible (switching back later uses a new rate, not this one).'
+    );
+    if(!ok){ select.value = fromSym; xlSetStatus(''); return; }
+
+    convertAllAmounts(rate);
+    CUR = toSym;
+    saveCloudField('currency', CUR);
+    applyStaticSettings();
+    save();
+    xlSetStatus('Converted everything from ' + fromCode + ' to ' + toCode + ' (1 ' + fromCode + ' = ' + rate.toFixed(4) + ' ' + toCode + ').', 'ok');
   });
   document.getElementById('set-payday').addEventListener('change', function(){
     PSTART = Number(this.value) || 1; saveCloudField('payStart', PSTART);
