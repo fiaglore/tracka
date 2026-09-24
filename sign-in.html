@@ -111,10 +111,6 @@
         <span class="xl-user" id="xl-user"></span>
         <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
         <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
-        <button class="xl-btn theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>
-        <button class="xl-btn ambient-toggle" id="ambient-toggle-btn" type="button" title="Turn on soft background music">🔇</button>
-        <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
-        <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Quick-unlock PIN</button>
         <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
       </div>
     </div>
@@ -144,25 +140,6 @@
         <span class="lbl">📊 This month's net</span>
         <span class="val" id="chip-net-val">—</span>
       </div>
-    </div>
-
-    <div class="toolbar" id="xl-bar">
-      <span class="xl-title">Data &amp; settings</span>
-      <button class="xl-btn" id="xl-import-btn" type="button" title="Load a filled-in workbook (replaces what is in the tracker now)">📥 Import</button>
-      <button class="xl-btn primary" id="xl-export-btn" type="button" title="Download everything in the tracker as an .xlsx workbook">📤 Export</button>
-      <button class="xl-btn" id="xl-template-btn" type="button" title="Download an empty workbook with the right sheets and columns">📄 Blank template</button>
-      <label class="xl-set">Currency <select id="set-currency"></select></label>
-      <label class="xl-set">Month starts on day <select id="set-payday"></select></label>
-      <input type="file" id="xl-file-input" accept=".xlsx,.xlsm" style="display:none">
-      <div class="theme-picker">
-        <span class="theme-picker-label">Theme</span>
-        <div class="theme-swatches" id="theme-swatches"></div>
-      </div>
-      <div class="theme-picker">
-        <span class="theme-picker-label">Pet</span>
-        <div class="pet-swatches" id="pet-swatches"></div>
-      </div>
-      <div class="xl-status" id="xl-status"></div>
     </div>
 
     <div class="overall">
@@ -195,6 +172,7 @@
     <button type="button" class="page-nav-btn" data-page="gifts"><span class="ic">🎁</span>Gifts</button>
     <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
+    <button type="button" class="page-nav-btn" data-page="settings"><span class="ic">⚙️</span>Settings</button>
   </nav>
 
   <!-- ============ OVERVIEW ============ -->
@@ -395,6 +373,61 @@
       </div>
 
       <div id="living-list"></div>
+    </section>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div class="app-page" id="page-settings" data-page="settings">
+    <section>
+      <div class="section-head"><h2>🎨 Appearance</h2></div>
+      <div class="toolbar">
+        <div class="theme-picker">
+          <span class="theme-picker-label">Theme</span>
+          <div class="theme-swatches" id="theme-swatches"></div>
+        </div>
+        <div class="theme-picker">
+          <span class="theme-picker-label">Pet</span>
+          <div class="pet-swatches" id="pet-swatches"></div>
+        </div>
+        <span class="theme-picker-label">Dark mode</span>
+        <button class="xl-btn theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>
+        <span class="theme-picker-label">Background music</span>
+        <button class="xl-btn ambient-toggle" id="ambient-toggle-btn" type="button" title="Turn on soft background music">🔇</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>💱 Currency &amp; billing period</h2></div>
+      <div class="toolbar">
+        <label class="xl-set">Currency <select id="set-currency"></select></label>
+        <label class="xl-set">Month starts on day <select id="set-payday"></select></label>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>🔐 Security</h2></div>
+      <div class="toolbar">
+        <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Quick-unlock PIN</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>📁 Data</h2></div>
+      <div class="toolbar">
+        <button class="xl-btn" id="xl-import-btn" type="button" title="Load a filled-in workbook (replaces what is in the tracker now)">📥 Import</button>
+        <button class="xl-btn primary" id="xl-export-btn" type="button" title="Download everything in the tracker as an .xlsx workbook">📤 Export</button>
+        <button class="xl-btn" id="xl-template-btn" type="button" title="Download an empty workbook with the right sheets and columns">📄 Blank template</button>
+        <input type="file" id="xl-file-input" accept=".xlsx,.xlsm" style="display:none">
+        <div class="xl-status" id="xl-status"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>📲 App</h2></div>
+      <div class="toolbar">
+        <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
+        <span class="xl-status" style="width:auto;margin:0;">Adds a home-screen icon and works offline. Shows up here automatically in Chrome/Edge/Android when it's available and not already installed.</span>
+      </div>
     </section>
   </div>
 
