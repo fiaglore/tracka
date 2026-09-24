@@ -3597,6 +3597,14 @@ window.__ftStart = function(){
     if(btn) showPage(btn.getAttribute('data-page'));
   });
 
+  // Settings lives in the top bar next to Undo/Redo, not as a tab among the
+  // financial-data pages, so it's wired separately rather than sharing the
+  // .page-nav-btn delegation above (which would also visually group it with
+  // Overview/Income/Debts/etc. in #page-nav, which is exactly what this is
+  // meant to avoid).
+  var settingsNavBtn = document.getElementById('settings-nav-btn');
+  if(settingsNavBtn) settingsNavBtn.addEventListener('click', function(){ showPage('settings'); });
+
   document.addEventListener('DOMContentLoaded', function(){
     var last = null;
     try{ last = sessionStorage.getItem('ftActivePage'); }catch(e){}
