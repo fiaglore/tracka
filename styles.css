@@ -323,6 +323,12 @@ button,input,select,textarea{font-family:inherit;}
    other top-right toolbar controls (see #theme-toggle-btn in sign-in.html)
    rather than floating fixed on the page like its old, dead incarnation did. */
 .theme-toggle{padding:7px 10px; font-size:14px; line-height:1;}
+/* Same icon-only sizing as .theme-toggle — see #ambient-toggle-btn in
+   sign-in.html / ambient-audio.js. .active marks the synthesized ambient
+   pad as currently on, matching the accent-outline convention .theme-swatch
+   .active and .pet-swatch.active already use elsewhere in this toolbar. */
+.ambient-toggle{padding:7px 10px; font-size:14px; line-height:1;}
+.ambient-toggle.active{border-color:var(--accent); background:var(--bg-soft);}
 .pet-swatches{display:flex; gap:5px; flex-wrap:wrap;}
 .pet-swatch{width:24px; height:24px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative; background:var(--bg-soft); font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center;}
 .pet-swatch.active{box-shadow:0 0 0 2px var(--accent);}

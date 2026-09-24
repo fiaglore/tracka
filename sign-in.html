@@ -112,6 +112,7 @@
         <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
         <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
         <button class="xl-btn theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>
+        <button class="xl-btn ambient-toggle" id="ambient-toggle-btn" type="button" title="Turn on soft background music">🔇</button>
         <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
         <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Quick-unlock PIN</button>
         <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
@@ -402,6 +403,7 @@
 
 <script type="module" src="firebase-init.js"></script>
 <script src="app.js" defer></script>
+<script src="ambient-audio.js" defer></script>
 <script src="pwa.js" defer></script>
 <script src="app-entry.js" defer></script>
 <script src="auto-logout.js" defer></script>
