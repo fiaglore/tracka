@@ -1539,6 +1539,25 @@ window.__ftStart = function(){
     const chipLevelEl = document.getElementById('chip-level-val');
     if(chipLevelEl) chipLevelEl.textContent = String(level);
 
+    // Same "Still outstanding" total the debt-payoff overview shows, and the
+    // active month's net (checked income minus checked debts/living/gifts —
+    // see netForMonth()), mirrored into the persistent top chip row so both
+    // are visible from any tab, the same reasoning as the level chip above.
+    const chipOutstandingEl = document.getElementById('chip-outstanding-val');
+    if(chipOutstandingEl){
+      const totalOutstanding = debtSeriesList().reduce((s,d)=>s+d.remaining,0);
+      chipOutstandingEl.textContent = fmt(totalOutstanding);
+      const outstandingChip = document.getElementById('chip-outstanding');
+      if(outstandingChip) outstandingChip.classList.toggle('clear', totalOutstanding<=0);
+    }
+    const chipNetEl = document.getElementById('chip-net-val');
+    if(chipNetEl){
+      const net = netForMonth(activeMonth);
+      chipNetEl.textContent = (net>=0?'+':'-') + fmt(Math.abs(net));
+      const netChip = document.getElementById('chip-net');
+      if(netChip) netChip.classList.toggle('bad', net<0);
+    }
+
     // ===== Gamification: achievement badges =====
     let maxSaved = 0;
     for(let i=0;i<N;i++) maxSaved = Math.max(maxSaved, cumulativeSavingsUpTo(i));
