@@ -2953,10 +2953,16 @@ window.__ftStart = function(){
   // Firestore document fetch in begin() can take a moment on a slow
   // connection, and with nothing shown the sign-in card just looked frozen.
   function showAuthLoading(msg){
-    var box = $('auth-loading-box'), card = $('auth-form-card'), text = $('auth-loading-text');
+    // Hides whichever card was up — the plain sign-in form OR the PIN-unlock
+    // card (see the "quick-unlock PIN" section below) — since begin() calls
+    // this on every successful sign-in, PIN unlock included. Missing the PIN
+    // card here used to leave it showing underneath the loading box instead
+    // of being replaced by it.
+    var box = $('auth-loading-box'), card = $('auth-form-card'), pinCard = $('pin-unlock-card'), text = $('auth-loading-text');
     if(text) text.textContent = msg || 'Loading…';
     if(box) box.hidden = false;
     if(card) card.hidden = true;
+    if(pinCard) pinCard.hidden = true;
   }
   function hideAuthLoading(){
     var box = $('auth-loading-box'), card = $('auth-form-card');
