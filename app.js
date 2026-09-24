@@ -1880,6 +1880,81 @@ window.__ftStart = function(){
     if(cleared) triggerConfetti();
   }
 
+  // Lets the total on a loan be corrected after the fact (e.g. it was entered
+  // wrong, or the lender changed the amount) without having to delete and
+  // re-add every instalment. What's already paid is left exactly as it was —
+  // only the still-outstanding, non-extra-payment instalments for this
+  // series are reshaped to add up to the new total, split evenly across
+  // however many of them are left (same rounding convention as the gift-goal
+  // monthly split above: floor each share, put the remainder on the last
+  // one so the total is exact, not approximately close).
+  function editDebtTotal(key, newTotalRaw){
+    const newTotal = Number(newTotalRaw)||0;
+    if(newTotal <= 0){ alert('Enter a total amount greater than 0.'); return; }
+    const series = debtSeriesList().find(s=>s.key===key);
+    if(!series) return;
+    if(series.remaining<=0){
+      alert('This debt is already fully paid — there’s nothing outstanding left to apply a new total to.');
+      return;
+    }
+    if(newTotal < series.paid - 0.001){
+      alert('The new total ('+fmt(newTotal)+') is less than what’s already been paid on this debt ('+fmt(series.paid)+') — it can’t go below that.');
+      return;
+    }
+    const newRemaining = Math.round((newTotal - series.paid)*100)/100;
+    const rows = [];
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      m.debts.forEach(it=>{
+        if(seriesKeyOf(it)===key && !it.checked && !it.extraPayment && (Number(it.amount)||0)>0) rows.push({mi:i, id:it.id});
+      });
+    }
+    if(rows.length===0) return;
+    if(newRemaining<=0.001){
+      // The new total exactly matches what's already been paid — same as
+      // paying the whole remaining balance off, so drop the leftover
+      // instalments instead of leaving $0 rows sitting in the month tabs.
+      rows.forEach(r=>{
+        const arr = state.months[r.mi].debts;
+        const idx = arr.findIndex(x=>x.id===r.id);
+        if(idx>=0) arr.splice(idx,1);
+      });
+      renumberSeries(key);
+      save();
+      if(lastDueMonthIndex()===-1) triggerConfetti();
+      return;
+    }
+    const each = Math.floor((newRemaining/rows.length)*100)/100;
+    let allocated = 0;
+    rows.forEach((r,i)=>{
+      const row = state.months[r.mi].debts.find(x=>x.id===r.id);
+      if(!row) return;
+      if(i===rows.length-1){ row.amount = Math.round((newRemaining-allocated)*100)/100; }
+      else { row.amount = each; allocated += each; }
+    });
+    save();
+  }
+
+  // Removes every instalment for a loan — paid, unpaid, and any extra
+  // payments — across every month tab. The per-instalment ✕ in each month's
+  // debt list only ever removed that one month's row, which left the rest
+  // of a multi-month loan's instalments behind in the other tabs still
+  // counting toward "Total debt taken on" / "Still outstanding" / the
+  // debt-free countdown — this is the "delete the whole debt" action those
+  // per-row deletes were missing.
+  function deleteDebtSeries(key){
+    const series = debtSeriesList().find(s=>s.key===key);
+    if(!series) return;
+    if(!confirm('Delete "'+series.label+'" entirely? This removes every instalment for this debt across all months, paid or not, and can’t be undone.')) return;
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      m.debts = m.debts.filter(it=> seriesKeyOf(it)!==key);
+    }
+    save();
+  }
+
   function renderDebtOverview(){
     const list = debtSeriesList();
     const head = document.getElementById('payoff-head');
@@ -1914,7 +1989,10 @@ window.__ftStart = function(){
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${escapeAttr(d.label)}</span>
-          <span class="ds-left ${done?'clear':''}">${done ? '✔ Fully cleared' : fmt(d.remaining)+' left'}</span>
+          <span class="ds-top-right">
+            <span class="ds-left ${done?'clear':''}">${done ? '✔ Fully cleared' : fmt(d.remaining)+' left'}</span>
+            <button class="del ds-del-btn" data-series="${d.key}" title="Delete this debt entirely">✕</button>
+          </span>
         </div>
         <div class="ds-track"><div class="ds-fill" style="width:${pct}%"></div></div>
         <div class="ds-meta">${fmt(d.paid)} of ${fmt(d.total)} repaid (${pct.toFixed(0)}%) · ${d.paymentsLeft} payment${d.paymentsLeft===1?'':'s'} left · last due ${lastLabel}${extraNote}</div>
@@ -1923,15 +2001,25 @@ window.__ftStart = function(){
           <button class="ds-pay-btn" data-series="${d.key}">Pay extra</button>
           <button class="ds-pay-btn ds-clear-btn" data-series="${d.key}" data-all="1">Clear it all (${fmt(d.remaining)})</button>
           <span class="hint">knocks months off the end</span>
+          <input type="number" min="0.01" step="0.01" class="ds-total-input" data-series="${d.key}" placeholder="New total ${CUR}" value="${d.total}" title="Change the overall amount owed on this debt">
+          <button class="ds-pay-btn ds-total-btn" data-series="${d.key}">Edit total</button>
         </div>`}
       </div>`;
     }).join('');
   }
 
   document.addEventListener('click', function(e){
+    const delBtn = e.target.closest ? e.target.closest('.ds-del-btn') : null;
+    if(delBtn){ deleteDebtSeries(delBtn.dataset.series); return; }
+
     const btn = e.target.closest ? e.target.closest('.ds-pay-btn') : null;
     if(!btn) return;
     const key = btn.dataset.series;
+    if(btn.classList.contains('ds-total-btn')){
+      const input = document.querySelector('.ds-total-input[data-series="'+key+'"]');
+      if(input) editDebtTotal(key, input.value);
+      return;
+    }
     if(btn.dataset.all){
       const s = debtSeriesList().find(x=>x.key===key);
       if(!s || s.remaining<=0) return;
