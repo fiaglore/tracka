@@ -182,6 +182,7 @@
     <button type="button" class="page-nav-btn" data-page="gifts"><span class="ic">🎁</span>Gifts</button>
     <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
+    <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
   </nav>
 
   <!-- ============ OVERVIEW ============ -->
@@ -385,6 +386,28 @@
     </section>
   </div>
 
+  <!-- ============ XP & ACHIEVEMENTS ============ -->
+  <div class="app-page" id="page-xp" data-page="xp">
+    <section>
+      <div class="section-head"><h2>🌟 XP &amp; Level</h2></div>
+      <div class="xp-panel">
+        <div class="xp-head">
+          <div class="xp-level"><span class="badge-icon">🌟</span><span id="xp-page-level-num">Level 1</span></div>
+          <span class="mono" style="font-size:12px;color:var(--muted)" id="xp-page-total">0 XP total</span>
+        </div>
+        <div class="xp-track"><div class="xp-fill" id="xp-page-fill"></div></div>
+        <div class="xp-sub" id="xp-page-sub">0 / 150 XP to level 2</div>
+        <p class="xp-page-breakdown" id="xp-page-breakdown"></p>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>🏅 All achievements — <span id="xp-page-earned-count">0</span> / <span id="xp-page-total-count">23</span> earned</h2></div>
+      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Each checked-off item is worth 10 XP; each achievement below is worth 50 XP once earned. Some (like "Budget Boss") reflect your current status and can lock again later — the XP they've already paid out stays banked either way.</p>
+      <div class="xp-badge-grid" id="xp-badge-grid"></div>
+    </section>
+  </div>
+
   <!-- ============ SETTINGS ============ -->
   <div class="app-page" id="page-settings" data-page="settings">
     <section>
@@ -425,6 +448,15 @@
       <div class="section-head"><h2>🔐 Security</h2></div>
       <div class="toolbar">
         <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Quick-unlock PIN</button>
+        <label class="xl-set">Sign me out after being idle for <select id="set-idle-timeout"></select></label>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>🔔 Reminders</h2></div>
+      <div class="toolbar">
+        <button class="xl-btn reminder-toggle" id="reminder-toggle-btn" type="button" title="Turn on daily reminders">🔕</button>
+        <span class="xl-status" style="width:auto;margin:0;">Shows a notification when you open the tracker if you haven't logged anything yet that day. Needs your browser's notification permission, and only fires while the tracker is actually open — not a background push.</span>
       </div>
     </section>
 

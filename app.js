@@ -220,6 +220,22 @@ window.__ftStart = function(){
       if(!ps.options.length){ for(let d=1; d<=28; d++){ const o=document.createElement('option'); o.value=d; o.textContent=d===1 ? '1 (calendar month)' : ordinal(d); ps.appendChild(o); } }
       ps.value = String(PSTART);
     }
+    // Idle sign-out timeout — the value itself lives in auto-logout.js
+    // (window.setIdleTimeoutMinutes/getIdleTimeoutMinutes), since that
+    // script starts tracking the instant sign-in fires and can't wait on
+    // this one's own per-user Firestore load. This just reflects/edits it.
+    const it = document.getElementById('set-idle-timeout');
+    if(it){
+      if(!it.options.length){
+        [2,5,10,15,30,60].forEach(function(min){
+          const o = document.createElement('option');
+          o.value = min;
+          o.textContent = min+' minute'+(min===1?'':'s');
+          it.appendChild(o);
+        });
+      }
+      it.value = String(window.getIdleTimeoutMinutes ? window.getIdleTimeoutMinutes() : 2);
+    }
   }
 
   // Light/dark mode now lives in the theme-preset picker's own IIFE further
@@ -1579,6 +1595,22 @@ window.__ftStart = function(){
     if(xpFillEl) xpFillEl.style.width = Math.min(100,(xpIntoLevel/xpPerLevel)*100)+'%';
     const xpSubEl = document.getElementById('xp-sub');
     if(xpSubEl) xpSubEl.textContent = xpIntoLevel+' / '+xpPerLevel+' XP to level '+(level+1)+' · '+totalXP+' XP total';
+    // Same numbers as the small Overview panel above, mirrored onto the
+    // dedicated XP page (#page-xp) with a source breakdown the small panel
+    // has no room for.
+    const xpPageLevelEl = document.getElementById('xp-page-level-num');
+    if(xpPageLevelEl) xpPageLevelEl.textContent = 'Level '+level;
+    const xpPageFillEl = document.getElementById('xp-page-fill');
+    if(xpPageFillEl) xpPageFillEl.style.width = Math.min(100,(xpIntoLevel/xpPerLevel)*100)+'%';
+    const xpPageSubEl = document.getElementById('xp-page-sub');
+    if(xpPageSubEl) xpPageSubEl.textContent = xpIntoLevel+' / '+xpPerLevel+' XP to level '+(level+1);
+    const xpPageTotalEl = document.getElementById('xp-page-total');
+    if(xpPageTotalEl) xpPageTotalEl.textContent = totalXP.toLocaleString('en-NG')+' XP total';
+    const xpPageBreakdownEl = document.getElementById('xp-page-breakdown');
+    if(xpPageBreakdownEl){
+      xpPageBreakdownEl.textContent = ovCheckedItems.toLocaleString('en-NG')+' items checked off (×10 XP = '+(ovCheckedItems*10).toLocaleString('en-NG')+' XP) + '
+        +earnedBadgeCount+' badge'+(earnedBadgeCount===1?'':'s')+' earned (×50 XP = '+(earnedBadgeCount*50).toLocaleString('en-NG')+' XP)';
+    }
     // Same level the XP panel above already shows — mirrored into the
     // persistent top chip row so it's visible on every tab, not just Overview.
     const chipLevelEl = document.getElementById('chip-level-val');
@@ -1661,6 +1693,20 @@ window.__ftStart = function(){
     if(badgeRowEl){
       badgeRowEl.innerHTML = badgeDefs.map(b=>`<span class="badge-chip ${b.earned?'':'locked'}"><span class="b-icon">${b.icon}</span>${escapeAttr(b.label)}</span>`).join('');
     }
+    // Full detail version of the same badgeDefs, on the dedicated XP page.
+    const xpBadgeGridEl = document.getElementById('xp-badge-grid');
+    if(xpBadgeGridEl){
+      xpBadgeGridEl.innerHTML = badgeDefs.map(b=>
+        `<div class="xp-badge-card ${b.earned?'earned':'locked'}">`
+          +`<span class="b-icon">${b.icon}</span>`
+          +`<span class="b-label">${escapeAttr(b.label)}</span>`
+        +`</div>`
+      ).join('');
+    }
+    const xpEarnedCountEl = document.getElementById('xp-page-earned-count');
+    if(xpEarnedCountEl) xpEarnedCountEl.textContent = String(badgeDefs.filter(b=>b.earned).length);
+    const xpTotalCountEl = document.getElementById('xp-page-total-count');
+    if(xpTotalCountEl) xpTotalCountEl.textContent = String(badgeDefs.length);
 
     // ===== Gamification: detect newly-earned milestones, confetti once each =====
     let newlyEarned = false;
@@ -3096,6 +3142,12 @@ window.__ftStart = function(){
     PSTART = Number(this.value) || 1; saveCloudField('payStart', PSTART);
     applyStaticSettings(); render(); updateClockAndCountdown();
   });
+  var idleTimeoutSelect = document.getElementById('set-idle-timeout');
+  if(idleTimeoutSelect){
+    idleTimeoutSelect.addEventListener('change', function(){
+      if(window.setIdleTimeoutMinutes) window.setIdleTimeoutMinutes(this.value);
+    });
+  }
   document.getElementById('xl-template-btn').addEventListener('click', xlDoTemplate);
   document.getElementById('xl-export-btn').addEventListener('click', xlDoExport);
   document.getElementById('xl-import-btn').addEventListener('click', ()=> document.getElementById('xl-file-input').click());
@@ -3209,6 +3261,84 @@ window.__ftStart = function(){
     if(chipEl) chipEl.classList.toggle('streak-zero', count===0);
     // Celebrate coming BACK, not just the first-ever visit (count going 0→1).
     if(grew && count>1) triggerConfetti();
+  })();
+
+  // ===== Daily reminder notifications =====
+  // A browser Notification, shown once per calendar day when the tracker
+  // is opened and nothing's been logged yet that day — not a background
+  // push (this app has no server to push from), so it only ever fires
+  // while the tracker is actually open, same as every other client-only
+  // feature here. The on/off preference syncs per-account like the rest of
+  // Settings; "already reminded today" is device-local since a browser
+  // notification only ever shows on the device it fires from anyway.
+  (function(){
+    const toggleBtn = document.getElementById('reminder-toggle-btn');
+    if(!toggleBtn) return;
+    const REMINDED_KEY = 'trakkaReminderLastShownV1';
+    const supported = typeof Notification !== 'undefined';
+    let enabled = !!cloud.remindersEnabled;
+
+    function updateButton(){
+      toggleBtn.textContent = enabled ? '🔔' : '🔕';
+      toggleBtn.classList.toggle('active', enabled);
+      toggleBtn.disabled = !supported;
+      toggleBtn.title = !supported
+        ? 'Notifications are not supported in this browser'
+        : enabled ? 'Turn off daily reminders' : "Turn on daily reminders — shows a notification if you open the tracker without having logged anything yet today";
+    }
+    updateButton();
+
+    function hasLoggedAnythingToday(){
+      const today = todayKey();
+      for(let i=0;i<N;i++){
+        const m = state.months[i];
+        if(!m) continue;
+        if((m.income||[]).some(it=>it.checked && it.lastTicked===today)) return true;
+        if((m.debts||[]).some(it=>it.checked && it.lastTicked===today)) return true;
+        if((m.savingsApps||[]).some(it=>it.checked && it.lastTicked===today)) return true;
+      }
+      if(Object.keys(state.giftProgress||{}).some(k=>{ const p=state.giftProgress[k]; return p && p.lastTicked===today; })) return true;
+      if((state.livingEntries||[]).some(e=>e.date===today)) return true;
+      if((state.extra||[]).some(e=>e.date===today)) return true;
+      return false;
+    }
+
+    function maybeShowReminder(){
+      if(!supported || !enabled || Notification.permission!=='granted') return;
+      let lastShown = null;
+      try{ lastShown = localStorage.getItem(REMINDED_KEY); }catch(e){}
+      const today = todayKey();
+      if(lastShown===today || hasLoggedAnythingToday()) return;
+      try{
+        new Notification('Trakka', {
+          body: "You haven't logged anything yet today — a couple of minutes keeps your tracker honest.",
+          icon: 'icon-192.png'
+        });
+      }catch(e){}
+      try{ localStorage.setItem(REMINDED_KEY, today); }catch(e){}
+    }
+
+    toggleBtn.addEventListener('click', function(){
+      if(!supported) return;
+      if(enabled){
+        enabled = false;
+        saveCloudField('remindersEnabled', false);
+        updateButton();
+        return;
+      }
+      Notification.requestPermission().then(function(perm){
+        if(perm !== 'granted'){
+          alert('Reminders need notification permission — allow notifications for this site in your browser settings, then try again.');
+          return;
+        }
+        enabled = true;
+        saveCloudField('remindersEnabled', true);
+        updateButton();
+        maybeShowReminder();
+      });
+    });
+
+    maybeShowReminder();
   })();
 
   applyStaticSettings();
