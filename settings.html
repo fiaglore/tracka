@@ -21,7 +21,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body class="ft-locked">
+<body class="ft-locked settings-only-view">
+<script>
+// Read by begin() in app.js (a script shared with sign-in.html) so the
+// "Loading your tracker…" message shown while signing in reads "Loading
+// your tracker's settings…" here instead. Set early, synchronously,
+// before app.js's own (deferred) script block runs.
+window.__ftSettingsPage = true;
+</script>
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
   <div class="auth-card" id="auth-form-card">
     <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;">🌱</a>

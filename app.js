@@ -107,7 +107,52 @@ window.__ftStart = function(){
               neutralSpeech:"Just sprouting — nothing checked yet this month!",
               onTrackSpeech:'Growing nicely — you’re on track this month!',
               overBudgetSpeech:'Needs some water — check off more when you can.',
-              milestoneSpeech:'In full bloom — new milestone reached! 🎉' }
+              milestoneSpeech:'In full bloom — new milestone reached! 🎉' },
+    panda:  { name:'Panda',  neutral:'🐼', onTrack:'🐼', overBudget:'😮‍💨', milestone:'🎋', blink:'🐼',
+              neutralSpeech:"Chilling — nothing checked yet this month!",
+              onTrackSpeech:"Bamboo and budgets — you're on track this month!",
+              overBudgetSpeech:'A rough patch — check off more when you can.',
+              milestoneSpeech:'Panda-monium! New milestone reached! 🎉' },
+    bear:   { name:'Bear',   neutral:'🐻', onTrack:'🐻', overBudget:'😩', milestone:'🍯', blink:'🐻',
+              neutralSpeech:"Just woke up — nothing checked yet this month!",
+              onTrackSpeech:"Bear necessities covered — you're on track this month!",
+              overBudgetSpeech:'A grizzly month — check off more when you can.',
+              milestoneSpeech:'Roar! New milestone reached! 🎉' },
+    koala:  { name:'Koala',  neutral:'🐨', onTrack:'🐨', overBudget:'😴', milestone:'🌳', blink:'🐨',
+              neutralSpeech:"Napping — nothing checked yet this month!",
+              onTrackSpeech:"Easygoing and on track this month!",
+              overBudgetSpeech:'A sleepy, tight month — check off more when you can.',
+              milestoneSpeech:'New milestone — time to celebrate up a tree! 🎉' },
+    penguin:{ name:'Penguin',neutral:'🐧', onTrack:'🐧', overBudget:'🥶', milestone:'❄️', blink:'🐧',
+              neutralSpeech:"Waddling along — nothing checked yet this month!",
+              onTrackSpeech:"Cool and on track this month!",
+              overBudgetSpeech:'Feeling the chill — check off more when you can.',
+              milestoneSpeech:'New milestone — waddle of honor! 🎉' },
+    hamster:{ name:'Hamster',neutral:'🐹', onTrack:'🐹', overBudget:'😖', milestone:'🌻', blink:'🐹',
+              neutralSpeech:"Stuffing cheeks — nothing checked yet this month!",
+              onTrackSpeech:"Stashing it away nicely — you're on track this month!",
+              overBudgetSpeech:'Cheeks running low — check off more when you can.',
+              milestoneSpeech:'New milestone — time to spin the wheel in celebration! 🎉' },
+    frog:   { name:'Frog',   neutral:'🐸', onTrack:'🐸', overBudget:'😬', milestone:'🪷', blink:'🐸',
+              neutralSpeech:"Sitting on a lily pad — nothing checked yet this month!",
+              onTrackSpeech:"Hopping along nicely — you're on track this month!",
+              overBudgetSpeech:'A bit of a swamp this month — check off more when you can.',
+              milestoneSpeech:'Ribbit! New milestone reached! 🎉' },
+    turtle: { name:'Turtle', neutral:'🐢', onTrack:'🐢', overBudget:'😟', milestone:'🏆', blink:'🐢',
+              neutralSpeech:"Slow and steady — nothing checked yet this month!",
+              onTrackSpeech:"Slow and steady wins it — you're on track this month!",
+              overBudgetSpeech:'Pulling into the shell a bit — check off more when you can.',
+              milestoneSpeech:'New milestone — the tortoise wins again! 🎉' },
+    butterfly:{ name:'Butterfly', neutral:'🦋', onTrack:'🦋', overBudget:'🥀', milestone:'🌺', blink:'🦋',
+              neutralSpeech:"Just a cocoon — nothing checked yet this month!",
+              onTrackSpeech:"Flying high — you're on track this month!",
+              overBudgetSpeech:'Wings feeling heavy — check off more when you can.',
+              milestoneSpeech:'New milestone — a beautiful transformation! 🎉' },
+    unicorn:{ name:'Unicorn',neutral:'🦄', onTrack:'🦄', overBudget:'😵', milestone:'🌈', blink:'🦄',
+              neutralSpeech:"Waiting to sparkle — nothing checked yet this month!",
+              onTrackSpeech:"Magic budgeting — you're on track this month!",
+              overBudgetSpeech:'A little less magical this month — check off more when you can.',
+              milestoneSpeech:'New milestone — pure magic! 🎉' }
   };
   function loadPetSpecies(){ return PET_SPECIES[cloud.petSpecies] ? cloud.petSpecies : 'cat'; }
   let petSpeciesId = loadPetSpecies();
@@ -3207,13 +3252,125 @@ window.__ftStart = function(){
     return 'Something went wrong: ' + ((e && e.message) || e);
   }
 
+  // Shown in the Overview page's quote banner — a fresh pick every login
+  // (see showRandomQuote(), called once per begin()) rather than a single
+  // fixed line every user saw every time.
+  var MOTIVATIONAL_QUOTES = [
+    "Every bit you save today is a step toward freedom.",
+    "Small consistent deposits beat big occasional ones.",
+    "A budget is telling your money where to go instead of wondering where it went.",
+    "Debt-free isn't a destination, it's a direction you walk every day.",
+    "The best time to start saving was yesterday. The next best time is today.",
+    "You don't have to see the whole staircase, just take the first step.",
+    "Discipline today buys options tomorrow.",
+    "Progress, not perfection — every checked box counts.",
+    "Your future self is watching, and thanking you.",
+    "A dollar saved is a dollar that works for you, not against you.",
+    "Financial freedom is a marathon paid in small monthly installments.",
+    "Track it, then trust it — awareness is half the battle.",
+    "Every payment you check off is a chain you're breaking.",
+    "Wealth isn't built overnight, it's built one month at a time.",
+    "The goal isn't to be rich, it's to be free.",
+    "Money grows the same way trust does — slowly, then all at once.",
+    "You are one decision away from a completely different financial future.",
+    "Budgets don't restrict you, they protect the life you're building.",
+    "Every naira, dollar, or pound accounted for is a step closer to peace of mind.",
+    "The debt you pay off today is the freedom you buy for tomorrow.",
+    "Consistency beats intensity when it comes to saving.",
+    "Your bank balance is a diary of your discipline.",
+    "Start where you are, use what you have, save what you can.",
+    "A little progress each day adds up to big results.",
+    "Financial peace begins with a single tracked expense.",
+    "You can't out-earn a lack of a plan.",
+    "Saving is a habit before it's ever an amount.",
+    "The best investment you can make is in your own discipline.",
+    "Every month you stay on track is a vote for the person you want to become.",
+    "Debt shrinks the same way it grew — one payment at a time.",
+    "It's not about having more money, it's about making better choices with what you have.",
+    "A well-tracked budget is a promise you keep to yourself.",
+    "The habit of saving is itself an education.",
+    "You don't need to be perfect, you just need to keep showing up.",
+    "Freedom is buying your time back, one payment at a time.",
+    "Slow progress is still progress — don't quit checking the boxes.",
+    "The smallest deposit still moves you forward.",
+    "What gets tracked gets managed, and what gets managed gets mastered.",
+    "You're not behind, you're building — keep going.",
+    "Every budget you stick to is a gift to your future self.",
+    "Financial freedom isn't a finish line, it's a daily practice.",
+    "Money managed with intention becomes money that multiplies.",
+    "The strongest financial plan is the one you actually follow.",
+    "Saving isn't about deprivation, it's about direction.",
+    "Peace of mind is worth more than impulse purchases.",
+    "Today's sacrifice is tomorrow's security.",
+    "A budget is a plan for your dreams, written in numbers.",
+    "Every dollar has a job — give it one on purpose.",
+    "The road to debt-free is paved with small, boring, consistent choices.",
+    "You are always one good habit away from a better balance sheet.",
+    "Financial growth is quiet, patient, and unglamorous — and it works.",
+    "Your net worth grows in the same silence your discipline does.",
+    "Don't wait for extra money to start saving — start with what's there.",
+    "Every bill you plan for is a crisis you avoid.",
+    "The tracker doesn't judge, it just tells the truth — use it.",
+    "Little by little, a little becomes a lot.",
+    "A clear plan turns anxiety about money into confidence about money.",
+    "Your budget is a love letter to your future self.",
+    "It's never too late to start building good money habits.",
+    "The version of you that's debt-free is being built right now.",
+    "Every month closed out on budget is a month you can be proud of.",
+    "Spend intentionally, save consistently, and watch it compound.",
+    "You don't rise to the level of your income, you fall to the level of your habits.",
+    "Money saved quietly is confidence earned loudly.",
+    "Being broke is temporary, being disciplined is a lifelong asset.",
+    "The tracker is a mirror — check it often and it will guide you.",
+    "One more month of discipline is one less month of debt.",
+    "You're not just paying bills, you're buying back your freedom.",
+    "A small win logged today fuels a bigger win tomorrow.",
+    "Nothing changes if nothing changes — start the habit today.",
+    "Consistency turns a plan into a lifestyle.",
+    "The best financial habit is the one you repeat without thinking.",
+    "Every naira saved is a vote for the life you actually want.",
+    "You control the plan, not the other way around.",
+    "Financial freedom is built in the boring middle, not the exciting start.",
+    "Keep your eyes on the goal, not the grocery receipt.",
+    "The tracker remembers so you don't have to worry.",
+    "Every payment plan followed is a promise kept.",
+    "Money habits compound just like interest does.",
+    "You are building wealth one checked box at a time.",
+    "Discipline is choosing what you want most over what you want now.",
+    "The best time to review your budget is always now.",
+    "A goal without a plan is just a wish — you have both.",
+    "Every month you show up for your finances, they show up for you.",
+    "Debt-free living starts with debt-aware tracking.",
+    "Small leaks sink big ships — track every expense.",
+    "You're not saving money, you're buying peace of mind.",
+    "The path to financial freedom is walked, not sprinted.",
+    "Every dollar tracked is a dollar you truly own.",
+    "Your budget today shapes your options tomorrow.",
+    "Progress compounds — keep adding to it.",
+    "Financial confidence is built one honest number at a time.",
+    "Saving today means choosing today.",
+    "The best financial plan is the one you stick with.",
+    "A tracked goal is a goal halfway achieved.",
+    "You are closer to debt-free than you were yesterday.",
+    "Every bit you set aside today builds the life you want tomorrow.",
+    "Wealth is a series of small, consistent, boring decisions.",
+    "The strongest budgets are built on honest numbers.",
+    "You've got this — one entry, one month, one milestone at a time."
+  ];
+  function showRandomQuote(){
+    var el = $('quote-banner');
+    if(!el) return;
+    var q = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+    el.textContent = '"' + q + '"';
+  }
+
   // Fires once per sign-in, from the Firebase auth-state listener below.
   // Fetches this user's Firestore document, then hands off to the tracker.
   async function begin(user){
     if(started) return;
     started = true;
     window.__ftUid = user.uid;
-    showAuthLoading('Loading your tracker…');
+    showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
     let cloudData = null;
     try{
       cloudData = await window.Trakka.loadUserDoc(user.uid);
@@ -3230,6 +3387,7 @@ window.__ftStart = function(){
     hideAuthLoading();
     document.body.classList.remove('ft-locked');
     $('auth-pass').value = ''; $('auth-pass2').value = '';
+    showRandomQuote();
     window.__ftStart();
   }
 
@@ -3454,7 +3612,22 @@ window.__ftStart = function(){
     { id:'sunrise',     name:'Sunrise (gradient)' },
     { id:'lagoon',      name:'Lagoon (gradient)' },
     { id:'orchard',     name:'Orchard (dot pattern)' },
-    { id:'contour',     name:'Contour (line pattern)' }
+    { id:'contour',     name:'Contour (line pattern)' },
+    { id:'raspberry',   name:'Raspberry' },
+    { id:'mint',        name:'Mint' },
+    { id:'lavender',    name:'Lavender' },
+    { id:'navy',        name:'Navy' },
+    { id:'mustard',     name:'Mustard' },
+    { id:'charcoal',    name:'Charcoal' },
+    { id:'sage',        name:'Sage' },
+    { id:'coral',       name:'Coral' },
+    { id:'sky',         name:'Sky' },
+    { id:'wine',        name:'Wine' },
+    { id:'forest',      name:'Forest' },
+    { id:'copper',      name:'Copper' },
+    { id:'aurora',      name:'Aurora (gradient)' },
+    { id:'sunset',      name:'Sunset (gradient)' },
+    { id:'honeycomb',   name:'Honeycomb (pattern)' }
   ];
   // A flat hex works as a swatch's background for the 10 plain-color
   // presets, but says nothing about "this one has a gradient/pattern" —
@@ -3468,7 +3641,13 @@ window.__ftStart = function(){
     sunrise: 'linear-gradient(135deg, #F6D9A8 0%, #F0A97E 100%)',
     lagoon:  'linear-gradient(135deg, #9FD8E8 0%, #7C8FE0 100%)',
     orchard: 'radial-gradient(circle, rgba(40,55,27,.5) 1px, transparent 1.6px) #B7DE8F',
-    contour: 'repeating-linear-gradient(120deg, rgba(27,35,55,.35) 0px, rgba(27,35,55,.35) 1px, transparent 1px, transparent 4px) #AFC2EC'
+    contour: 'repeating-linear-gradient(120deg, rgba(27,35,55,.35) 0px, rgba(27,35,55,.35) 1px, transparent 1px, transparent 4px) #AFC2EC',
+    raspberry:'#C6294B', mint:'#1FA383', lavender:'#8067D6', navy:'#1D4E89', mustard:'#B8860B',
+    charcoal:'#52565E', sage:'#7A9471', coral:'#F0725A', sky:'#4FA7D9', wine:'#7A2138',
+    forest:'#2C5F3C', copper:'#B5651D',
+    aurora:  'linear-gradient(135deg, #7BE8B4 0%, #B4A0EE 100%)',
+    sunset:  'linear-gradient(135deg, #F0A0A8 0%, #F0C89E 100%)',
+    honeycomb: 'repeating-linear-gradient(60deg, rgba(51,43,24,.4) 0px, rgba(51,43,24,.4) 1px, transparent 1px, transparent 5px), repeating-linear-gradient(-60deg, rgba(51,43,24,.4) 0px, rgba(51,43,24,.4) 1px, transparent 1px, transparent 5px) #EFE4C0'
   };
   function loadThemePreset(){
     var cloud = window.__ftCloudData;

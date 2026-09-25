@@ -1,7 +1,7 @@
 /* Debt-Free & Budget Tracker — stylesheet v2
-   Modern, paginated layout with 14 selectable theme presets, each
-   available in a light and a dark variant (10 flat-color presets +
-   2 gradient-sweep presets + 2 subtle-pattern presets).
+   Modern, paginated layout with 29 selectable theme presets, each
+   available in a light and a dark variant (23 flat-color presets +
+   4 gradient-sweep presets + 3 subtle-pattern presets).
    Keep this file in the same folder as the tracker .html file. */
 
 /* ============================================================
@@ -232,6 +232,208 @@ body[data-theme-preset="contour"][data-mode="dark"]{
   --accent:#7396E8; --accent-ink:#AEBDE0;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
   --bg-image:repeating-linear-gradient(120deg, rgba(228,232,241,.045) 0px, rgba(228,232,241,.045) 1px, transparent 1px, transparent 15px);
+}
+
+/* ---- 15. Raspberry ---- */
+body[data-theme-preset="raspberry"][data-mode="light"]{
+  --bg:#FBF0F2; --bg-soft:#F5E1E5; --surface:#FFFFFF; --surface-2:#FDF4F5;
+  --ink:#4A1420; --muted:#9C5E6E; --line:#F0D0D6;
+  --accent:#C6294B; --accent-ink:#4A0A18;
+  --good:#4E9166; --bad:#C64A3F; --info:#5E7CB0;
+}
+body[data-theme-preset="raspberry"][data-mode="dark"]{
+  --bg:#1C0F13; --bg-soft:#25161B; --surface:#2D1D22; --surface-2:#36232A;
+  --ink:#F1DCE2; --muted:#B88C96; --line:#4B2A32;
+  --accent:#E85C81; --accent-ink:#E0A4B4;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 16. Mint ---- */
+body[data-theme-preset="mint"][data-mode="light"]{
+  --bg:#EEF7F3; --bg-soft:#DFEEE7; --surface:#FFFFFF; --surface-2:#F5FAF8;
+  --ink:#123328; --muted:#5E8C7A; --line:#CFE7DC;
+  --accent:#1FA383; --accent-ink:#0A3D30;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="mint"][data-mode="dark"]{
+  --bg:#0F1B17; --bg-soft:#16241F; --surface:#1D2C26; --surface-2:#22342D;
+  --ink:#DFF1EA; --muted:#8FB8A9; --line:#2E4A40;
+  --accent:#5EDCBA; --accent-ink:#AEE0D2;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 17. Lavender ---- */
+body[data-theme-preset="lavender"][data-mode="light"]{
+  --bg:#F4F1FA; --bg-soft:#E8E2F3; --surface:#FFFFFF; --surface-2:#F8F6FC;
+  --ink:#2B2140; --muted:#7C6E96; --line:#DDD3EC;
+  --accent:#8067D6; --accent-ink:#2E2050;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="lavender"][data-mode="dark"]{
+  --bg:#161320; --bg-soft:#1D1929; --surface:#242032; --surface-2:#2A2539;
+  --ink:#E9E4F5; --muted:#A79ABE; --line:#392F4C;
+  --accent:#A594EE; --accent-ink:#C8BEE0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 18. Navy ---- */
+body[data-theme-preset="navy"][data-mode="light"]{
+  --bg:#EEF2F7; --bg-soft:#DEE6F0; --surface:#FFFFFF; --surface-2:#F5F8FB;
+  --ink:#101E33; --muted:#556A8D; --line:#CFDBEC;
+  --accent:#1D4E89; --accent-ink:#0A1E38;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="navy"][data-mode="dark"]{
+  --bg:#0D131F; --bg-soft:#131A28; --surface:#182132; --surface-2:#1C2738;
+  --ink:#DEE6F5; --muted:#8797B8; --line:#2A3650;
+  --accent:#5C8CE0; --accent-ink:#AEC3E0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 19. Mustard ---- */
+body[data-theme-preset="mustard"][data-mode="light"]{
+  --bg:#F8F4E2; --bg-soft:#EFE6C2; --surface:#FFFFFF; --surface-2:#FBF8EA;
+  --ink:#332B0A; --muted:#8C7E3E; --line:#E7DC9C;
+  --accent:#B8860B; --accent-ink:#3F3202;
+  --good:#4C8F3E; --bad:#D2552F; --info:#3F82AE;
+}
+body[data-theme-preset="mustard"][data-mode="dark"]{
+  --bg:#1B1710; --bg-soft:#221D14; --surface:#2A241A; --surface-2:#322B1F;
+  --ink:#F0EAD8; --muted:#B8A97E; --line:#453B27;
+  --accent:#E0B84D; --accent-ink:#E0D0A0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 20. Charcoal ---- */
+body[data-theme-preset="charcoal"][data-mode="light"]{
+  --bg:#F1F1F2; --bg-soft:#E4E4E6; --surface:#FFFFFF; --surface-2:#F8F8F8;
+  --ink:#202124; --muted:#6C6D72; --line:#D7D7DA;
+  --accent:#52565E; --accent-ink:#1A1B1E;
+  --good:#3E9457; --bad:#C74C3B; --info:#3E6BD1;
+}
+body[data-theme-preset="charcoal"][data-mode="dark"]{
+  --bg:#131315; --bg-soft:#19191C; --surface:#202023; --surface-2:#26262A;
+  --ink:#E7E7E9; --muted:#98999E; --line:#333338;
+  --accent:#9598A3; --accent-ink:#C8C9CE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 21. Sage ---- */
+body[data-theme-preset="sage"][data-mode="light"]{
+  --bg:#F1F4EE; --bg-soft:#E5EBDE; --surface:#FFFFFF; --surface-2:#F7F9F5;
+  --ink:#242E1F; --muted:#71805E; --line:#DAE3CE;
+  --accent:#7A9471; --accent-ink:#28331F;
+  --good:#3F8F52; --bad:#C15C3E; --info:#3F7A8C;
+}
+body[data-theme-preset="sage"][data-mode="dark"]{
+  --bg:#131912; --bg-soft:#192018; --surface:#20271E; --surface-2:#262E23;
+  --ink:#E6EDE1; --muted:#A0B393; --line:#374332;
+  --accent:#A3C494; --accent-ink:#C6DCB9;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 22. Coral ---- */
+body[data-theme-preset="coral"][data-mode="light"]{
+  --bg:#FBF1EE; --bg-soft:#F5E3DC; --surface:#FFFFFF; --surface-2:#FDF5F2;
+  --ink:#4A2418; --muted:#9C6E5E; --line:#F0D8CE;
+  --accent:#F0725A; --accent-ink:#5C2013;
+  --good:#4E9166; --bad:#C64A3F; --info:#5E7CB0;
+}
+body[data-theme-preset="coral"][data-mode="dark"]{
+  --bg:#1C1310; --bg-soft:#251A16; --surface:#2D211C; --surface-2:#362822;
+  --ink:#F1E3DC; --muted:#B89A8C; --line:#4B342C;
+  --accent:#F58A73; --accent-ink:#E0B4A8;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 23. Sky ---- */
+body[data-theme-preset="sky"][data-mode="light"]{
+  --bg:#EEF6FA; --bg-soft:#DDEBF2; --surface:#FFFFFF; --surface-2:#F5FAFC;
+  --ink:#122A38; --muted:#57798D; --line:#CFE2EC;
+  --accent:#4FA7D9; --accent-ink:#123048;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="sky"][data-mode="dark"]{
+  --bg:#0E171D; --bg-soft:#151F26; --surface:#1B262E; --surface-2:#202D36;
+  --ink:#DFEDF5; --muted:#89A9B8; --line:#2C4150;
+  --accent:#7EC9EE; --accent-ink:#AED8E0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 24. Wine ---- */
+body[data-theme-preset="wine"][data-mode="light"]{
+  --bg:#F7EEF0; --bg-soft:#EFDCE0; --surface:#FFFFFF; --surface-2:#FBF3F4;
+  --ink:#3E1420; --muted:#8F5A67; --line:#E9CCD2;
+  --accent:#7A2138; --accent-ink:#2E0913;
+  --good:#4C8F5E; --bad:#B7412A; --info:#4E6E9A;
+}
+body[data-theme-preset="wine"][data-mode="dark"]{
+  --bg:#1C1013; --bg-soft:#251519; --surface:#2D191F; --surface-2:#361E25;
+  --ink:#F1DEE2; --muted:#B88894; --line:#4B2530;
+  --accent:#C25772; --accent-ink:#E0A8B4;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 25. Forest ---- */
+body[data-theme-preset="forest"][data-mode="light"]{
+  --bg:#EEF3EE; --bg-soft:#DDE9DD; --surface:#FFFFFF; --surface-2:#F5F9F5;
+  --ink:#12271A; --muted:#57795E; --line:#CFE0CF;
+  --accent:#2C5F3C; --accent-ink:#0D2214;
+  --good:#3E9457; --bad:#C74C3B; --info:#3E6BD1;
+}
+body[data-theme-preset="forest"][data-mode="dark"]{
+  --bg:#0D160F; --bg-soft:#131F15; --surface:#18261A; --surface-2:#1D2D1F;
+  --ink:#DFEFE2; --muted:#87AB8F; --line:#2A4130;
+  --accent:#5C9E6E; --accent-ink:#AED4B4;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 26. Copper ---- */
+body[data-theme-preset="copper"][data-mode="light"]{
+  --bg:#F8F0E6; --bg-soft:#F0E0CB; --surface:#FFFFFF; --surface-2:#FBF6EC;
+  --ink:#3E2810; --muted:#93765A; --line:#E9D6BB;
+  --accent:#B5651D; --accent-ink:#4E2508;
+  --good:#4C8F5E; --bad:#B7412A; --info:#4E6E9A;
+}
+body[data-theme-preset="copper"][data-mode="dark"]{
+  --bg:#1C160F; --bg-soft:#251D14; --surface:#2D241A; --surface-2:#362B1F;
+  --ink:#F1E7DC; --muted:#B8A38C; --line:#4B3B2A;
+  --accent:#E09455; --accent-ink:#E0BFA0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 27. Aurora (green-violet gradient sweep) ---- */
+body[data-theme-preset="aurora"][data-mode="light"]{
+  --bg:#F1F4F0; --bg-soft:#E2ECE4; --surface:#FFFFFF; --surface-2:#F7FAF7;
+  --ink:#1B2E22; --muted:#5E8D71; --line:#D1E5D6;
+  --accent:#3FBF8F; --accent-ink:#123F2A;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:linear-gradient(135deg, #EAF6EE 0%, #F0ECF6 100%);
+}
+body[data-theme-preset="aurora"][data-mode="dark"]{
+  --bg:#101A15; --bg-soft:#16221B; --surface:#1C2921; --surface-2:#223027;
+  --ink:#E4F1E8; --muted:#8FB8A0; --line:#304B38;
+  --accent:#66E0B0; --accent-ink:#AEE0C8;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #101A15 0%, #151A22 100%);
+}
+/* ---- 28. Sunset (pink-orange gradient sweep) ---- */
+body[data-theme-preset="sunset"][data-mode="light"]{
+  --bg:#FBF1EE; --bg-soft:#F6E2DA; --surface:#FFFFFF; --surface-2:#FDF6F3;
+  --ink:#3E1E17; --muted:#9C6E5E; --line:#F0D6CC;
+  --accent:#E85C6E; --accent-ink:#4E1A1F;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:linear-gradient(135deg, #FBEAE0 0%, #F6E0EC 100%);
+}
+body[data-theme-preset="sunset"][data-mode="dark"]{
+  --bg:#1C1310; --bg-soft:#251A18; --surface:#2D211E; --surface-2:#362824;
+  --ink:#F1E1DC; --muted:#B8968C; --line:#4B332C;
+  --accent:#F08A96; --accent-ink:#E0B4B8;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #1C1310 0%, #201820 100%);
+}
+/* ---- 29. Honeycomb (crosshatch texture) ---- */
+body[data-theme-preset="honeycomb"][data-mode="light"]{
+  --bg:#F6F3EA; --bg-soft:#ECE4CD; --surface:#FFFFFF; --surface-2:#FAF7EF;
+  --ink:#332B18; --muted:#8C7F5E; --line:#E5D9B6;
+  --accent:#D9A02F; --accent-ink:#402F0A;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:repeating-linear-gradient(60deg, rgba(51,43,24,.05) 0px, rgba(51,43,24,.05) 1px, transparent 1px, transparent 14px), repeating-linear-gradient(-60deg, rgba(51,43,24,.05) 0px, rgba(51,43,24,.05) 1px, transparent 1px, transparent 14px);
+}
+body[data-theme-preset="honeycomb"][data-mode="dark"]{
+  --bg:#1B1710; --bg-soft:#221D14; --surface:#2A241A; --surface-2:#322B1F;
+  --ink:#F0EAD8; --muted:#B8A97E; --line:#453B27;
+  --accent:#E8C373; --accent-ink:#E0D0AE;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:repeating-linear-gradient(60deg, rgba(240,234,216,.04) 0px, rgba(240,234,216,.04) 1px, transparent 1px, transparent 14px), repeating-linear-gradient(-60deg, rgba(240,234,216,.04) 0px, rgba(240,234,216,.04) 1px, transparent 1px, transparent 14px);
 }
 
 
@@ -797,3 +999,31 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 #pin-setup-overlay .auth-submit{margin-top:6px;}
 #pin-setup-overlay .auth-link{margin-top:10px;}
 #pin-unlock-card .auth-link{margin-top:10px;}
+
+/* ============================================================
+   SETTINGS-ONLY VIEW (settings.html)
+   That page shares this exact stylesheet and app shell with
+   sign-in.html/index.html (see settings.html's own inline script for
+   why) but should show only the Settings section — no month tabs,
+   overview stats, debt/savings pages, or the motivational quote, all
+   of which belong to the tracker itself. Rather than removing those
+   elements from the DOM (app.js's render functions write into them
+   unconditionally and aren't null-guarded — see e.g. renderTabs()),
+   settings.html tags <body> with this class and everything tracker-
+   specific is just hidden here; app.js keeps rendering into it same
+   as always, harmlessly, off-screen.
+   ============================================================ */
+body.settings-only-view .brand-row .tag,
+body.settings-only-view .meta-chips,
+body.settings-only-view .overall,
+body.settings-only-view .month-bar,
+body.settings-only-view .page-nav,
+body.settings-only-view #page-overview,
+body.settings-only-view #page-income,
+body.settings-only-view #page-debts,
+body.settings-only-view #page-gifts,
+body.settings-only-view #page-savings,
+body.settings-only-view #page-expenses,
+body.settings-only-view .app-shell > footer{
+  display:none !important;
+}
