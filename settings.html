@@ -30,7 +30,15 @@
 window.__ftSettingsPage = true;
 </script>
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-  <div class="auth-card" id="auth-form-card">
+  <!-- Unlike sign-in.html, this card starts hidden: whether this device has a
+       persisted session takes a moment to resolve, and this page's whole
+       point is to be reached mid-session (the gear button, or a reload) —
+       showing the plain sign-in form as the very first paint would flash it
+       before "Loading your tracker's settings…" replaces it a beat later.
+       #auth-loading-box below starts visible instead, and app.js's auth IIFE
+       (see revealSignInGate()) only swaps to this form once it's confirmed
+       there's genuinely no session to resume. -->
+  <div class="auth-card" id="auth-form-card" hidden>
     <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;">🌱</a>
     <h2 id="auth-title">Welcome back</h2>
     <p class="auth-sub" id="auth-sub">Sign in to open your tracker.</p>
@@ -55,10 +63,11 @@ window.__ftSettingsPage = true;
   <!-- Shown in place of the form above from the moment sign-in/create-account is submitted
        until the tracker's data has loaded and is ready to display — signing in and loading
        the Firestore document both take a moment, and without this the screen just sat there
-       looking frozen in between. -->
-  <div class="auth-card auth-loading-box" id="auth-loading-box" hidden role="status" aria-live="polite">
+       looking frozen in between. Starts visible on THIS page (see #auth-form-card above)
+       with copy that already matches what begin() sets once it runs. -->
+  <div class="auth-card auth-loading-box" id="auth-loading-box" role="status" aria-live="polite">
     <span class="auth-loading-spin" aria-hidden="true">🌱</span>
-    <p id="auth-loading-text">Signing you in…</p>
+    <p id="auth-loading-text">Loading your tracker's settings…</p>
   </div>
   <!-- Shown instead of #auth-form-card right after an auto sign-out (idle
        timeout or session cap — never a manual "🔒 Sign out" click), when a
@@ -96,6 +105,11 @@ window.__ftSettingsPage = true;
     <button type="button" class="auth-link" id="pin-setup-close">Cancel</button>
   </div>
 </div>
+<!-- Ambient weather effect (snow/rain/etc — picked on the Settings page's
+     "Weather effect" picker), a looping background layer separate from
+     the one-shot #confetti-canvas above it. See its IIFE at the bottom
+     of app.js. -->
+<canvas id="weather-canvas"></canvas>
 <canvas id="confetti-canvas"></canvas>
 <div class="cat-companion" id="cat-companion" title="Click me!">
   <span class="cat-pop" id="cat-pop" aria-hidden="true">💕</span>
@@ -405,6 +419,14 @@ window.__ftSettingsPage = true;
         <div class="theme-picker">
           <span class="theme-picker-label">Pet</span>
           <div class="pet-swatches" id="pet-swatches"></div>
+        </div>
+        <div class="theme-picker">
+          <span class="theme-picker-label">Weather effect</span>
+          <div class="weather-swatches" id="weather-swatches"></div>
+        </div>
+        <div class="theme-picker">
+          <span class="theme-picker-label">Nigerian / Tropical weather</span>
+          <div class="weather-swatches" id="tropical-weather-swatches"></div>
         </div>
         <span class="theme-picker-label">Dark mode</span>
         <button class="xl-btn theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>

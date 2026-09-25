@@ -89,6 +89,11 @@
     <button type="button" class="auth-link" id="pin-setup-close">Cancel</button>
   </div>
 </div>
+<!-- Ambient weather effect (snow/rain/etc — picked on the Settings page's
+     "Weather effect" picker), a looping background layer separate from
+     the one-shot #confetti-canvas above it. See its IIFE at the bottom
+     of app.js. -->
+<canvas id="weather-canvas"></canvas>
 <canvas id="confetti-canvas"></canvas>
 <div class="cat-companion" id="cat-companion" title="Click me!">
   <span class="cat-pop" id="cat-pop" aria-hidden="true">💕</span>
@@ -392,6 +397,14 @@
         <div class="theme-picker">
           <span class="theme-picker-label">Pet</span>
           <div class="pet-swatches" id="pet-swatches"></div>
+        </div>
+        <div class="theme-picker">
+          <span class="theme-picker-label">Weather effect</span>
+          <div class="weather-swatches" id="weather-swatches"></div>
+        </div>
+        <div class="theme-picker">
+          <span class="theme-picker-label">Nigerian / Tropical weather</span>
+          <div class="weather-swatches" id="tropical-weather-swatches"></div>
         </div>
         <span class="theme-picker-label">Dark mode</span>
         <button class="xl-btn theme-toggle" id="theme-toggle-btn" type="button" title="Switch to dark mode">🌙</button>

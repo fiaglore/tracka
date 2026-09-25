@@ -3242,6 +3242,24 @@ window.__ftStart = function(){
     if(card) card.hidden = false;
   }
 
+  // settings.html starts with #auth-loading-box showing (rather than the
+  // plain sign-in form — see the comment on #auth-form-card there) so there's
+  // no flash of "sign in" before we even know whether this device has a
+  // session to resume. Once the very first onAuthChange callback confirms
+  // there genuinely isn't one, this swaps to whichever gate actually applies
+  // — the PIN-unlock card if showPinUnlockCard() already put it up, the
+  // plain form otherwise. A no-op on sign-in.html, where the loading box
+  // isn't showing to begin with.
+  function revealSignInGate(){
+    var box = $('auth-loading-box');
+    if(!box || box.hidden) return;
+    box.hidden = true;
+    var pinCard = $('pin-unlock-card');
+    if(pinCard && !pinCard.hidden) return;
+    var card = $('auth-form-card');
+    if(card) card.hidden = false;
+  }
+
   function friendlyAuthError(e){
     const code = (e && e.code) || '';
     if(code === 'auth/email-already-in-use') return 'That email is already registered — sign in instead.';
@@ -3446,13 +3464,17 @@ window.__ftStart = function(){
   var pinUnlockAttempts = 0;
 
   function showPinUnlockCard(){
-    var formCard = $('auth-form-card'), pinCard = $('pin-unlock-card');
+    var formCard = $('auth-form-card'), pinCard = $('pin-unlock-card'), loadingBox = $('auth-loading-box');
     if(!formCard || !pinCard) return;
     pinUnlockAttempts = 0;
     $('pin-unlock-error').textContent = '';
     $('pin-unlock-input').value = '';
     formCard.hidden = true;
     pinCard.hidden = false;
+    // Also hides #auth-loading-box directly (settings.html starts with it
+    // showing — see revealSignInGate()) so the two never overlap, rather
+    // than waiting on the later onAuthChange callback to do it.
+    if(loadingBox) loadingBox.hidden = true;
     setTimeout(function(){ $('pin-unlock-input').focus(); }, 50);
   }
   function showPlainSignInForm(msg){
@@ -3571,7 +3593,7 @@ window.__ftStart = function(){
         if(autoLogoutPin) location.reload();
         else location.replace('signed-out.html');
       }
-      else { const u = $('auth-user'); if(u) setTimeout(()=>u.focus(), 50); }
+      else { revealSignInGate(); const u = $('auth-user'); if(u) setTimeout(()=>u.focus(), 50); }
     });
   }
   if(window.Trakka) initAuth();
@@ -3792,4 +3814,242 @@ window.__ftStart = function(){
     try{ last = sessionStorage.getItem('ftActivePage'); }catch(e){}
     if(last) showPage(last);
   });
+})();
+
+
+/* ================================================================
+   Ambient weather effects — a full-viewport, pointer-events:none canvas
+   (#weather-canvas) that draws a looping particle effect over the whole
+   app, picked from the Settings page's "Weather effect" picker. Follows
+   the exact same self-contained-IIFE / per-user-Firestore-field pattern
+   as the theme-preset picker above (its own tiny save function rather
+   than reaching into window.__ftStart()'s private saveCloudField, since
+   this runs as an independent top-level script block too).
+
+   Two option groups share one underlying setting (`weatherEffect` on the
+   user doc) — only one effect is ever active at a time — split visually
+   into "Weather effect" (snow/autumn/rain/spring) and "Nigerian /
+   Tropical weather" (harmattan/tropical rain/sunny) purely because that's
+   how the Settings page presents the choice, not because they're two
+   separate settings.
+   ================================================================ */
+(function(){
+  var WEATHER_EFFECTS = [
+    { id:'none',         name:'None (off)',      icon:'🚫', group:'season' },
+    { id:'snow',         name:'Snow',             icon:'❄️', group:'season' },
+    { id:'autumn',       name:'Autumn leaves',    icon:'🍂', group:'season' },
+    { id:'rain',         name:'Rain',             icon:'🌧️', group:'season' },
+    { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season' },
+    { id:'harmattan',    name:'Harmattan haze',   icon:'🌫️', group:'tropical' },
+    { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical' },
+    { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' }
+  ];
+  var AUTUMN_COLORS = ['#C1592F', '#D98E2B', '#B8860B', '#8B3A1F', '#C6752F'];
+  var SPRING_COLORS = ['#F5C6D6', '#FBEAF0', '#E8A9C0', '#FFFFFF', '#F0D9E4'];
+  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, harmattan:90, sunny:32 };
+
+  function loadWeatherEffect(){
+    var cloud = window.__ftCloudData;
+    return (cloud && WEATHER_EFFECTS.some(function(w){ return w.id === cloud.weatherEffect; })) ? cloud.weatherEffect : 'none';
+  }
+  function saveWeatherEffectPref(id){
+    if(!window.__ftUid) return;
+    window.Trakka.saveUserDoc(window.__ftUid, { weatherEffect:id }).catch(function(e){ console.error('Save failed:', e); });
+  }
+
+  var canvas = null, ctx = null, particles = [], rafId = null, w = 0, h = 0;
+
+  function ensureCanvas(){
+    if(canvas) return canvas;
+    canvas = document.getElementById('weather-canvas');
+    if(!canvas) return null;
+    ctx = canvas.getContext('2d');
+    return canvas;
+  }
+  function resizeCanvas(){
+    if(!canvas) return;
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function makeParticle(effect){
+    switch(effect){
+      case 'snow': return {
+        x:Math.random()*w, y:Math.random()*h, r:1.4+Math.random()*2.4,
+        vy:0.4+Math.random()*0.9, vx:(Math.random()-0.5)*0.3,
+        sway:Math.random()*Math.PI*2, swaySpeed:0.01+Math.random()*0.02,
+        alpha:0.5+Math.random()*0.4
+      };
+      case 'autumn': return {
+        x:Math.random()*w, y:Math.random()*h, size:5+Math.random()*5,
+        vy:0.5+Math.random()*0.8, sway:Math.random()*Math.PI*2,
+        rot:Math.random()*Math.PI*2, vRot:(Math.random()-0.5)*0.04,
+        color:AUTUMN_COLORS[Math.floor(Math.random()*AUTUMN_COLORS.length)]
+      };
+      case 'rain': return {
+        x:Math.random()*w, y:Math.random()*h, len:10+Math.random()*10,
+        vy:9+Math.random()*5, alpha:0.2+Math.random()*0.25
+      };
+      case 'tropicalRain': return {
+        x:Math.random()*w, y:Math.random()*h, len:15+Math.random()*15,
+        vy:15+Math.random()*8, alpha:0.28+Math.random()*0.3
+      };
+      case 'spring': return {
+        x:Math.random()*w, y:Math.random()*h, size:4+Math.random()*4,
+        vy:0.35+Math.random()*0.6, sway:Math.random()*Math.PI*2,
+        rot:Math.random()*Math.PI*2, vRot:(Math.random()-0.5)*0.03,
+        color:SPRING_COLORS[Math.floor(Math.random()*SPRING_COLORS.length)]
+      };
+      case 'harmattan': return {
+        x:Math.random()*w, y:Math.random()*h, r:0.6+Math.random()*1.6,
+        vx:0.15+Math.random()*0.35, vy:(Math.random()-0.5)*0.08,
+        alpha:0.12+Math.random()*0.22
+      };
+      case 'sunny': return {
+        x:Math.random()*w, y:h+Math.random()*40, r:1+Math.random()*1.8,
+        vy:-(0.2+Math.random()*0.35), vx:(Math.random()-0.5)*0.2,
+        alpha:0.18+Math.random()*0.32, twinkle:Math.random()*Math.PI*2
+      };
+      default: return null;
+    }
+  }
+  function seedParticles(effect){
+    var count = PARTICLE_COUNTS[effect] || 0;
+    particles = [];
+    for(var i=0;i<count;i++){ particles.push(makeParticle(effect)); }
+  }
+
+  function drawDot(p, color){ ctx.globalAlpha=p.alpha; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); }
+  function drawPetal(p){
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.globalAlpha=0.85; ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.ellipse(0,0,p.size,p.size*0.58,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+  function drawStreak(p, color){
+    ctx.strokeStyle=color; ctx.globalAlpha=p.alpha; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-2,p.y+p.len); ctx.stroke();
+  }
+
+  function step(effect){
+    ctx.clearRect(0,0,w,h);
+    // Harmattan reads as "dusty air", not just floating specks, with a very
+    // soft warm haze wash under the particles.
+    if(effect === 'harmattan'){
+      ctx.save(); ctx.globalAlpha=0.05; ctx.fillStyle='#D9A056'; ctx.fillRect(0,0,w,h); ctx.restore();
+    }
+    particles.forEach(function(p){
+      switch(effect){
+        case 'snow':
+          p.sway += p.swaySpeed; p.x += p.vx + Math.sin(p.sway)*0.3; p.y += p.vy;
+          if(p.y > h+5){ p.y=-5; p.x=Math.random()*w; }
+          if(p.x < -5) p.x = w+5; else if(p.x > w+5) p.x = -5;
+          drawDot(p, '#FFFFFF');
+          break;
+        case 'autumn':
+          p.sway += 0.02; p.x += Math.sin(p.sway)*0.5; p.y += p.vy; p.rot += p.vRot;
+          if(p.y > h+10){ p.y=-10; p.x=Math.random()*w; }
+          drawPetal(p);
+          break;
+        case 'rain':
+          p.y += p.vy;
+          if(p.y > h){ p.y=-p.len; p.x=Math.random()*w; }
+          drawStreak(p, 'rgba(150,190,220,0.9)');
+          break;
+        case 'tropicalRain':
+          p.y += p.vy;
+          if(p.y > h){ p.y=-p.len; p.x=Math.random()*w; }
+          drawStreak(p, 'rgba(110,140,160,0.9)');
+          break;
+        case 'spring':
+          p.sway += 0.015; p.x += Math.sin(p.sway)*0.4; p.y += p.vy; p.rot += p.vRot;
+          if(p.y > h+10){ p.y=-10; p.x=Math.random()*w; }
+          drawPetal(p);
+          break;
+        case 'harmattan':
+          p.x += p.vx; p.y += p.vy;
+          if(p.x > w+5){ p.x=-5; p.y=Math.random()*h; }
+          drawDot(p, '#C9B183');
+          break;
+        case 'sunny':
+          p.twinkle += 0.05; p.x += p.vx; p.y += p.vy;
+          p.alpha = (0.18+0.32*((Math.sin(p.twinkle)+1)/2));
+          if(p.y < -5){ p.y=h+5; p.x=Math.random()*w; }
+          drawDot(p, '#FFE7A8');
+          break;
+      }
+    });
+    ctx.globalAlpha = 1;
+    rafId = requestAnimationFrame(function(){ step(effect); });
+  }
+  function stopAnimation(){
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+    if(ctx && canvas) ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles = [];
+  }
+
+  function updateSwatchActive(id){
+    ['weather-swatches', 'tropical-weather-swatches'].forEach(function(containerId){
+      var wrap = document.getElementById(containerId);
+      if(!wrap) return;
+      Array.prototype.forEach.call(wrap.children, function(btn){
+        btn.classList.toggle('active', btn.getAttribute('data-weather-id') === id);
+      });
+    });
+  }
+  function applyWeatherEffect(id){
+    if(!ensureCanvas()) return;
+    resizeCanvas();
+    stopAnimation();
+    updateSwatchActive(id);
+    if(id === 'none') return;
+    seedParticles(id);
+    step(id);
+  }
+  window.setWeatherEffect = function(id){
+    if(!WEATHER_EFFECTS.some(function(w){ return w.id === id; })) return;
+    applyWeatherEffect(id);
+    saveWeatherEffectPref(id);
+  };
+
+  function makeWeatherBtn(w){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pet-swatch weather-swatch';
+    b.textContent = w.icon;
+    b.title = w.name;
+    b.setAttribute('data-weather-id', w.id);
+    b.addEventListener('click', function(){ window.setWeatherEffect(w.id); });
+    return b;
+  }
+  function buildWeatherSwatches(){
+    var seasonWrap = document.getElementById('weather-swatches');
+    if(seasonWrap && !seasonWrap.children.length){
+      WEATHER_EFFECTS.filter(function(w){ return w.group === 'season'; }).forEach(function(w){ seasonWrap.appendChild(makeWeatherBtn(w)); });
+    }
+    var tropicalWrap = document.getElementById('tropical-weather-swatches');
+    if(tropicalWrap && !tropicalWrap.children.length){
+      WEATHER_EFFECTS.filter(function(w){ return w.group === 'tropical'; }).forEach(function(w){ tropicalWrap.appendChild(makeWeatherBtn(w)); });
+    }
+  }
+
+  function refreshWeatherForCurrentUser(){
+    buildWeatherSwatches();
+    applyWeatherEffect(loadWeatherEffect());
+  }
+
+  // Same "wait for the tracker to unlock" signal the theme-preset picker
+  // uses — window.__ftCloudData/__ftUid aren't populated until then.
+  new MutationObserver(function(){
+    if(!document.body.classList.contains('ft-locked')) refreshWeatherForCurrentUser();
+    else stopAnimation();
+  }).observe(document.body, { attributes:true, attributeFilter:['class'] });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    buildWeatherSwatches();
+    if(!document.body.classList.contains('ft-locked')) refreshWeatherForCurrentUser();
+  });
+  if(document.readyState !== 'loading'){
+    buildWeatherSwatches();
+    if(!document.body.classList.contains('ft-locked')) refreshWeatherForCurrentUser();
+  }
 })();
