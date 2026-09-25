@@ -1615,10 +1615,47 @@ window.__ftStart = function(){
       }
       return touched && allChecked;
     });
+
+    // A debt "series" (see debtSeriesList()) is fully cleared once nothing is
+    // left outstanding on it and it was actually a real debt (total>0) —
+    // reused below for both the single- and multi-debt achievements.
+    const allDebtSeries = debtSeriesList();
+    const clearedSeries = allDebtSeries.filter(d=>d.total>0 && d.remaining<=0);
+    const giftFullyFunded = state.giftGoals.some(function(g){
+      let paidTowardGoal = 0;
+      for(let i=0;i<N;i++){
+        giftItemsForMonth(i).forEach(function(item){
+          if(item.goalId===g.id && item.checked) paidTowardGoal += Number(item.amount)||0;
+        });
+      }
+      return g.totalAmount>0 && paidTowardGoal>=g.totalAmount;
+    });
+    const streakDays = Number(cloud.streakCount)||0;
+
     const badgeDefs = [
       {id:'first100k', icon:'🏅', label:'First '+CUR+'100k saved', earned: maxSaved>=100000},
       {id:'debtslayer', icon:'🗡️', label:'Debt Slayer — first loan cleared', earned: anyLenderCleared},
       {id:'halfway', icon:'🎯', label:'Halfway There', earned: pct>=50},
+      {id:'firststep', icon:'🌱', label:'First Step — checked off your first item', earned: ovCheckedItems>=1},
+      {id:'perfectmonth', icon:'🏆', label:'Perfect Month — one month fully checked off', earned: complete>=1},
+      {id:'threepeat', icon:'🥉', label:'Three-peat — 3 months fully complete', earned: complete>=3},
+      {id:'allmonths', icon:'👑', label:'Clean Sweep — every tracked month complete', earned: N>0 && complete===N},
+      {id:'centurion', icon:'💯', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
+      {id:'savingsstarter', icon:'🐷', label:'Piggy Bank Started — first savings deposit', earned: maxSaved>0},
+      {id:'saver10k', icon:'🪙', label:'First '+CUR+'10k saved', earned: maxSaved>=10000},
+      {id:'saver500k', icon:'💰', label:'Half Saved — '+CUR+'500k saved', earned: maxSaved>=500000},
+      {id:'savingsgoalhit', icon:'🌻', label:'Goal Getter — hit your savings goal', earned: goal>0 && totalSavedToDate>=goal},
+      {id:'debtfree', icon:'🎉', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
+      {id:'multidebtslayer', icon:'⚔️', label:'Debt Crusher — 3+ debts fully cleared', earned: clearedSeries.length>=3},
+      {id:'giftplanner', icon:'🎁', label:'Gift Planner — first gift goal created', earned: state.giftGoals.length>=1},
+      {id:'giftgiver', icon:'🎀', label:'Gift Giver — fully funded a gift goal', earned: giftFullyFunded},
+      {id:'budgeter', icon:'✅', label:'Budget Boss — within budget this month', earned: !bhOver},
+      {id:'frugalmonth', icon:'🏠', label:'Frugal Month — under your living budget', earned: livingBudgetTotal>0 && livingChecked<livingBudgetTotal},
+      {id:'extrahustle', icon:'🍾', label:'Extra Hustle — '+CUR+'50k+ in windfalls logged', earned: sumExtraAll()>=50000},
+      {id:'savingsappuser', icon:'📱', label:'App-Savvy — added a savings app', earned: allSavingsAppIds().length>=1},
+      {id:'streak7', icon:'🔥', label:'Week-Long Streak — 7 days in a row', earned: streakDays>=7},
+      {id:'streak30', icon:'🔥🔥', label:'Monthly Streak — 30 days in a row', earned: streakDays>=30},
+      {id:'levelup5', icon:'🌟', label:'Rising Star — reached Level 5', earned: level>=5},
     ];
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
