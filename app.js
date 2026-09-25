@@ -3597,13 +3597,16 @@ window.__ftStart = function(){
     if(btn) showPage(btn.getAttribute('data-page'));
   });
 
-  // Settings lives in the top bar next to Undo/Redo, not as a tab among the
-  // financial-data pages, so it's wired separately rather than sharing the
-  // .page-nav-btn delegation above (which would also visually group it with
-  // Overview/Income/Debts/etc. in #page-nav, which is exactly what this is
-  // meant to avoid).
+  // Settings is its own document (settings.html), not a tab among the
+  // financial-data pages and not just another view swapped in without a
+  // real navigation — that page carries the exact same app shell/app.js,
+  // it just opens straight onto #page-settings (see the inline script at
+  // the bottom of settings.html) and shows a "back to tracker" link here
+  // in place of this button. So from THIS document (sign-in.html) the
+  // gear does a real page navigation rather than calling showPage()
+  // in-place.
   var settingsNavBtn = document.getElementById('settings-nav-btn');
-  if(settingsNavBtn) settingsNavBtn.addEventListener('click', function(){ showPage('settings'); });
+  if(settingsNavBtn) settingsNavBtn.addEventListener('click', function(){ location.href = 'settings.html'; });
 
   document.addEventListener('DOMContentLoaded', function(){
     var last = null;
