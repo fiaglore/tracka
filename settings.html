@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Trakka - Your Money Tracker</title>
+<title>Settings - Trakka</title>
 
 <!-- PWA: installability -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -111,7 +111,13 @@
         <div class="xl-actions-row">
           <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
           <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
-          <button class="xl-btn" id="settings-nav-btn" type="button" title="Settings">⚙️</button>
+          <!-- This document's whole purpose is to be the Settings page, so
+               the gear that opens it on sign-in.html is replaced here with
+               a way back to the tracker instead (wired at the bottom of
+               this file — settings-nav-btn's shared app.js click handler
+               would just navigate to this same page again, so it isn't
+               reused with a different id here). -->
+          <button class="xl-btn" id="back-to-tracker-btn" type="button" title="Back to your tracker">🏡 Back to tracker</button>
         </div>
         <div class="xl-account-row">
           <span class="xl-user" id="xl-user"></span>
@@ -444,5 +450,47 @@
 <script src="pwa.js" defer></script>
 <script src="app-entry.js" defer></script>
 <script src="auto-logout.js" defer></script>
+<script>
+// This document's whole reason to exist is to be the Settings page. It
+// shares the exact same app shell and app.js as sign-in.html — on
+// purpose, since Import/Export and live currency conversion need the
+// full tracker state loaded and aren't safely separable from it — it
+// just needs to land on #page-settings instead of Overview once the
+// tracker starts, and its "back" button needs wiring since it isn't
+// #settings-nav-btn (see app.js and the comment on #back-to-tracker-btn
+// above).
+(function () {
+  "use strict";
+  function forceSettingsPage() {
+    if (!window.showTrackerPage) return;
+    // showTrackerPage() persists whichever page it's given as the
+    // "last active tracker page" (sessionStorage — see showPage() in
+    // app.js), which sign-in.html reads back on its own reload to
+    // restore where the user left off. Settings.html always forces
+    // itself to #page-settings directly, every load, regardless of
+    // that memory — so it must not overwrite it, or reloading
+    // sign-in.html after a visit here would wrongly land back on
+    // Settings instead of whatever tracker page the user was really on.
+    var prevActivePage = null;
+    try { prevActivePage = sessionStorage.getItem("ftActivePage"); } catch (e) {}
+    window.showTrackerPage("settings");
+    try {
+      if (prevActivePage) sessionStorage.setItem("ftActivePage", prevActivePage);
+      else sessionStorage.removeItem("ftActivePage");
+    } catch (e) {}
+  }
+  // begin() in app.js removes body.ft-locked right before starting the
+  // tracker (window.__ftStart()), which is also where window.showTrackerPage
+  // gets defined — same "wait for unlock" signal the theme-preset IIFE in
+  // app.js already uses elsewhere in this codebase.
+  if (!document.body.classList.contains("ft-locked")) forceSettingsPage();
+  new MutationObserver(function () {
+    if (!document.body.classList.contains("ft-locked")) forceSettingsPage();
+  }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
+  var backBtn = document.getElementById("back-to-tracker-btn");
+  if (backBtn) backBtn.addEventListener("click", function () { location.href = "sign-in.html"; });
+})();
+</script>
 </body>
 </html>
