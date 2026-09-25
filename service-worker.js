@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v26";
+const CACHE_VERSION = "tracka-shell-v27";
 
 const SHELL_FILES = [
   "./",

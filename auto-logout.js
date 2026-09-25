@@ -42,10 +42,47 @@
 (function () {
   "use strict";
 
-  const INACTIVITY_MS  = 2 * 60 * 1000;   // idle time before the warning appears
+  const DEFAULT_INACTIVITY_MIN = 2;       // idle minutes before the warning appears, if never set
+  const IDLE_TIMEOUT_KEY = "trakkaIdleTimeoutMinutesV1";
   const WARNING_MS     = 60 * 1000;       // how long the warning stays up before forcing sign-out
-  const SESSION_CAP_MS = 20 * 60 * 1000;  // hard cap on total signed-in time
+  const BASE_SESSION_CAP_MS = 20 * 60 * 1000; // hard cap on total signed-in time, at the default idle timeout
   const SAVE_FLUSH_TIMEOUT_MS = 3000;     // how long forceLogout waits for a pending save to land
+
+  // "Idle timeout" is the one setting exposed on the Settings page (see
+  // #set-idle-timeout in app.js) — it's the number people actually
+  // recognize ("sign me out after N minutes idle"). The session's hard cap
+  // stays derived from it (never smaller than the default 20 minutes, and
+  // always comfortably bigger than idle-timeout+warning) rather than a
+  // second exposed setting, so a longer idle timeout can never make the
+  // hard cap trigger before the idle warning would even get a chance to.
+  let INACTIVITY_MS = loadIdleTimeoutMinutes() * 60 * 1000;
+  let SESSION_CAP_MS = deriveSessionCapMs(INACTIVITY_MS);
+
+  function loadIdleTimeoutMinutes() {
+    try {
+      const v = parseInt(localStorage.getItem(IDLE_TIMEOUT_KEY), 10);
+      if (v >= 1 && v <= 120) return v;
+    } catch (e) {}
+    return DEFAULT_INACTIVITY_MIN;
+  }
+  function deriveSessionCapMs(inactivityMs) {
+    return Math.max(BASE_SESSION_CAP_MS, inactivityMs + WARNING_MS + 2 * 60 * 1000);
+  }
+  // Called from the Settings page's idle-timeout picker (app.js). Persisted
+  // per-device (localStorage) rather than synced via Firestore — auto-
+  // logout.js starts tracking the instant sign-in fires, which can race
+  // ahead of the per-account cloud data even loading (see app.js's begin()),
+  // so a device-local setting that's always synchronously available here
+  // is the only way to avoid falling back to the default on every fresh
+  // sign-in. Applies immediately to the session already in progress, not
+  // just the next one.
+  window.setIdleTimeoutMinutes = function (minutes) {
+    const v = Math.max(1, Math.min(120, Math.round(Number(minutes)) || DEFAULT_INACTIVITY_MIN));
+    try { localStorage.setItem(IDLE_TIMEOUT_KEY, String(v)); } catch (e) {}
+    INACTIVITY_MS = v * 60 * 1000;
+    SESSION_CAP_MS = deriveSessionCapMs(INACTIVITY_MS);
+  };
+  window.getIdleTimeoutMinutes = loadIdleTimeoutMinutes;
 
   const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "wheel", "scroll", "touchstart"];
   const ACTIVITY_THROTTLE_MS = 1000; // record activity at most once/sec
