@@ -1510,6 +1510,22 @@ window.__ftStart = function(){
     }
   }
 
+  // Display grouping for the XP page's achievement grid (see badgeDefs'
+  // `category` field inside render()) — order here is the order the
+  // categories appear in on that page.
+  const XP_CATEGORIES = [
+    {id:'checklist', label:'📋 Checklist Progress'},
+    {id:'savings', label:'🐷 Savings'},
+    {id:'debt', label:'💳 Debt'},
+    {id:'gifts', label:'🎁 Gifts'},
+    {id:'budget', label:'💰 Budget & Balance'},
+    {id:'income', label:'🍾 Extra Income'},
+    {id:'tools', label:'📱 Tools & Habits'},
+    {id:'streaks', label:'🔥 Streaks'},
+    {id:'level', label:'🌟 Level'},
+    {id:'longevity', label:'📅 Longevity'},
+  ];
+
   function render(){
     renderMonthPicker();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
@@ -1719,48 +1735,80 @@ window.__ftStart = function(){
       return g.totalAmount>0 && paidTowardGoal>=g.totalAmount;
     });
     const streakDays = Number(cloud.streakCount)||0;
+    // Needed by the long-term "Quarter-Million Balance" achievement below;
+    // the confetti-threshold loop further down reuses this same value
+    // rather than recomputing it.
+    const fullCumBalance = cumulativeBalanceUpTo(N-1);
 
+    // Each badge's `category` groups it on the XP page (see XP_CATEGORIES
+    // and the xp-badge-grid rendering below) — purely a display grouping,
+    // it has no effect on earning/XP. The higher-tier entries (Level 10+,
+    // 100k+ items, 100+/365-day streaks, 12/24+ months tracked, etc.) exist
+    // so the achievement list keeps giving someone using this for years
+    // something new to reach, rather than everything being earnable in
+    // the first few months.
     const badgeDefs = [
-      {id:'first100k', icon:'🏅', label:'First '+CUR+'100k saved', earned: maxSaved>=100000},
-      {id:'debtslayer', icon:'🗡️', label:'Debt Slayer — first loan cleared', earned: anyLenderCleared},
-      {id:'halfway', icon:'🎯', label:'Halfway There', earned: pct>=50},
-      {id:'firststep', icon:'🌱', label:'First Step — checked off your first item', earned: ovCheckedItems>=1},
-      {id:'perfectmonth', icon:'🏆', label:'Perfect Month — one month fully checked off', earned: complete>=1},
-      {id:'threepeat', icon:'🥉', label:'Three-peat — 3 months fully complete', earned: complete>=3},
-      {id:'allmonths', icon:'👑', label:'Clean Sweep — every tracked month complete', earned: N>0 && complete===N},
-      {id:'centurion', icon:'💯', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
-      {id:'savingsstarter', icon:'🐷', label:'Piggy Bank Started — first savings deposit', earned: maxSaved>0},
-      {id:'saver10k', icon:'🪙', label:'First '+CUR+'10k saved', earned: maxSaved>=10000},
-      {id:'saver500k', icon:'💰', label:'Half Saved — '+CUR+'500k saved', earned: maxSaved>=500000},
-      {id:'savingsgoalhit', icon:'🌻', label:'Goal Getter — hit your savings goal', earned: goal>0 && totalSavedToDate>=goal},
-      {id:'debtfree', icon:'🎉', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
-      {id:'multidebtslayer', icon:'⚔️', label:'Debt Crusher — 3+ debts fully cleared', earned: clearedSeries.length>=3},
-      {id:'giftplanner', icon:'🎁', label:'Gift Planner — first gift goal created', earned: state.giftGoals.length>=1},
-      {id:'giftgiver', icon:'🎀', label:'Gift Giver — fully funded a gift goal', earned: giftFullyFunded},
-      {id:'budgeter', icon:'✅', label:'Budget Boss — within budget this month', earned: !bhOver},
-      {id:'frugalmonth', icon:'🏠', label:'Frugal Month — under your living budget', earned: livingBudgetTotal>0 && livingChecked<livingBudgetTotal},
-      {id:'extrahustle', icon:'🍾', label:'Extra Hustle — '+CUR+'50k+ in windfalls logged', earned: sumExtraAll()>=50000},
-      {id:'savingsappuser', icon:'📱', label:'App-Savvy — added a savings app', earned: allSavingsAppIds().length>=1},
-      {id:'streak7', icon:'🔥', label:'Week-Long Streak — 7 days in a row', earned: streakDays>=7},
-      {id:'streak30', icon:'🔥🔥', label:'Monthly Streak — 30 days in a row', earned: streakDays>=30},
-      {id:'levelup5', icon:'🌟', label:'Rising Star — reached Level 5', earned: level>=5},
+      {id:'first100k', icon:'🏅', category:'savings', label:'First '+CUR+'100k saved', earned: maxSaved>=100000},
+      {id:'debtslayer', icon:'🗡️', category:'debt', label:'Debt Slayer — first loan cleared', earned: anyLenderCleared},
+      {id:'halfway', icon:'🎯', category:'budget', label:'Halfway There', earned: pct>=50},
+      {id:'firststep', icon:'🌱', category:'checklist', label:'First Step — checked off your first item', earned: ovCheckedItems>=1},
+      {id:'perfectmonth', icon:'🏆', category:'checklist', label:'Perfect Month — one month fully checked off', earned: complete>=1},
+      {id:'threepeat', icon:'🥉', category:'checklist', label:'Three-peat — 3 months fully complete', earned: complete>=3},
+      {id:'allmonths', icon:'👑', category:'checklist', label:'Clean Sweep — every tracked month complete', earned: N>0 && complete===N},
+      {id:'centurion', icon:'💯', category:'checklist', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
+      {id:'centurion500', icon:'🥇', category:'checklist', label:'Half-Grand — 500 items checked off, all-time', earned: ovCheckedItems>=500},
+      {id:'savingsstarter', icon:'🐷', category:'savings', label:'Piggy Bank Started — first savings deposit', earned: maxSaved>0},
+      {id:'saver10k', icon:'🪙', category:'savings', label:'First '+CUR+'10k saved', earned: maxSaved>=10000},
+      {id:'saver500k', icon:'💰', category:'savings', label:'Half Saved — '+CUR+'500k saved', earned: maxSaved>=500000},
+      {id:'saver1m', icon:'💎', category:'savings', label:'Millionaire Saver — '+CUR+'1,000,000 saved', earned: maxSaved>=1000000},
+      {id:'savingsgoalhit', icon:'🌻', category:'savings', label:'Goal Getter — hit your savings goal', earned: goal>0 && totalSavedToDate>=goal},
+      {id:'debtfree', icon:'🎉', category:'debt', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
+      {id:'multidebtslayer', icon:'⚔️', category:'debt', label:'Debt Crusher — 3+ debts fully cleared', earned: clearedSeries.length>=3},
+      {id:'debtcrusher5', icon:'💥', category:'debt', label:'Debt Annihilator — 5+ debts fully cleared', earned: clearedSeries.length>=5},
+      {id:'giftplanner', icon:'🎁', category:'gifts', label:'Gift Planner — first gift goal created', earned: state.giftGoals.length>=1},
+      {id:'giftgiver', icon:'🎀', category:'gifts', label:'Gift Giver — fully funded a gift goal', earned: giftFullyFunded},
+      {id:'budgeter', icon:'✅', category:'budget', label:'Budget Boss — within budget this month', earned: !bhOver},
+      {id:'frugalmonth', icon:'🏠', category:'budget', label:'Frugal Month — under your living budget', earned: livingBudgetTotal>0 && livingChecked<livingBudgetTotal},
+      {id:'quartermillion', icon:'💵', category:'budget', label:'Quarter-Million Balance — '+CUR+'250k cumulative', earned: fullCumBalance>=250000},
+      {id:'extrahustle', icon:'🍾', category:'income', label:'Extra Hustle — '+CUR+'50k+ in windfalls logged', earned: sumExtraAll()>=50000},
+      {id:'savingsappuser', icon:'📱', category:'tools', label:'App-Savvy — added a savings app', earned: allSavingsAppIds().length>=1},
+      {id:'streak7', icon:'🔥', category:'streaks', label:'Week-Long Streak — 7 days in a row', earned: streakDays>=7},
+      {id:'streak30', icon:'🔥🔥', category:'streaks', label:'Monthly Streak — 30 days in a row', earned: streakDays>=30},
+      {id:'streak100', icon:'🔥🔥🔥', category:'streaks', label:'Century Streak — 100 days in a row', earned: streakDays>=100},
+      {id:'streak365', icon:'🎆', category:'streaks', label:'Year-Long Streak — 365 days in a row', earned: streakDays>=365},
+      {id:'levelup5', icon:'🌟', category:'level', label:'Rising Star — reached Level 5', earned: level>=5},
+      {id:'levelup10', icon:'🎖️', category:'level', label:'Veteran — reached Level 10', earned: level>=10},
+      {id:'levelup20', icon:'🏵️', category:'level', label:'Elite — reached Level 20', earned: level>=20},
+      {id:'levelup50', icon:'🌌', category:'level', label:'Legend — reached Level 50', earned: level>=50},
+      {id:'longhauler12', icon:'📅', category:'longevity', label:'Long Hauler — tracking 12+ months', earned: N>=12},
+      {id:'longhauler24', icon:'🗓️', category:'longevity', label:'Two-Year Tracker — tracking 24+ months', earned: N>=24},
     ];
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
-      // Icon-only on Overview — with 23 achievements the old full-label pills
-      // ran the row long; the label still shows on hover/focus (title), and
-      // the full version with labels lives on the dedicated XP page.
+      // Icon-only on Overview — with dozens of achievements the old full-label
+      // pills ran the row long; the label still shows on hover/focus (title),
+      // and the full, categorized version lives on the dedicated XP page.
       badgeRowEl.innerHTML = badgeDefs.map(b=>`<span class="badge-chip ${b.earned?'':'locked'}" title="${escapeAttr(b.label)}">${b.icon}</span>`).join('');
     }
-    // Full detail version of the same badgeDefs, on the dedicated XP page.
+    // Full detail version of the same badgeDefs, grouped by category, on the
+    // dedicated XP page. Grouping is purely a display grouping (see the
+    // `category` field on each badgeDef above) — it doesn't affect earning.
     const xpBadgeGridEl = document.getElementById('xp-badge-grid');
     if(xpBadgeGridEl){
-      xpBadgeGridEl.innerHTML = badgeDefs.map(b=>
-        `<div class="xp-badge-card ${b.earned?'earned':'locked'}">`
-          +`<span class="b-icon">${b.icon}</span>`
-          +`<span class="b-label">${escapeAttr(b.label)}</span>`
-        +`</div>`
-      ).join('');
+      xpBadgeGridEl.innerHTML = XP_CATEGORIES.map(function(cat){
+        const items = badgeDefs.filter(b=>b.category===cat.id);
+        if(!items.length) return '';
+        return `<div class="xp-badge-category">`
+          + `<h3 class="xp-badge-category-head">${cat.label}</h3>`
+          + `<div class="xp-badge-category-grid">`
+          + items.map(b=>
+              `<div class="xp-badge-card ${b.earned?'earned':'locked'}">`
+                +`<span class="b-icon">${b.icon}</span>`
+                +`<span class="b-label">${escapeAttr(b.label)}</span>`
+              +`</div>`
+            ).join('')
+          + `</div></div>`;
+      }).join('');
     }
     const xpEarnedCountEl = document.getElementById('xp-page-earned-count');
     if(xpEarnedCountEl) xpEarnedCountEl.textContent = String(badgeDefs.filter(b=>b.earned).length);
@@ -1778,7 +1826,6 @@ window.__ftStart = function(){
         badgeMemory[mk] = true; newlyEarned = true;
       }
     }
-    const fullCumBalance = cumulativeBalanceUpTo(N-1);
     const confettiThresholds = [100000,250000,500000,1000000,1500000,2000000,2500000,3000000,4000000,5000000];
     confettiThresholds.forEach(t=>{
       if(fullCumBalance>=t && !badgeMemory['threshold_'+t]){
@@ -3639,6 +3686,7 @@ window.__ftStart = function(){
     // (see openPinSetup()'s isNudge param below). It reappears on the very
     // next reload/sign-in as long as hasPinConfigured() is still false, by
     // design — that's what makes it a nag rather than a one-time tip.
+    updatePinSetupOpenButton();
     if(!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
       openPinSetup(true);
     }
@@ -3771,6 +3819,21 @@ window.__ftStart = function(){
   // button — same overlay either way, just a "Remind me later" label
   // instead of "Cancel" so it reads correctly as deferring an unprompted
   // suggestion rather than backing out of something the user asked to do.
+  // Reflects whether this account already has a PIN in both the Settings
+  // button that opens this overlay and (inside openPinSetup()) the overlay's
+  // own heading/save button — "Reset PIN" reads correctly as changing an
+  // existing one, distinct from "Set up" for someone who's never made one.
+  // Called on load and again whenever the overlay closes (a save/remove can
+  // change hasPinConfigured() without a full render() to piggyback on).
+  function updatePinSetupOpenButton(){
+    var btn = $('pin-setup-open');
+    if(!btn) return;
+    var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
+    btn.textContent = already ? '🔢 Reset PIN' : '🔢 Set up quick-unlock PIN';
+    btn.title = already
+      ? 'Change your quick-unlock PIN (you’ll need your current password)'
+      : 'Set up a short PIN to unlock the tracker after auto sign-out';
+  }
   function openPinSetup(isNudge){
     $('pin-setup-password').value = '';
     $('pin-setup-pin').value = '';
@@ -3778,13 +3841,17 @@ window.__ftStart = function(){
     $('pin-setup-error').textContent = '';
     var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
     $('pin-setup-remove').hidden = !already;
+    $('pin-setup-title').textContent = already ? 'Reset your PIN' : 'Set up a quick-unlock PIN';
+    $('pin-setup-save').textContent = already ? 'Reset PIN' : 'Save PIN';
     $('pin-setup-close').textContent = isNudge ? 'Remind me later' : 'Cancel';
     $('pin-setup-overlay').hidden = false;
     setTimeout(function(){ $('pin-setup-password').focus(); }, 50);
   }
   function closePinSetup(){
     $('pin-setup-overlay').hidden = true;
+    updatePinSetupOpenButton();
   }
+  updatePinSetupOpenButton();
   var pinSetupOpenBtn = $('pin-setup-open');
   if(pinSetupOpenBtn) pinSetupOpenBtn.addEventListener('click', function(){ openPinSetup(false); });
   $('pin-setup-close').addEventListener('click', closePinSetup);
