@@ -3633,6 +3633,15 @@ window.__ftStart = function(){
     $('auth-pass').value = ''; $('auth-pass2').value = '';
     showRandomQuote();
     window.__ftStart();
+    // Nudge toward setting up a quick-unlock PIN — every sign-in, not just
+    // the first one, since nothing here remembers "already asked": there's
+    // no dismiss-forever option, only "Remind me later" for this one visit
+    // (see openPinSetup()'s isNudge param below). It reappears on the very
+    // next reload/sign-in as long as hasPinConfigured() is still false, by
+    // design — that's what makes it a nag rather than a one-time tip.
+    if(!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+      openPinSetup(true);
+    }
   }
 
   async function submit(ev){
@@ -3757,13 +3766,19 @@ window.__ftStart = function(){
   $('pin-unlock-fallback').addEventListener('click', function(){ showPlainSignInForm(); });
 
   // ----- quick-unlock PIN: setup/remove overlay (from the signed-in app) -----
-  function openPinSetup(){
+  // isNudge distinguishes the post-login nag (see begin() above) from
+  // opening this deliberately via the Settings page's "Quick-unlock PIN"
+  // button — same overlay either way, just a "Remind me later" label
+  // instead of "Cancel" so it reads correctly as deferring an unprompted
+  // suggestion rather than backing out of something the user asked to do.
+  function openPinSetup(isNudge){
     $('pin-setup-password').value = '';
     $('pin-setup-pin').value = '';
     $('pin-setup-pin2').value = '';
     $('pin-setup-error').textContent = '';
     var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
     $('pin-setup-remove').hidden = !already;
+    $('pin-setup-close').textContent = isNudge ? 'Remind me later' : 'Cancel';
     $('pin-setup-overlay').hidden = false;
     setTimeout(function(){ $('pin-setup-password').focus(); }, 50);
   }
@@ -3771,7 +3786,7 @@ window.__ftStart = function(){
     $('pin-setup-overlay').hidden = true;
   }
   var pinSetupOpenBtn = $('pin-setup-open');
-  if(pinSetupOpenBtn) pinSetupOpenBtn.addEventListener('click', openPinSetup);
+  if(pinSetupOpenBtn) pinSetupOpenBtn.addEventListener('click', function(){ openPinSetup(false); });
   $('pin-setup-close').addEventListener('click', closePinSetup);
   $('pin-setup-form').addEventListener('submit', async function(ev){
     ev.preventDefault();
