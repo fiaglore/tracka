@@ -1082,26 +1082,82 @@ window.__ftStart = function(){
     return 'partial';
   }
 
-  function renderTabs(){
-    const container = document.getElementById('tabs');
-    container.innerHTML = '';
+  // Replaces the old one-.tab-button-per-month scrolling strip: a fixed-
+  // width prev/current/next control, with a dropdown for jumping straight
+  // to any month (see #month-picker-menu markup in sign-in.html/
+  // settings.html and the one-time open/close wiring below).
+  function closeMonthPicker(){
+    const menu = document.getElementById('month-picker-menu');
+    const toggle = document.getElementById('month-picker-toggle');
+    if(menu) menu.hidden = true;
+    if(toggle){ toggle.setAttribute('aria-expanded','false'); toggle.classList.remove('open'); }
+  }
+  function renderMonthPicker(){
+    const dot = document.getElementById('month-picker-dot');
+    const label = document.getElementById('month-picker-label');
+    const toggle = document.getElementById('month-picker-toggle');
+    const menu = document.getElementById('month-picker-menu');
+    const prevBtn = document.getElementById('month-prev-btn');
+    const nextBtn = document.getElementById('month-next-btn');
+    if(!dot || !label || !toggle || !menu) return;
+
+    const activeSt = monthCompleteness(activeMonth);
+    dot.className = 'dot' + (activeSt==='complete'?' complete':activeSt==='partial'?' partial':'');
+    label.textContent = monthLabels[activeMonth]+' '+yearTags[activeMonth];
+    toggle.title = monthPeriodLabel(activeMonth);
+    if(prevBtn) prevBtn.disabled = activeMonth<=0;
+    if(nextBtn) nextBtn.disabled = activeMonth>=N-1;
+
+    // Rebuilt on every render — N is small (months tracked, not entries),
+    // so this stays cheap and never drifts out of sync with completeness.
+    menu.innerHTML = '';
     for(let i=0;i<N;i++){
       const st = monthCompleteness(i);
-      const btn = document.createElement('div');
-      btn.className = 'tab' + (i===activeMonth?' active':'') + (st==='complete'?' complete':st==='partial'?' partial':'');
-      btn.innerHTML = `<span class="dot"></span>${monthLabels[i]} ${yearTags[i]}`;
-      btn.title = monthPeriodLabel(i);
-      btn.addEventListener('click', ()=>{ activeMonth=i; render(); });
-      container.appendChild(btn);
+      const row = document.createElement('div');
+      row.className = 'month-picker-row'+(i===activeMonth?' active':'')+(st==='complete'?' complete':st==='partial'?' partial':'');
+      row.setAttribute('role','option');
+      row.innerHTML = `<span class="dot"></span>${monthLabels[i]} ${yearTags[i]}`;
+      row.title = monthPeriodLabel(i);
+      row.addEventListener('click', ()=>{ activeMonth=i; closeMonthPicker(); render(); });
+      menu.appendChild(row);
     }
-    const addBtn = document.createElement('div');
-    addBtn.className = 'tab tab-add';
+    const addRow = document.createElement('div');
+    addRow.className = 'month-picker-row month-picker-add';
+    addRow.setAttribute('role','option');
     const nextLabel = nextMonthLabelYear(monthLabels[N-1], yearTags[N-1]);
-    addBtn.innerHTML = `<span class="dot"></span>+ Add ${nextLabel[0]} ${nextLabel[1]}`;
-    addBtn.title = 'Track another month';
-    addBtn.addEventListener('click', addMonth);
-    container.appendChild(addBtn);
+    addRow.innerHTML = `<span class="dot"></span>+ Add ${nextLabel[0]} ${nextLabel[1]}`;
+    addRow.title = 'Track another month';
+    addRow.addEventListener('click', ()=>{ closeMonthPicker(); addMonth(); });
+    menu.appendChild(addRow);
   }
+  // One-time wiring for prev/next + open/close — unlike the list inside,
+  // these elements themselves never get rebuilt, so binding them once here
+  // (rather than inside renderMonthPicker(), which runs on every render())
+  // avoids piling up duplicate listeners.
+  (function wireMonthPickerControls(){
+    const prevBtn = document.getElementById('month-prev-btn');
+    const nextBtn = document.getElementById('month-next-btn');
+    const toggle = document.getElementById('month-picker-toggle');
+    const menu = document.getElementById('month-picker-menu');
+    if(!prevBtn || !nextBtn || !toggle || !menu) return;
+    prevBtn.addEventListener('click', ()=>{ if(activeMonth>0){ activeMonth--; render(); } });
+    nextBtn.addEventListener('click', ()=>{ if(activeMonth<N-1){ activeMonth++; render(); } });
+    toggle.addEventListener('click', function(e){
+      e.stopPropagation();
+      const willOpen = menu.hidden;
+      menu.hidden = !willOpen;
+      toggle.setAttribute('aria-expanded', String(willOpen));
+      toggle.classList.toggle('open', willOpen);
+    });
+    document.addEventListener('click', function(e){
+      if(menu.hidden) return;
+      if(toggle.contains(e.target) || menu.contains(e.target)) return;
+      closeMonthPicker();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape' && !menu.hidden) closeMonthPicker();
+    });
+  })();
 
   // Appends one more month right after the last tracked one, starting completely blank,
   // and jumps straight to it so it's ready to fill in.
@@ -1455,7 +1511,7 @@ window.__ftStart = function(){
   }
 
   function render(){
-    renderTabs();
+    renderMonthPicker();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
     const footerCoverageEl = document.getElementById('footer-coverage');
     if(footerCoverageEl) footerCoverageEl.textContent = monthLabels[0]+' '+yearTags[0]+' through '+monthLabels[N-1]+' '+yearTags[N-1];
