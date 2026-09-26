@@ -1276,16 +1276,46 @@ window.__ftStart = function(){
     `).join('');
   }
 
+  // Which day-groups in the Expenses tab's daily log are expanded — a plain
+  // in-memory Set (not persisted across reloads) rather than part of
+  // `state`, since it's pure UI/display state, not tracker data. Stays
+  // `null` until the first render, at which point only the most recent day
+  // starts open (see below) — with 10-20 entries logged per day, showing
+  // every day fully expanded by default is exactly the "tab is full"
+  // problem this collapsing exists to solve. Reused across every render()
+  // (typing in any entry re-renders this whole list), so a toggle a user
+  // just made doesn't snap back on their next keystroke.
+  let expandedLivingDays = null;
+  let lastLivingDaysList = [];
+
+  function updateLivingListToggleAllLabel(){
+    const btn = document.getElementById('living-list-toggle-all');
+    if(!btn) return;
+    const allOpen = lastLivingDaysList.length>0 && lastLivingDaysList.every(ds=>expandedLivingDays.has(ds));
+    btn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+    btn.hidden = lastLivingDaysList.length===0;
+  }
+
   function renderLivingDailyLog(){
     const entries = livingEntriesForMonth(activeMonth);
     const container = document.getElementById('living-list');
-    if(entries.length===0){ container.innerHTML = '<div class="empty-msg">No living expenses logged for this billing period yet.</div>'; return; }
+    if(entries.length===0){
+      container.innerHTML = '<div class="empty-msg">No living expenses logged for this billing period yet.</div>';
+      lastLivingDaysList = [];
+      updateLivingListToggleAllLabel();
+      return;
+    }
     const byDate = {};
     entries.forEach(e=>{ (byDate[e.date] = byDate[e.date]||[]).push(e); });
     const dates = Object.keys(byDate).sort().reverse();
+    lastLivingDaysList = dates;
+    if(expandedLivingDays===null){
+      expandedLivingDays = new Set(dates.length ? [dates[0]] : []);
+    }
     container.innerHTML = dates.map(ds=>{
       const dayEntries = byDate[ds];
       const total = dayEntries.reduce((s,e)=>s+Number(e.amount||0),0);
+      const isOpen = expandedLivingDays.has(ds);
       const rows = dayEntries.map(e=>{
         const cat = livingCategoryById(e.categoryId);
         return `<div class="entry-row">
@@ -1300,14 +1330,15 @@ window.__ftStart = function(){
           <button class="entry-del" data-living-entry-id="${e.id}" title="Remove">✕</button>
         </div>`;
       }).join('');
-      return `<div class="day-group">
-        <div class="day-head">
-          <span class="day-date">${formatDateLong(ds)}</span>
-          <span class="day-total mono">${fmt(total)}</span>
-        </div>
-        <div>${rows}</div>
+      return `<div class="day-group ${isOpen?'open':''}">
+        <button type="button" class="day-head" data-day-toggle="${escapeAttr(ds)}">
+          <span class="day-head-left"><span class="day-chevron">${isOpen?'▾':'▸'}</span><span class="day-date">${formatDateLong(ds)}</span></span>
+          <span class="day-head-right"><span class="day-count">${dayEntries.length} item${dayEntries.length===1?'':'s'}</span><span class="day-total mono">${fmt(total)}</span></span>
+        </button>
+        <div class="day-entries" ${isOpen?'':'hidden'}>${rows}</div>
       </div>`;
     }).join('');
+    updateLivingListToggleAllLabel();
   }
 
   function renderGiftList(){
@@ -2011,6 +2042,18 @@ window.__ftStart = function(){
       state.livingCategories = state.livingCategories.filter(c=>c.id!==cid);
       Object.keys(state.livingBudgetOverrides).forEach(k=>{ if(k.endsWith('_'+cid)) delete state.livingBudgetOverrides[k]; });
       save();
+    }
+    const dayToggle = e.target.closest('.day-head[data-day-toggle]');
+    if(dayToggle){
+      const ds = dayToggle.dataset.dayToggle;
+      if(expandedLivingDays===null) expandedLivingDays = new Set();
+      if(expandedLivingDays.has(ds)) expandedLivingDays.delete(ds); else expandedLivingDays.add(ds);
+      renderLivingDailyLog();
+    }
+    if(e.target.matches('#living-list-toggle-all')){
+      const allOpen = lastLivingDaysList.length>0 && lastLivingDaysList.every(ds=>expandedLivingDays.has(ds));
+      expandedLivingDays = allOpen ? new Set() : new Set(lastLivingDaysList);
+      renderLivingDailyLog();
     }
   });
 

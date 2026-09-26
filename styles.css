@@ -821,11 +821,20 @@ body.ft-locked #auth-overlay{display:flex;}
    EXPENSE DAILY LOG (renderLivingDailyLog()) — grouped by day,
    each day holding one or more .entry-row lines. Also unstyled.
    ============================================================ */
+.living-list-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+.living-list-head h3{margin:0;}
+.link-btn{border:none; background:transparent; color:var(--accent); font-family:var(--font-body); font-size:12px; font-weight:700; cursor:pointer; padding:2px 0;}
+.link-btn:hover{text-decoration:underline;}
 #living-list{display:flex; flex-direction:column; gap:16px;}
 .day-group{border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); padding:12px 14px;}
-.day-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed var(--line);}
+.day-head{display:flex; justify-content:space-between; align-items:baseline; width:100%; margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed var(--line); border-left:none; border-right:none; border-top:none; background:transparent; font:inherit; color:inherit; cursor:pointer; text-align:left;}
+.day-head-left{display:flex; align-items:center; gap:8px;}
+.day-chevron{font-size:10px; color:var(--muted); width:10px; display:inline-block;}
+.day-head-right{display:flex; align-items:center; gap:10px;}
 .day-date{font-weight:700; font-size:12.5px; color:var(--ink);}
+.day-count{font-size:11px; color:var(--muted);}
 .day-total{font-size:12.5px; font-weight:700; color:var(--muted);}
+.day-entries[hidden]{display:none;}
 .entry-row{display:flex; align-items:center; gap:10px; padding:6px 0; flex-wrap:wrap;}
 .entry-row .cat-dot{margin-top:1px;}
 .entry-mid{flex:1; min-width:150px; display:flex; flex-direction:column; gap:3px;}
