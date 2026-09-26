@@ -955,7 +955,7 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 .xp-sub{font-family:var(--font-mono); font-size:10.5px; color:var(--muted); margin-top:6px;}
 .badge-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
 /* Icon-only on Overview — same small circular-swatch footprint as
-   .theme-swatch/.pet-swatch, so 23 achievements fit on one compact row
+   .theme-swatch/.pet-swatch, so dozens of achievements fit on one compact row
    instead of the old full-label pills. Full labels are on the XP page;
    here the label is just the title tooltip. */
 .badge-chip{display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--bg-soft); border:1px solid var(--line); font-size:13px; line-height:1; cursor:default;}
@@ -964,7 +964,12 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 /* A little tighter than a first pass — smaller minimum column, icon and
    padding both trimmed down — while keeping the icon+label layout the
    Overview row no longer has room for. */
-.xp-badge-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:7px;}
+/* #xp-badge-grid is now a column of category sections (see XP_CATEGORIES
+   in app.js) rather than one flat grid — .xp-badge-category-grid is what
+   carries the actual grid layout, once per category. */
+.xp-badge-grid{display:flex; flex-direction:column; gap:16px;}
+.xp-badge-category-head{font-family:var(--font-display); font-weight:700; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin:0 0 8px;}
+.xp-badge-category-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:7px;}
 .xp-badge-card{display:flex; align-items:center; gap:8px; background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-sm); padding:8px 10px;}
 .xp-badge-card .b-icon{font-size:17px; line-height:1; flex:0 0 auto;}
 .xp-badge-card .b-label{font-family:var(--font-display); font-weight:700; font-size:11.5px; color:var(--ink); line-height:1.25;}
