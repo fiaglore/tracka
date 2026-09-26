@@ -168,8 +168,22 @@
   </div>
 
   <div class="month-bar">
-    <div class="tabs-outer">
-      <div class="tabs" id="tabs"></div>
+    <!-- Replaces the old scrolling row of one-tab-per-month buttons — with
+         a year or more tracked that row just kept growing sideways. A
+         prev/next pair plus a dropdown (built in renderMonthPicker() in
+         app.js) covers the same jump-to-any-month + at-a-glance-status
+         need in a fixed-width control instead. -->
+    <div class="month-picker">
+      <button type="button" class="month-nav-btn" id="month-prev-btn" title="Previous month" aria-label="Previous month">‹</button>
+      <div class="month-picker-wrap">
+        <button type="button" class="month-picker-toggle" id="month-picker-toggle" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dot" id="month-picker-dot"></span>
+          <span id="month-picker-label">Loading…</span>
+          <span class="caret">▾</span>
+        </button>
+        <div class="month-picker-menu" id="month-picker-menu" role="listbox" hidden></div>
+      </div>
+      <button type="button" class="month-nav-btn" id="month-next-btn" title="Next month" aria-label="Next month">›</button>
     </div>
     <div class="month-period" id="month-period"></div>
     <div class="time-message" id="time-message">🌅 Loading...</div>

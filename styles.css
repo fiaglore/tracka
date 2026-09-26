@@ -561,19 +561,34 @@ button,input,select,textarea{font-family:inherit;}
 .pet-swatch.active{box-shadow:0 0 0 2px var(--accent);}
 
 /* ============================================================
-   MONTH TABS + PERIOD BAR (persists above page nav)
+   MONTH PICKER + PERIOD BAR (persists above page nav)
+   A fixed-width prev/current/next control replaces what used to be one
+   .tab button per tracked month in a horizontally-scrolling strip — that
+   grew unbounded as more months got added. The dropdown (.month-picker-menu)
+   reuses the same status-dot convention (grey/gold/green = empty/partial/
+   complete) the old tabs used.
    ============================================================ */
 .month-bar{margin:18px 0 0;}
-.tabs-outer{overflow-x:auto; margin:0 -20px; padding:0 20px 6px;}
-.tabs{display:flex; gap:6px; min-width:max-content;}
-.tab{font-family:var(--font-display); font-weight:600; font-size:12px; padding:8px 13px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:6px;}
-.tab.active{border-color:var(--accent); color:var(--ink); background:var(--bg-soft);}
-.tab .dot{width:6px; height:6px; border-radius:50%; background:var(--line);}
-.tab.complete .dot{background:var(--good);}
-.tab.partial .dot{background:var(--accent);}
-.tab-add{border-style:dashed; color:var(--accent); border-color:var(--accent); background:transparent;}
-.tab-add .dot{display:none;}
-.tab-add:hover{background:var(--bg-soft);}
+.month-picker{display:flex; align-items:center; gap:8px;}
+.month-nav-btn{font-family:var(--font-display); font-weight:700; font-size:16px; line-height:1; padding:6px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer;}
+.month-nav-btn:disabled{opacity:.35; cursor:not-allowed;}
+.month-nav-btn:not(:disabled):hover{border-color:var(--accent);}
+.month-picker-wrap{position:relative;}
+.month-picker-toggle{font-family:var(--font-display); font-weight:600; font-size:13px; padding:8px 14px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:7px; min-width:140px; justify-content:center;}
+.month-picker-toggle:hover, .month-picker-toggle.open{border-color:var(--accent); background:var(--bg-soft);}
+.month-picker-toggle .caret{font-size:10px; color:var(--muted);}
+.month-picker-toggle .dot{width:6px; height:6px; border-radius:50%; background:var(--line); flex:0 0 auto;}
+.month-picker-toggle .dot.complete{background:var(--good);}
+.month-picker-toggle .dot.partial{background:var(--accent);}
+.month-picker-menu{position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%); z-index:70; min-width:200px; max-height:280px; overflow-y:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); box-shadow:var(--shadow-md); padding:6px;}
+.month-picker-row{font-family:var(--font-display); font-weight:600; font-size:12.5px; padding:8px 10px; border-radius:9px; color:var(--muted); cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:7px;}
+.month-picker-row:hover{background:var(--bg-soft);}
+.month-picker-row.active{color:var(--ink); background:var(--bg-soft);}
+.month-picker-row .dot{width:6px; height:6px; border-radius:50%; background:var(--line); flex:0 0 auto;}
+.month-picker-row.complete .dot{background:var(--good);}
+.month-picker-row.partial .dot{background:var(--accent);}
+.month-picker-add{border-top:1px dashed var(--line); margin-top:4px; padding-top:10px; color:var(--accent);}
+.month-picker-add .dot{display:none;}
 .month-period{margin-top:8px; font-size:12.5px; color:var(--muted); font-family:var(--font-mono);}
 .time-message{font-size:13px; color:var(--muted); margin-top:2px;}
 
@@ -1027,12 +1042,12 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
    SETTINGS-ONLY VIEW (settings.html)
    That page shares this exact stylesheet and app shell with
    sign-in.html/index.html (see settings.html's own inline script for
-   why) but should show only the Settings section — no month tabs,
+   why) but should show only the Settings section — no month picker,
    overview stats, debt/savings pages, or the motivational quote, all
    of which belong to the tracker itself. Rather than removing those
-   elements from the DOM (app.js's render functions write into them
-   unconditionally and aren't null-guarded — see e.g. renderTabs()),
-   settings.html tags <body> with this class and everything tracker-
+   elements from the DOM (many of app.js's render functions write into
+   them unconditionally and aren't null-guarded), settings.html tags
+   <body> with this class and everything tracker-
    specific is just hidden here; app.js keeps rendering into it same
    as always, harmlessly, off-screen.
    ============================================================ */
