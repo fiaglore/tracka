@@ -938,15 +938,21 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 .xp-track{height:9px; background:var(--bg-soft); border-radius:8px; overflow:hidden;}
 .xp-fill{height:100%; width:0%; background:var(--accent); border-radius:8px; transition:width .4s ease;}
 .xp-sub{font-family:var(--font-mono); font-size:10.5px; color:var(--muted); margin-top:6px;}
-.badge-row{display:flex; flex-wrap:wrap; gap:7px; margin-top:12px;}
-.badge-chip{display:flex; align-items:center; gap:5px; background:var(--bg-soft); border:1px solid var(--line); border-radius:20px; padding:5px 11px; font-size:11.5px; font-family:var(--font-display); font-weight:600; color:var(--ink);}
+.badge-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+/* Icon-only on Overview — same small circular-swatch footprint as
+   .theme-swatch/.pet-swatch, so 23 achievements fit on one compact row
+   instead of the old full-label pills. Full labels are on the XP page;
+   here the label is just the title tooltip. */
+.badge-chip{display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--bg-soft); border:1px solid var(--line); font-size:13px; line-height:1; cursor:default;}
 .badge-chip.locked{opacity:.35; filter:grayscale(1);}
-.badge-chip .b-icon{font-size:13px;}
 .xp-page-breakdown{font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin:10px 0 0;}
-.xp-badge-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px;}
-.xp-badge-card{display:flex; align-items:center; gap:10px; background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px 14px;}
-.xp-badge-card .b-icon{font-size:22px; line-height:1;}
-.xp-badge-card .b-label{font-family:var(--font-display); font-weight:700; font-size:12.5px; color:var(--ink); line-height:1.35;}
+/* A little tighter than a first pass — smaller minimum column, icon and
+   padding both trimmed down — while keeping the icon+label layout the
+   Overview row no longer has room for. */
+.xp-badge-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:7px;}
+.xp-badge-card{display:flex; align-items:center; gap:8px; background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-sm); padding:8px 10px;}
+.xp-badge-card .b-icon{font-size:17px; line-height:1; flex:0 0 auto;}
+.xp-badge-card .b-label{font-family:var(--font-display); font-weight:700; font-size:11.5px; color:var(--ink); line-height:1.25;}
 .xp-badge-card.locked{opacity:.4; filter:grayscale(1);}
 .xp-badge-card.earned{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
 
