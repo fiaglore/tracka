@@ -1691,7 +1691,10 @@ window.__ftStart = function(){
     ];
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
-      badgeRowEl.innerHTML = badgeDefs.map(b=>`<span class="badge-chip ${b.earned?'':'locked'}"><span class="b-icon">${b.icon}</span>${escapeAttr(b.label)}</span>`).join('');
+      // Icon-only on Overview — with 23 achievements the old full-label pills
+      // ran the row long; the label still shows on hover/focus (title), and
+      // the full version with labels lives on the dedicated XP page.
+      badgeRowEl.innerHTML = badgeDefs.map(b=>`<span class="badge-chip ${b.earned?'':'locked'}" title="${escapeAttr(b.label)}">${b.icon}</span>`).join('');
     }
     // Full detail version of the same badgeDefs, on the dedicated XP page.
     const xpBadgeGridEl = document.getElementById('xp-badge-grid');
