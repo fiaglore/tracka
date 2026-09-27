@@ -1691,6 +1691,23 @@ window.__ftStart = function(){
     const totalXP = ovCheckedItems*10 + earnedBadgeCount*50;
     const xpPerLevel = 150;
     const level = Math.floor(totalXP/xpPerLevel)+1;
+    // Notify on a level-up, but never on the first render that ever sees
+    // `lastNotifiedLevel` unset — otherwise an existing account picks up
+    // this feature and immediately gets told it "leveled up" to whatever
+    // level it was already sitting at. Only levels reached AFTER that
+    // baseline is recorded actually notify.
+    // saveCloudField() only writes to Firestore — it never mutates `cloud`
+    // itself — so `cloud.lastNotifiedLevel` has to be updated here too, or
+    // every render for the rest of this session would think the level-up
+    // still hasn't been notified yet and fire again and again.
+    if(cloud.lastNotifiedLevel == null){
+      cloud.lastNotifiedLevel = level;
+      saveCloudField('lastNotifiedLevel', level);
+    } else if(level > Number(cloud.lastNotifiedLevel)){
+      cloud.lastNotifiedLevel = level;
+      saveCloudField('lastNotifiedLevel', level);
+      showAppNotification('🌟 Level up!', 'You reached Level '+level+' in Trakka.');
+    }
     const xpIntoLevel = totalXP % xpPerLevel;
     const xpLevelEl = document.getElementById('xp-level-num');
     if(xpLevelEl) xpLevelEl.textContent = 'Level '+level;
@@ -1848,8 +1865,9 @@ window.__ftStart = function(){
 
     // ===== Gamification: detect newly-earned milestones, confetti once each =====
     let newlyEarned = false;
+    const newlyEarnedBadges = [];
     badgeDefs.forEach(b=>{
-      if(b.earned && !badgeMemory['badge_'+b.id]){ badgeMemory['badge_'+b.id]=true; newlyEarned = true; }
+      if(b.earned && !badgeMemory['badge_'+b.id]){ badgeMemory['badge_'+b.id]=true; newlyEarned = true; newlyEarnedBadges.push(b); }
     });
     for(let i=0;i<N;i++){
       const mk = monthBadgeKey(i);
@@ -1863,8 +1881,36 @@ window.__ftStart = function(){
         badgeMemory['threshold_'+t] = true; newlyEarned = true;
       }
     });
+    // A debt series only ever notifies once (badgeMemory remembers it,
+    // exactly like a badge) — otherwise it'd fire again on every render for
+    // as long as the cleared debt's row still exists in an earlier month.
+    // The very first render that ever runs this check has to establish a
+    // baseline silently rather than notify: otherwise an existing account
+    // with debts cleared long before this feature shipped would get a flood
+    // of "debt cleared" notifications for old news the moment it updates.
+    const newlyClearedDebts = [];
+    if(!badgeMemory['debtclearedBaselineSet']){
+      clearedSeries.forEach(d=>{ badgeMemory['debtcleared_'+d.key] = true; });
+      badgeMemory['debtclearedBaselineSet'] = true;
+      newlyEarned = true;
+    } else {
+      clearedSeries.forEach(d=>{
+        const k = 'debtcleared_'+d.key;
+        if(!badgeMemory[k]){ badgeMemory[k]=true; newlyEarned = true; newlyClearedDebts.push(d); }
+      });
+    }
     if(newlyEarned){
       saveBadgeMemory(badgeMemory);
+      if(newlyEarnedBadges.length===1){
+        showAppNotification('🏅 Achievement unlocked', newlyEarnedBadges[0].label);
+      } else if(newlyEarnedBadges.length>1){
+        showAppNotification('🏅 '+newlyEarnedBadges.length+' new achievements unlocked!', newlyEarnedBadges.map(b=>b.label).join(' · '));
+      }
+      if(newlyClearedDebts.length===1){
+        showAppNotification('💳 Debt cleared', '"'+newlyClearedDebts[0].label+'" is fully paid off!');
+      } else if(newlyClearedDebts.length>1){
+        showAppNotification('💳 '+newlyClearedDebts.length+' debts cleared!', newlyClearedDebts.map(d=>d.label).join(' · ')+' are fully paid off!');
+      }
       triggerConfetti();
       // Celebratory pet state for a few seconds, then fall back to the
       // normal net/checked-based mood — see catMilestoneUntil above.
@@ -3485,6 +3531,37 @@ window.__ftStart = function(){
     if(grew && count>1) triggerConfetti();
   })();
 
+  // ===== Shared notification helper =====
+  // Routes through the service worker's showNotification() when one is
+  // registered, so the notification still appears if the tab is merely
+  // backgrounded or minimized (switched away from) rather than only while
+  // it's the focused, frontmost tab — new Notification() alone is flaky
+  // about that in some browsers. Still not a true background push: nothing
+  // fires once the browser/PWA process itself is fully closed, since this
+  // app has no server to push from (see the reminders section below for
+  // what that tradeoff means in practice). Every notification in the app —
+  // the daily reminder, a level-up, a newly-earned achievement, a debt
+  // getting fully cleared — goes through here, gated on the same
+  // permission + on/off toggle as the original reminders feature.
+  function showAppNotification(title, body){
+    // `cloud` was fetched once at load and saveCloudField() only ever writes
+    // to Firestore, never back into it — so the on/off toggle below has to
+    // (and does) mutate cloud.remindersEnabled directly the moment it's
+    // flipped, or this check would keep reading whatever it was at page load
+    // for the rest of the session.
+    if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if(!cloud.remindersEnabled) return;
+    const opts = { body, icon: 'icon-192.png' };
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(function(reg){
+        if(reg && reg.showNotification) reg.showNotification(title, opts);
+        else try{ new Notification(title, opts); }catch(e){}
+      }).catch(function(){ try{ new Notification(title, opts); }catch(e){} });
+    } else {
+      try{ new Notification(title, opts); }catch(e){}
+    }
+  }
+
   // ===== Daily reminder notifications =====
   // A browser Notification, shown once per calendar day when the tracker
   // is opened and nothing's been logged yet that day — not a background
@@ -3506,7 +3583,7 @@ window.__ftStart = function(){
       toggleBtn.disabled = !supported;
       toggleBtn.title = !supported
         ? 'Notifications are not supported in this browser'
-        : enabled ? 'Turn off daily reminders' : "Turn on daily reminders — shows a notification if you open the tracker without having logged anything yet today";
+        : enabled ? 'Turn off notifications' : "Turn on notifications — daily reminders, level-ups, achievements, and debts getting fully cleared";
     }
     updateButton();
 
@@ -3531,12 +3608,7 @@ window.__ftStart = function(){
       try{ lastShown = localStorage.getItem(REMINDED_KEY); }catch(e){}
       const today = todayKey();
       if(lastShown===today || hasLoggedAnythingToday()) return;
-      try{
-        new Notification('Trakka', {
-          body: "You haven't logged anything yet today — a couple of minutes keeps your tracker honest.",
-          icon: 'icon-192.png'
-        });
-      }catch(e){}
+      showAppNotification('Trakka', "You haven't logged anything yet today — a couple of minutes keeps your tracker honest.");
       try{ localStorage.setItem(REMINDED_KEY, today); }catch(e){}
     }
 
@@ -3544,6 +3616,7 @@ window.__ftStart = function(){
       if(!supported) return;
       if(enabled){
         enabled = false;
+        cloud.remindersEnabled = false; // showAppNotification() reads this directly — see its own comment
         saveCloudField('remindersEnabled', false);
         updateButton();
         return;
@@ -3554,6 +3627,7 @@ window.__ftStart = function(){
           return;
         }
         enabled = true;
+        cloud.remindersEnabled = true;
         saveCloudField('remindersEnabled', true);
         updateButton();
         maybeShowReminder();
