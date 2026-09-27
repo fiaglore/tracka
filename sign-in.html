@@ -286,7 +286,10 @@
     <section>
       <div class="section-head"><h2>💳 Debt payments due</h2><div class="head-right"><div class="totals" id="debt-totals"></div><button class="select-btn" id="debt-select-btn" title="Check off all debt payments for this month">✓ Select all</button><button class="reset-btn" id="debt-reset-btn" title="Uncheck all debt payments for this month">↺ Reset all</button></div></div>
       <div class="payoff-panel" id="payoff-panel">
-        <h3>🏁 Payoff plan — every debt you've added</h3>
+        <div class="payoff-panel-head">
+          <h3>🏁 Payoff plan — every debt you've added</h3>
+          <button type="button" class="link-btn" id="payoff-hide-cleared-toggle" hidden>Hide cleared</button>
+        </div>
         <div class="payoff-head" id="payoff-head"></div>
         <div id="payoff-list"></div>
       </div>

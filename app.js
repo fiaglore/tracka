@@ -2416,11 +2416,27 @@ window.__ftStart = function(){
     save();
   }
 
+  // Whether fully-cleared debts are hidden from the payoff plan list — a
+  // display preference, not tracker data, so it lives in localStorage
+  // (persists across reloads, like the idle-timeout setting) rather than in
+  // `state`. The header totals (Total/Repaid/Outstanding etc.) always cover
+  // every debt regardless of this — only which rows get rendered changes.
+  const HIDE_CLEARED_DEBTS_KEY = 'trakkaHideClearedDebtsV1';
+  let hideClearedDebts = false;
+  try{ hideClearedDebts = localStorage.getItem(HIDE_CLEARED_DEBTS_KEY) === '1'; }catch(e){}
+
   function renderDebtOverview(){
     const list = debtSeriesList();
     const head = document.getElementById('payoff-head');
     const body = document.getElementById('payoff-list');
+    const toggleBtn = document.getElementById('payoff-hide-cleared-toggle');
     if(!head || !body) return;
+
+    const clearedCount = list.filter(d=>d.remaining<=0).length;
+    if(toggleBtn){
+      toggleBtn.hidden = clearedCount===0;
+      toggleBtn.textContent = hideClearedDebts ? 'Show cleared ('+clearedCount+')' : 'Hide cleared';
+    }
 
     if(list.length===0){
       head.innerHTML = '';
@@ -2442,7 +2458,13 @@ window.__ftStart = function(){
       <div class="n"><div class="lbl">Months still to run</div><div class="val">${lastIdx===-1 ? '0' : (lastIdx - activeMonth + 1 > 0 ? lastIdx - activeMonth + 1 : 0)}</div></div>
     `;
 
-    body.innerHTML = list.map(d=>{
+    const visibleList = hideClearedDebts ? list.filter(d=>d.remaining>0) : list;
+    if(visibleList.length===0){
+      body.innerHTML = '<div class="empty-msg">Every debt is fully cleared 🎉</div>';
+      return;
+    }
+
+    body.innerHTML = visibleList.map(d=>{
       const pct = d.total>0 ? Math.min(100,(d.paid/d.total)*100) : 100;
       const done = d.remaining<=0;
       const lastLabel = d.lastDueMonth===-1 ? 'cleared' : (monthLabels[d.lastDueMonth]+' '+yearTags[d.lastDueMonth]);
@@ -2470,6 +2492,12 @@ window.__ftStart = function(){
   }
 
   document.addEventListener('click', function(e){
+    if(e.target.matches('#payoff-hide-cleared-toggle')){
+      hideClearedDebts = !hideClearedDebts;
+      try{ localStorage.setItem(HIDE_CLEARED_DEBTS_KEY, hideClearedDebts ? '1' : '0'); }catch(err){}
+      renderDebtOverview();
+      return;
+    }
     const delBtn = e.target.closest ? e.target.closest('.ds-del-btn') : null;
     if(delBtn){ deleteDebtSeries(delBtn.dataset.series); return; }
 
