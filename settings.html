@@ -306,10 +306,23 @@ window.__ftSettingsPage = true;
         <div class="payoff-head" id="payoff-head"></div>
         <div id="payoff-list"></div>
       </div>
+
+      <div class="payoff-panel" id="strategy-panel">
+        <div class="payoff-panel-head">
+          <h3>⚔️ Payoff strategy — avalanche vs snowball <span style="font-weight:400;color:var(--muted);font-size:12px;">— Premium</span></h3>
+        </div>
+        <p class="xl-status" id="strategy-locked-note" style="width:auto;margin:0 0 10px;" hidden>Upgrade to Premium in Settings to compare payoff strategies and estimate interest saved. Add an APR to a debt below (optional) for an interest-saved estimate.</p>
+        <div class="toolbar" id="strategy-controls">
+          <label class="xl-set">Extra {c}/month toward debt <input type="number" id="strategy-extra" min="0" value="0" style="width:110px;"></label>
+        </div>
+        <div id="strategy-result"></div>
+      </div>
+
       <div class="extra-add">
         <input type="text" id="debt-desc" placeholder="Add a debt/payment, e.g. New loan installment">
         <input type="number" id="debt-amt" placeholder="Amount {c}" data-ph="Amount {c}">
         <input type="number" id="debt-duration" placeholder="Duration (months)" min="1" style="width:130px;">
+        <input type="number" id="debt-apr" placeholder="APR % (optional)" min="0" step="0.1" style="width:140px;">
         <button id="debt-add-btn">Add</button>
       </div>
       <div class="card-list" id="debt-list"></div>
@@ -402,6 +415,18 @@ window.__ftSettingsPage = true;
         <div class="chart-scroll"><svg id="living-daily-chart" width="100%" height="138"></svg></div>
       </div>
 
+      <div class="living-subpanel" id="trend-chart-panel">
+        <h3>⭐ Multi-month trend <span style="font-weight:400;color:var(--muted);font-size:12px;">— Premium</span></h3>
+        <p class="xl-status" id="trend-chart-locked-note" style="width:auto;margin:0 0 8px;" hidden>Upgrade to Premium in Settings to see your spending trend across months.</p>
+        <div class="chart-scroll"><svg id="living-trend-chart" width="100%" height="150"></svg></div>
+      </div>
+
+      <div class="living-subpanel" id="forecast-panel">
+        <h3>🔔 Bill reminders &amp; forecast <span style="font-weight:400;color:var(--muted);font-size:12px;">— Premium</span></h3>
+        <p class="xl-status" id="forecast-locked-note" style="width:auto;margin:0 0 8px;" hidden>Upgrade to Premium in Settings for recurring-bill reminders and a next-period spending forecast.</p>
+        <div id="forecast-result"></div>
+      </div>
+
       <div class="extra-add">
         <input type="date" id="living-entry-date">
         <select id="living-entry-category"></select>
@@ -423,6 +448,7 @@ window.__ftSettingsPage = true;
             <input type="number" id="new-living-cat-budget" placeholder="Budget {c}" data-ph="Budget {c}">
             <button id="add-living-cat-btn">+ Add category</button>
           </div>
+          <p id="living-cat-cap-note" style="font-size:12px;color:var(--muted);margin:6px 0 0;" hidden></p>
         </div>
       </div>
 
@@ -458,6 +484,18 @@ window.__ftSettingsPage = true;
 
   <!-- ============ SETTINGS ============ -->
   <div class="app-page" id="page-settings" data-page="settings">
+    <section>
+      <div class="section-head"><h2>⭐ Premium</h2></div>
+      <div class="toolbar" id="premium-status-row">
+        <span class="xl-status" id="premium-status-text">Checking your subscription…</span>
+      </div>
+      <div class="toolbar" id="premium-actions-row" hidden>
+        <button class="xl-btn primary" id="premium-upgrade-btn" type="button" hidden>⭐ Go Premium — $3.99/mo</button>
+        <button class="xl-btn" id="premium-restore-btn" type="button" hidden>↺ Restore purchase</button>
+        <span class="xl-status" id="premium-android-only-text" hidden style="width:auto;margin:0;">Premium subscriptions are only available from the Trakka Android app (Play Store), not the browser version.</span>
+      </div>
+    </section>
+
     <section>
       <div class="section-head"><h2>🎨 Appearance</h2></div>
       <div class="toolbar">
@@ -535,6 +573,7 @@ window.__ftSettingsPage = true;
 <script src="app.js" defer></script>
 <script src="ambient-audio.js" defer></script>
 <script src="pwa.js" defer></script>
+<script src="billing.js" defer></script>
 <script src="app-entry.js" defer></script>
 <script src="auto-logout.js" defer></script>
 <script>

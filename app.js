@@ -1257,11 +1257,151 @@ window.__ftStart = function(){
   }
   function sumForDate(ds){ return state.livingEntries.filter(e=>e.date===ds).reduce((s,e)=>s+Number(e.amount||0),0); }
 
+  // Premium: total living-expense spend per billing period across every
+  // month the tracker has (not just activeMonth, unlike the two charts
+  // above), as a simple line-over-bars trend so a heavy user can actually
+  // see whether spending is climbing month to month, not just this one.
+  function renderLivingTrendChart(){
+    const svg = document.getElementById('living-trend-chart');
+    const lockedNote = document.getElementById('trend-chart-locked-note');
+    if(!svg) return;
+    if(!window.__ftPremium){
+      if(lockedNote) lockedNote.hidden = false;
+      svg.style.opacity = '0.25';
+      svg.style.filter = 'blur(2px)';
+      // Still draw a (blurred) real chart behind the paywall note rather than
+      // leaving it blank — shows there's something worth unlocking.
+    } else {
+      if(lockedNote) lockedNote.hidden = true;
+      svg.style.opacity = '';
+      svg.style.filter = '';
+    }
+
+    const totals = [];
+    for(let i=0;i<N;i++) totals.push(sumLivingForMonth(i));
+    const maxVal = Math.max(...totals, 1);
+    const barW=20, gap=10, chartH=110, labelH=22, padTop=8;
+    const width = Math.max(N*(barW+gap)+gap, 200);
+    const height = chartH+labelH+padTop;
+    let bars = '', points = [];
+    totals.forEach((total,i)=>{
+      const x = gap+i*(barW+gap);
+      const barH = total>0 ? Math.max(2,(total/maxVal)*chartH) : 0;
+      const y = padTop+(chartH-barH);
+      bars += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(barH,1)}" rx="3" fill="${i===activeMonth?'#E7A33E':'#C9BFA8'}"></rect>`;
+      bars += `<text x="${x+barW/2}" y="${padTop+chartH+14}" text-anchor="middle" font-size="8" fill="#9C8B72" font-family="'Space Mono',monospace">${(monthLabels[i]||'').slice(0,3)}</text>`;
+      points.push([x+barW/2, padTop+(chartH-(total/maxVal)*chartH)]);
+    });
+    const line = points.length>1
+      ? `<polyline points="${points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#6FA96C" stroke-width="2"></polyline>`
+      : '';
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.innerHTML = bars + line;
+  }
+
+  // Premium: groups living-expense entries by category + normalized
+  // description across every month logged so far, and flags anything
+  // that's shown up in at least MIN_MONTHS of them as "recurring" — a
+  // description repeated 3+ separate months is a real pattern, not a
+  // coincidence (two unrelated $12 purchases happening to share a name
+  // once isn't enough to flag). Reports whichever of those haven't been
+  // logged yet in the currently viewed period, as a "still due" nudge.
+  function detectRecurringLivingItems(){
+    const MIN_MONTHS = 3;
+    const map = new Map();
+    state.livingEntries.forEach(e=>{
+      const desc = String(e.desc||'').trim();
+      if(!desc) return;
+      const key = e.categoryId+'|'+desc.toLowerCase();
+      if(!map.has(key)) map.set(key, {categoryId:e.categoryId, desc, months:new Set(), amounts:[]});
+      const g = map.get(key);
+      g.months.add(entryMonthIndex(e));
+      g.amounts.push(Number(e.amount)||0);
+    });
+    const thisMonthKeys = new Set(livingEntriesForMonth(activeMonth).map(e=> e.categoryId+'|'+String(e.desc||'').trim().toLowerCase()));
+    const out = [];
+    map.forEach((g, key)=>{
+      if(g.months.size < MIN_MONTHS) return;
+      const avgAmount = g.amounts.reduce((s,a)=>s+a,0)/g.amounts.length;
+      out.push({ categoryId:g.categoryId, desc:g.desc, monthsSeen:g.months.size, avgAmount, loggedThisMonth: thisMonthKeys.has(key) });
+    });
+    out.sort((a,b)=> b.monthsSeen - a.monthsSeen);
+    return out;
+  }
+
+  // Premium: per-category forecast for the currently viewed period, as a
+  // plain average of the (up to) 3 periods immediately before it. Skips
+  // categories with no history before activeMonth (nothing to average) —
+  // a brand-new tracker or a brand-new category just won't have a
+  // forecast row yet, which is the honest answer, not a guess dressed up
+  // as one.
+  function forecastLivingCategories(){
+    const LOOKBACK = 3;
+    const start = Math.max(0, activeMonth-LOOKBACK);
+    const pastMonths = [];
+    for(let i=start;i<activeMonth;i++) pastMonths.push(i);
+    if(pastMonths.length===0) return [];
+    const soFarRows = livingCategoryTotalsForMonth(activeMonth);
+    return state.livingCategories.map(c=>{
+      const totals = pastMonths.map(mi => (livingCategoryTotalsForMonth(mi).find(r=>r.category.id===c.id)||{total:0}).total);
+      const avgPast = totals.reduce((s,t)=>s+t,0)/totals.length;
+      const soFar = (soFarRows.find(r=>r.category.id===c.id)||{total:0}).total;
+      return { category:c, avgPast, soFar };
+    }).filter(r=> r.avgPast>0 || r.soFar>0);
+  }
+
+  function renderBillForecastPanel(){
+    const lockedNote = document.getElementById('forecast-locked-note');
+    const resultEl = document.getElementById('forecast-result');
+    if(!resultEl) return;
+    if(!window.__ftPremium){
+      if(lockedNote) lockedNote.hidden = false;
+      resultEl.innerHTML = '';
+      return;
+    }
+    if(lockedNote) lockedNote.hidden = true;
+
+    const dueNotLogged = detectRecurringLivingItems().filter(r=>!r.loggedThisMonth);
+    const forecast = forecastLivingCategories();
+
+    let html = '<h4 style="margin:0 0 6px;">Recurring bills not yet logged this period</h4>';
+    html += dueNotLogged.length
+      ? '<ul style="margin:0 0 16px;padding-left:18px;">' + dueNotLogged.map(r=>
+          `<li>${escapeAttr(r.desc)} <span style="color:var(--muted);font-size:12px;">— ~${fmt(r.avgAmount)}, seen in ${r.monthsSeen} of your logged periods</span></li>`
+        ).join('') + '</ul>'
+      : '<div class="empty-msg" style="margin:0 0 16px;">Nothing recurring looks overdue for this period.</div>';
+
+    html += '<h4 style="margin:0 0 6px;">Next-period forecast, by category</h4>';
+    html += forecast.length
+      ? forecast.map(r=>{
+          const over = r.avgPast>0 && r.soFar>r.avgPast;
+          return `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+            <span>${escapeAttr(r.category.name)}</span>
+            <span style="${over?'color:#E4744E;':''}">avg ${fmt(r.avgPast)} · so far ${fmt(r.soFar)}</span>
+          </div>`;
+        }).join('')
+      : '<div class="empty-msg">Not enough history yet — forecasting needs a few logged periods first.</div>';
+
+    resultEl.innerHTML = html;
+  }
+
   function renderLivingCategorySelect(){
     const sel = document.getElementById('living-entry-category');
     const prev = sel.value;
     sel.innerHTML = state.livingCategories.map(c=>`<option value="${c.id}">${escapeAttr(c.name)}</option>`).join('');
     if(state.livingCategories.some(c=>c.id===prev)) sel.value = prev;
+  }
+
+  // Free plan is capped at FREE_LIVING_CATEGORY_CAP categories; premium
+  // (see the "Premium" settings section / functions/index.js) removes the
+  // cap entirely. Anyone already over the cap from before this shipped, or
+  // whose subscription lapses afterward, keeps every category they already
+  // have — the cap only blocks adding new ones, never removes existing data.
+  const FREE_LIVING_CATEGORY_CAP = 6;
+  function livingCategoryCapReached(){
+    return !window.__ftPremium && state.livingCategories.length >= FREE_LIVING_CATEGORY_CAP;
   }
 
   function renderLivingCategoryManage(){
@@ -1274,6 +1414,21 @@ window.__ftStart = function(){
         <button class="living-cat-del" data-cat-id="${c.id}" title="Remove category">✕</button>
       </div>
     `).join('');
+
+    const capNote = document.getElementById('living-cat-cap-note');
+    const nameEl = document.getElementById('new-living-cat-name');
+    const budgetEl = document.getElementById('new-living-cat-budget');
+    const addBtn = document.getElementById('add-living-cat-btn');
+    const atCap = livingCategoryCapReached();
+    if(capNote){
+      capNote.hidden = !atCap;
+      capNote.textContent = atCap
+        ? `⭐ Free plan is limited to ${FREE_LIVING_CATEGORY_CAP} expense categories — upgrade to Premium in Settings for unlimited categories.`
+        : '';
+    }
+    if(nameEl) nameEl.disabled = atCap;
+    if(budgetEl) budgetEl.disabled = atCap;
+    if(addBtn) addBtn.disabled = atCap;
   }
 
   // Which day-groups in the Expenses tab's daily log are expanded — a plain
@@ -1557,6 +1712,13 @@ window.__ftStart = function(){
     {id:'longevity', label:'📅 Longevity'},
   ];
 
+  // Exposed so the premium-entitlement watcher (outside this closure, wired
+  // up from begin() in the DOMContentLoaded block below) can force a
+  // re-render the moment a purchase verifies or a subscription lapses,
+  // instead of premium-gated sections only updating on the next natural
+  // state change.
+  window.__ftRender = render;
+
   function render(){
     renderMonthPicker();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
@@ -1568,8 +1730,11 @@ window.__ftStart = function(){
     renderList('income-list', m.income, 'income');
     renderList('debt-list', m.debts, 'debts');
     renderDebtOverview();
+    renderPayoffStrategyPanel();
     renderLivingCategoryChart();
     renderLivingDailyChart();
+    renderLivingTrendChart();
+    renderBillForecastPanel();
     renderLivingCategorySelect();
     renderLivingCategoryManage();
     document.getElementById('manage-cats-month-label').textContent = monthLabels[activeMonth]+' '+yearTags[activeMonth];
@@ -2213,7 +2378,7 @@ window.__ftStart = function(){
     withdrawFromApp(key, amt);
   });
 
-  function addRecurringItem(kind, label, amount, duration){
+  function addRecurringItem(kind, label, amount, duration, apr){
     const seriesId = makeCustomId(kind);
     // This used to clamp silently to whatever was left on the tracker, so asking for a
     // 12-month debt while sitting on the last tracked month gave you 1 month, with no
@@ -2232,7 +2397,9 @@ window.__ftStart = function(){
     for(let k=0;k<months;k++){
       const mi = activeMonth+k;
       const sub = months>1 ? `Month ${k+1} of ${months}` : '';
-      state.months[mi][kind].push({id:makeCustomId(kind), label, sub, amount, checked:false, custom:true, seriesId});
+      const item = {id:makeCustomId(kind), label, sub, amount, checked:false, custom:true, seriesId};
+      if(apr>0) item.apr = apr;
+      state.months[mi][kind].push(item);
     }
     save();
   }
@@ -2251,11 +2418,12 @@ window.__ftStart = function(){
         const key = seriesKeyOf(it);
         if(!map.has(key)){
           map.set(key, {key, label:it.label, paid:0, remaining:0, extraPaid:0,
-                        paymentsLeft:0, lastDueMonth:-1, firstMonth:i});
+                        paymentsLeft:0, lastDueMonth:-1, firstMonth:i, apr:0});
         }
         const s = map.get(key);
         const amt = Number(it.amount)||0;
         if(!it.extraPayment) s.label = it.label;      // scheduled rows carry the real name
+        if(it.apr>0) s.apr = it.apr;                  // APR (see debt-apr, optional) — used by the premium payoff-strategy comparison
         if(it.checked){
           s.paid += amt;
           if(it.extraPayment) s.extraPaid += amt;
@@ -2271,6 +2439,111 @@ window.__ftStart = function(){
     // Longest-running debts first, so the one setting the countdown sits at the top.
     out.sort((a,b)=> b.lastDueMonth - a.lastDueMonth || a.firstMonth - b.firstMonth);
     return out;
+  }
+
+  // Premium: avalanche (highest APR first) vs snowball (smallest balance
+  // first) payoff order, simulated month-by-month. Each debt's own minimum
+  // payment is its current balance spread over its remaining scheduled
+  // instalments (debtSeriesList()'s remaining/paymentsLeft) — an extra
+  // monthly amount, if any, always goes to whichever debt is first in the
+  // strategy's order. Interest only accrues on debts that were given an
+  // APR (the debt-apr field is optional) — without any APR entered across
+  // every debt being compared, totalInterest stays 0 for both strategies
+  // and the UI falls back to comparing payoff time only, since there's
+  // nothing real to estimate savings from.
+  function simulatePayoffStrategy(debtSeries, extraMonthly, order){
+    const items = debtSeries
+      .map(d=>({
+        label: d.label,
+        balance: d.remaining,
+        minPayment: d.paymentsLeft>0 ? d.remaining/d.paymentsLeft : d.remaining,
+        apr: Number(d.apr)||0
+      }))
+      .filter(d=>d.balance>0.01);
+    const sorted = items.slice().sort((a,b)=> order==='avalanche'
+      ? (b.apr - a.apr || a.balance - b.balance)
+      : (a.balance - b.balance || b.apr - a.apr));
+
+    let months = 0, totalInterest = 0;
+    const MAX_MONTHS = 600; // ~50 years — a sane cap so a bad input (e.g. 0 minimum payment) can't hang the tab
+    while(sorted.some(d=>d.balance>0.01) && months<MAX_MONTHS){
+      months++;
+      sorted.forEach(d=>{
+        if(d.balance<=0.01 || !d.apr) return;
+        const interest = d.balance*(d.apr/100/12);
+        d.balance += interest;
+        totalInterest += interest;
+      });
+      sorted.forEach(d=>{
+        if(d.balance<=0.01) return;
+        d.balance -= Math.min(d.minPayment, d.balance);
+      });
+      let extra = Math.max(0, Number(extraMonthly)||0);
+      for(const d of sorted){
+        if(extra<=0) break;
+        if(d.balance<=0.01) continue;
+        const pay = Math.min(extra, d.balance);
+        d.balance -= pay;
+        extra -= pay;
+      }
+    }
+    return { months, totalInterest, order: sorted.map(d=>d.label) };
+  }
+
+  function renderPayoffStrategyPanel(){
+    const lockedNote = document.getElementById('strategy-locked-note');
+    const controls = document.getElementById('strategy-controls');
+    const resultEl = document.getElementById('strategy-result');
+    if(!resultEl) return;
+    if(!window.__ftPremium){
+      if(lockedNote) lockedNote.hidden = false;
+      if(controls) controls.hidden = true;
+      resultEl.innerHTML = '';
+      return;
+    }
+    if(lockedNote) lockedNote.hidden = true;
+    if(controls) controls.hidden = false;
+
+    const debts = debtSeriesList().filter(s=>s.remaining>0.01);
+    if(debts.length===0){
+      resultEl.innerHTML = '<div class="empty-msg">No outstanding debts to compare right now.</div>';
+      return;
+    }
+    const extraEl = document.getElementById('strategy-extra');
+    const extra = Math.max(0, Number(extraEl && extraEl.value)||0);
+    const avalanche = simulatePayoffStrategy(debts, extra, 'avalanche');
+    const snowball = simulatePayoffStrategy(debts, extra, 'snowball');
+    const hasApr = debts.some(d=>d.apr>0);
+    const monthsLabel = m => m + ' month' + (m===1?'':'s');
+
+    let savingsNote;
+    if(!hasApr){
+      savingsNote = 'Add an APR % when adding a debt for an interest-saved estimate — without one, this compares payoff order and time only.';
+    } else if(Math.abs(avalanche.totalInterest - snowball.totalInterest) < 0.5){
+      savingsNote = 'Both strategies cost about the same in interest for your current debts.';
+    } else if(avalanche.totalInterest < snowball.totalInterest){
+      savingsNote = 'Avalanche saves an estimated ' + fmt(snowball.totalInterest - avalanche.totalInterest) + ' in interest over snowball.';
+    } else {
+      savingsNote = 'Snowball saves an estimated ' + fmt(avalanche.totalInterest - snowball.totalInterest) + ' in interest over avalanche.';
+    }
+
+    resultEl.innerHTML = `
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;">
+        <div style="flex:1;min-width:220px;">
+          <h4 style="margin:0 0 6px;">🏔️ Avalanche <span style="font-weight:400;color:var(--muted);font-size:12px;">highest APR first</span></h4>
+          <p style="margin:4px 0;">Debt-free in <b>${monthsLabel(avalanche.months)}</b></p>
+          ${hasApr ? `<p style="margin:4px 0;">Est. interest paid: <b>${fmt(avalanche.totalInterest)}</b></p>` : ''}
+          <ol style="margin:6px 0 0;padding-left:18px;">${avalanche.order.map(l=>`<li>${escapeAttr(l)}</li>`).join('')}</ol>
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <h4 style="margin:0 0 6px;">⛄ Snowball <span style="font-weight:400;color:var(--muted);font-size:12px;">smallest balance first</span></h4>
+          <p style="margin:4px 0;">Debt-free in <b>${monthsLabel(snowball.months)}</b></p>
+          ${hasApr ? `<p style="margin:4px 0;">Est. interest paid: <b>${fmt(snowball.totalInterest)}</b></p>` : ''}
+          <ol style="margin:6px 0 0;padding-left:18px;">${snowball.order.map(l=>`<li>${escapeAttr(l)}</li>`).join('')}</ol>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0;">${savingsNote}</p>
+    `;
   }
 
   // Instalments can be deleted or merged by an extra payment, so "Month 3 of 12" would go stale.
@@ -2629,12 +2902,14 @@ window.__ftStart = function(){
     const descEl = document.getElementById('debt-desc');
     const amtEl = document.getElementById('debt-amt');
     const durEl = document.getElementById('debt-duration');
+    const aprEl = document.getElementById('debt-apr');
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     const dur = Math.max(1, Number(durEl.value)||1);
+    const apr = Math.max(0, Number(aprEl && aprEl.value)||0);
     if(!desc || amt<=0) return;
-    addRecurringItem('debts', desc, amt, dur);
-    descEl.value=''; amtEl.value=''; durEl.value='';
+    addRecurringItem('debts', desc, amt, dur, apr);
+    descEl.value=''; amtEl.value=''; durEl.value=''; if(aprEl) aprEl.value='';
   });
 
   document.getElementById('living-entry-add-btn').addEventListener('click', function(){
@@ -2656,6 +2931,7 @@ window.__ftStart = function(){
   });
 
   document.getElementById('add-living-cat-btn').addEventListener('click', function(){
+    if(livingCategoryCapReached()) return;
     const nameEl = document.getElementById('new-living-cat-name');
     const budgetEl = document.getElementById('new-living-cat-budget');
     const name = nameEl.value.trim();
@@ -2667,6 +2943,9 @@ window.__ftStart = function(){
     nameEl.value=''; budgetEl.value='';
     save();
   });
+
+  const strategyExtraEl = document.getElementById('strategy-extra');
+  if(strategyExtraEl) strategyExtraEl.addEventListener('input', renderPayoffStrategyPanel);
 
   document.getElementById('savingsapps-add-btn').addEventListener('click', function(){
     const descEl = document.getElementById('savingsapps-desc');
@@ -3898,6 +4177,24 @@ window.__ftStart = function(){
     if(started) return;
     started = true;
     window.__ftUid = user.uid;
+    // Premium is a live subscription, not a one-time flag: it can lapse
+    // (cancellation, failed renewal) without this tab reloading, so this
+    // stays subscribed for the rest of the session rather than being read
+    // once at sign-in. Firestore's security rules make entitlements/{uid}
+    // read-only from the client (see firestore.rules) — only the
+    // verifyPlayPurchase/refreshEntitlements Cloud Functions can write it —
+    // so this callback firing with premium:true always traces back to a
+    // real, server-verified purchase.
+    if (window.__ftUnwatchEntitlement) window.__ftUnwatchEntitlement();
+    window.__ftPremium = false;
+    window.__ftUnwatchEntitlement = window.Trakka.watchEntitlement(user.uid, function (entitlement) {
+      const wasPremium = window.__ftPremium;
+      window.__ftPremium = !!(entitlement && entitlement.premium);
+      if (typeof window.__ftRenderPremiumStatus === 'function') window.__ftRenderPremiumStatus();
+      if (wasPremium !== window.__ftPremium && typeof window.__ftRender === 'function') {
+        window.__ftRender();
+      }
+    });
     showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
     let cloudData = null;
     try{
@@ -4321,6 +4618,79 @@ window.__ftStart = function(){
     buildSwatches();
     if(!document.body.classList.contains('ft-locked')) refreshThemeForCurrentUser();
   }
+
+  /* ---------------- Premium (Google Play Billing) ---------------- */
+  // window.__ftPremium is kept live by the entitlements/{uid} listener set
+  // up in begin() (see firebase-init.js's watchEntitlement + functions/index.js
+  // for why that's the only trustworthy source of truth — this section only
+  // ever reads it, never sets it directly). Called both from that listener
+  // and once at load, since TrakkaBilling (billing.js, a deferred script)
+  // may not have finished loading the very first time this runs.
+  function renderPremiumStatus(){
+    var textEl = document.getElementById('premium-status-text');
+    var actionsRow = document.getElementById('premium-actions-row');
+    var upgradeBtn = document.getElementById('premium-upgrade-btn');
+    var restoreBtn = document.getElementById('premium-restore-btn');
+    var androidOnlyText = document.getElementById('premium-android-only-text');
+    if(!textEl) return;
+    var supported = !!(window.TrakkaBilling && window.TrakkaBilling.isSupported());
+    if(window.__ftPremium){
+      textEl.textContent = '⭐ You have Trakka Premium — advanced budgeting features are unlocked.';
+      if(actionsRow) actionsRow.hidden = true;
+    } else {
+      textEl.textContent = 'Free plan — upgrade for multi-month trend charts, unlimited budget categories, a debt payoff strategy comparison, and bill forecasting.';
+      if(actionsRow) actionsRow.hidden = false;
+      if(upgradeBtn) upgradeBtn.hidden = !supported;
+      if(restoreBtn) restoreBtn.hidden = !supported;
+      if(androidOnlyText) androidOnlyText.hidden = supported;
+    }
+  }
+  window.__ftRenderPremiumStatus = renderPremiumStatus;
+
+  var premiumUpgradeBtn = document.getElementById('premium-upgrade-btn');
+  if(premiumUpgradeBtn){
+    var premiumUpgradeLabel = premiumUpgradeBtn.textContent;
+    premiumUpgradeBtn.addEventListener('click', async function(){
+      premiumUpgradeBtn.disabled = true;
+      premiumUpgradeBtn.textContent = 'Processing…';
+      try{
+        var result = await window.TrakkaBilling.purchasePremium();
+        if(result.ok){
+          premiumUpgradeBtn.textContent = 'Welcome to Premium! 🎉';
+        } else if(result.reason === 'cancelled'){
+          premiumUpgradeBtn.textContent = premiumUpgradeLabel;
+          premiumUpgradeBtn.disabled = false;
+        } else {
+          alert(result.message || "Purchase couldn't be completed. Please try again.");
+          premiumUpgradeBtn.textContent = premiumUpgradeLabel;
+          premiumUpgradeBtn.disabled = false;
+        }
+      } catch(e){
+        console.error('Trakka: purchase failed', e);
+        alert("Purchase couldn't be completed. Please try again.");
+        premiumUpgradeBtn.textContent = premiumUpgradeLabel;
+        premiumUpgradeBtn.disabled = false;
+      }
+    });
+  }
+  var premiumRestoreBtn = document.getElementById('premium-restore-btn');
+  if(premiumRestoreBtn){
+    premiumRestoreBtn.addEventListener('click', async function(){
+      premiumRestoreBtn.disabled = true;
+      try{
+        var result = await window.TrakkaBilling.restorePurchases();
+        if(result.ok) alert('Premium restored!');
+        else if(result.reason === 'none-found') alert('No previous purchase found for this Google account.');
+        else alert("Couldn't restore purchases right now — please try again later.");
+      } catch(e){
+        console.error('Trakka: restore failed', e);
+        alert("Couldn't restore purchases right now — please try again later.");
+      } finally {
+        premiumRestoreBtn.disabled = false;
+      }
+    });
+  }
+  renderPremiumStatus();
 
   /* ---------------- Page navigation ---------------- */
   function showPage(name){

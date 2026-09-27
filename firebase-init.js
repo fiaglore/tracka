@@ -66,8 +66,13 @@ import {
   setDoc,
   deleteDoc,
   deleteField,
-  serverTimestamp
+  serverTimestamp,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {
+  getFunctions,
+  httpsCallable
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCTwklrfnEsMat8WhkwWPHLHV-YfFl_ono",
@@ -81,6 +86,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
+
+function entitlementDocRef(uid) {
+  return doc(db, "entitlements", uid);
+}
 
 // Firebase Auth accounts are identified by email, but the tracker's sign-in
 // form only ever asked for a "username". Rather than redesign that UI, each
@@ -290,6 +300,29 @@ window.Trakka = {
       await setDoc(userDocRef(user.uid), { pinAuth: deleteField() }, { merge: true }).catch(function (e) { console.error("Save failed:", e); });
     }
     try { localStorage.removeItem(PIN_LOCAL_KEY); } catch (e) {}
+  },
+
+  // ----- premium entitlement (see functions/index.js and firestore.rules) -----
+  // Live-subscribes to entitlements/{uid}, which only the verifyPlayPurchase
+  // and refreshEntitlements Cloud Functions can ever write — this file
+  // (running as the user's own browser) only ever reads it. Returns an
+  // unsubscribe function, same shape as onAuthChange().
+  watchEntitlement(uid, cb) {
+    return onSnapshot(entitlementDocRef(uid), (snap) => {
+      cb(snap.exists() ? snap.data() : null);
+    }, (err) => {
+      console.error("Entitlement watch failed:", err);
+      cb(null);
+    });
+  },
+
+  // Sends a Play Billing purchase token to the verifyPlayPurchase Cloud
+  // Function, which is the only thing that actually decides whether premium
+  // gets turned on — this just relays the token and surfaces the result.
+  async verifyPurchase(purchaseToken, subscriptionId) {
+    const verify = httpsCallable(functions, "verifyPlayPurchase");
+    const res = await verify({ purchaseToken, subscriptionId });
+    return res.data;
   }
 };
 
