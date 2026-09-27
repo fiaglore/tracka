@@ -98,6 +98,28 @@
     <button type="button" class="auth-link" id="pin-setup-close">Cancel</button>
   </div>
 </div>
+
+<!-- Guided first-time tour — see openOnboarding()/closeOnboarding() in
+     app.js. Shown automatically once per account (cloud.onboardingSeen),
+     and replayable any time from Settings ("🧭 Take the tour"). Purely
+     descriptive (no spotlighting of live elements), so it's just as valid
+     to open from settings.html as from here. Same fixed-overlay/.auth-card
+     pattern as #pin-setup-overlay and #idle-warning-overlay. -->
+<div id="onboarding-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+  <div class="auth-card onboarding-card">
+    <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true">🌱</div>
+    <h2 id="onboarding-title">Welcome to Trakka</h2>
+    <p class="auth-sub" id="onboarding-body"></p>
+    <div class="onboarding-dots" id="onboarding-dots"></div>
+    <div class="onboarding-nav">
+      <button type="button" class="auth-link" id="onboarding-skip">Skip</button>
+      <div class="onboarding-nav-right">
+        <button type="button" class="xl-btn" id="onboarding-back" hidden>Back</button>
+        <button type="button" class="auth-submit" id="onboarding-next">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- Ambient weather effect (snow/rain/etc — picked on the Settings page's
      "Weather effect" picker), a looping background layer separate from
      the one-shot #confetti-canvas above it. See its IIFE at the bottom
@@ -511,6 +533,10 @@
       <div class="toolbar">
         <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
         <span class="xl-status" style="width:auto;margin:0;">Adds a home-screen icon and works offline. Shows up here automatically in Chrome/Edge/Android when it's available and not already installed.</span>
+      </div>
+      <div class="toolbar">
+        <button class="xl-btn" id="onboarding-replay-btn" type="button" title="Show the welcome tour again">🧭 Take the tour</button>
+        <span class="xl-status" style="width:auto;margin:0;">A quick walkthrough of what each part of Trakka does.</span>
       </div>
     </section>
   </div>
