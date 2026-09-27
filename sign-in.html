@@ -23,7 +23,15 @@
 </head>
 <body class="ft-locked">
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-  <div class="auth-card" id="auth-form-card">
+  <!-- Starts hidden: whether this device already has a session to resume
+       (Firebase's "keep me signed in") takes a moment to resolve, and
+       showing the plain sign-in form as the very first paint would flash it
+       before the tracker itself appears a beat later — on every refresh, and
+       every time settings.html links back here. #auth-loading-box below
+       starts visible instead, and app.js's auth IIFE (see
+       revealSignInGate()) only swaps to this form once it's confirmed
+       there's genuinely no session to resume. -->
+  <div class="auth-card" id="auth-form-card" hidden>
     <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;">🌱</a>
     <h2 id="auth-title">Welcome back</h2>
     <p class="auth-sub" id="auth-sub">Sign in to open your tracker.</p>
@@ -48,10 +56,11 @@
   <!-- Shown in place of the form above from the moment sign-in/create-account is submitted
        until the tracker's data has loaded and is ready to display — signing in and loading
        the Firestore document both take a moment, and without this the screen just sat there
-       looking frozen in between. -->
-  <div class="auth-card auth-loading-box" id="auth-loading-box" hidden role="status" aria-live="polite">
+       looking frozen in between. Starts visible on THIS page (see #auth-form-card above)
+       with copy that already matches what begin() sets once it runs. -->
+  <div class="auth-card auth-loading-box" id="auth-loading-box" role="status" aria-live="polite">
     <span class="auth-loading-spin" aria-hidden="true">🌱</span>
-    <p id="auth-loading-text">Signing you in…</p>
+    <p id="auth-loading-text">Loading your tracker…</p>
   </div>
   <!-- Shown instead of #auth-form-card right after an auto sign-out (idle
        timeout or session cap — never a manual "🔒 Sign out" click), when a
