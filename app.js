@@ -1896,6 +1896,7 @@ window.__ftStart = function(){
       const item = state.months[activeMonth][kind][idx];
       item.checked = e.target.checked;
       if(e.target.checked) item.lastTicked = todayKey(); else delete item.lastTicked;
+      if(kind==='debts' && item.checked && item.seriesId) archiveClearedDebtSeries(item.seriesId);
       save();
     }
     if(e.target.matches('.item-amt[data-kind]')){
@@ -2239,6 +2240,41 @@ window.__ftStart = function(){
     sched.forEach((it,k)=>{ it.sub = n>1 ? `Month ${k+1} of ${n}` : ''; });
   }
 
+  // Once a debt has nothing left outstanding, it's done — instalments for it
+  // shouldn't keep turning up in every month tab from here on. The cutoff is
+  // the later of the active month and the latest month that already holds an
+  // actually-checked (real, paid) instalment for this series, so a payment
+  // recorded ahead of schedule is never the thing that gets wiped: months at
+  // or before the cutoff are left alone entirely, and only unchecked rows
+  // after it — which have nothing left to explain themselves once the whole
+  // series is cleared — are dropped. A checked row is never removed, no
+  // matter which month it's in, so paid history always stays intact.
+  // Editing a debt's total down can also leave a stray $0 instalment behind
+  // (splitting a tiny remainder across several months rounds most of them to
+  // nothing), and those never clear themselves out on their own since a $0
+  // row never counts as "outstanding" — so once the series is fully paid,
+  // any such zero-amount leftover is swept regardless of which month it's in.
+  function archiveClearedDebtSeries(key){
+    const series = debtSeriesList().find(s=>s.key===key);
+    if(!series || series.remaining>0.001) return;
+    let cutoff = activeMonth;
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      m.debts.forEach(it=>{ if(seriesKeyOf(it)===key && it.checked && i>cutoff) cutoff = i; });
+    }
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      m.debts = m.debts.filter(it=>{
+        if(seriesKeyOf(it)!==key || it.checked) return true;
+        if(i>cutoff) return false;
+        return (Number(it.amount)||0) > 0.001;
+      });
+    }
+    renumberSeries(key);
+  }
+
   // An extra payment eats into the outstanding instalments from the BACK of the schedule
   // forward, which is what actually happens when you overpay a loan: the tail months vanish,
   // the debt-free date jumps closer, and any leftover part-payment shrinks the new final month.
@@ -2294,6 +2330,7 @@ window.__ftStart = function(){
     });
 
     renumberSeries(key);
+    archiveClearedDebtSeries(key);
     save();
 
     const cleared = lastDueMonthIndex() === -1;
@@ -2344,6 +2381,7 @@ window.__ftStart = function(){
         if(idx>=0) arr.splice(idx,1);
       });
       renumberSeries(key);
+      archiveClearedDebtSeries(key);
       save();
       if(lastDueMonthIndex()===-1) triggerConfetti();
       return;
