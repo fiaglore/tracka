@@ -4381,6 +4381,36 @@ window.__ftStart = function(){
     });
   }
 
+  // ----- privacy mode: blur every figure/label so the screen is safe to
+  // have visible in public. A display preference, not tracker data — and
+  // one you'd want to flip back off the moment someone's out of view — so
+  // it lives in localStorage per device, same as HIDE_CLEARED_DEBTS_KEY,
+  // rather than syncing through the cloud doc.
+  var PRIVACY_STORAGE_KEY = 'trakkaPrivacyModeV1';
+  function applyPrivacyMode(on){
+    document.body.setAttribute('data-privacy', on ? 'on' : 'off');
+    var btn = document.getElementById('privacy-toggle-btn');
+    if(btn){
+      btn.textContent = on ? '👁️ Show data' : '🙈 Hide data';
+      btn.title = on ? 'Show your data again' : 'Hide all data from view';
+    }
+  }
+  window.setPrivacyMode = function(on){
+    try{ localStorage.setItem(PRIVACY_STORAGE_KEY, on ? '1' : '0'); }catch(e){}
+    applyPrivacyMode(on);
+  };
+  var privacyBtn = document.getElementById('privacy-toggle-btn');
+  if(privacyBtn){
+    privacyBtn.addEventListener('click', function(){
+      window.setPrivacyMode(document.body.getAttribute('data-privacy') !== 'on');
+    });
+  }
+  (function(){
+    var stored = false;
+    try{ stored = localStorage.getItem(PRIVACY_STORAGE_KEY) === '1'; }catch(e){}
+    applyPrivacyMode(stored);
+  })();
+
   function refreshThemeForCurrentUser(){
     buildSwatches();
     applyThemePreset(loadThemePreset());

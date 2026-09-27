@@ -19,6 +19,26 @@
    at the :root default (none/auto) and renders as a flat --bg color,
    same as before.
    ============================================================ */
+
+/* ============================================================
+   PRIVACY MODE
+   Toggled from the "🙈 Hide data" button in the topbar (see
+   #privacy-toggle-btn in app.js). Blurs every figure and label in the
+   tracker's content areas — amounts, descriptions, chip values — so the
+   screen is safe to have visible in public, without logging anyone out
+   or losing their place. The topbar controls themselves stay sharp so
+   the same button can turn it back off.
+   ============================================================ */
+body[data-privacy="on"] .app-shell > .month-bar,
+body[data-privacy="on"] .app-shell > .page-nav,
+body[data-privacy="on"] .meta-chips,
+body[data-privacy="on"] .overall,
+body[data-privacy="on"] .app-page{
+  filter: blur(9px);
+  user-select: none;
+  transition: filter .15s ease;
+}
+
 :root{
   --bg:#F6F1E6; --bg-soft:#EFE7D4; --surface:#FFFFFF; --surface-2:#FBF6EA;
   --ink:#3B2F22; --muted:#8B7A5E; --line:#E6D9BC;
