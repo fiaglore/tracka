@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "ng.com.trakka.twa",
+        "sha256_cert_fingerprints": ["E1:C7:68:4B:F5:77:DD:5C:4D:C4:D3:55:AB:3E:0C:98:91:95:FF:21:95:E6:66:99:9E:B0:06:77:28:AC:39:35"]
+      }
+    }]
