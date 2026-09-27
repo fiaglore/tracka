@@ -2055,6 +2055,13 @@ window.__ftStart = function(){
       expandedLivingDays = allOpen ? new Set() : new Set(lastLivingDaysList);
       renderLivingDailyLog();
     }
+    if(e.target.closest('#manage-cats-toggle')){
+      const body = document.getElementById('manage-cats-body');
+      const chevron = document.querySelector('#manage-cats-toggle .day-chevron');
+      const nowHidden = !body.hidden;
+      body.hidden = nowHidden;
+      if(chevron) chevron.textContent = nowHidden ? '▸' : '▾';
+    }
   });
 
   function addCustomItem(kind, label, amount){

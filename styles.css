@@ -915,7 +915,8 @@ body.ft-locked #auth-overlay{display:flex;}
 .living-subpanel h3{font-size:12.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:10px;}
 .chart-scroll{overflow-x:auto;}
 .manage-cats{border:1px dashed var(--line); border-radius:var(--radius-md); background:var(--bg-soft); padding:14px 16px; margin:16px 0;}
-.manage-cats-head{font-weight:700; font-size:13.5px; margin-bottom:4px;}
+.manage-cats-head{display:flex; align-items:center; gap:8px; width:100%; font-family:inherit; font-weight:700; font-size:13.5px; margin-bottom:4px; border:none; background:transparent; color:inherit; padding:0; cursor:pointer; text-align:left;}
+.manage-cats-body[hidden]{display:none;}
 .cat-manage-list{display:flex; flex-direction:column; gap:6px; margin:10px 0;}
 .new-cat-form{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
 .new-cat-form input{font-family:var(--font-body); font-size:13px; padding:8px 11px; border-radius:9px; border:1px solid var(--line); background:var(--surface); flex:1; min-width:130px;}
