@@ -2321,6 +2321,47 @@ window.__ftStart = function(){
     renumberSeries(key);
   }
 
+  // Finds this series' earliest still-unpaid scheduled instalment in any
+  // month AFTER the one being viewed — used by the "Skip next payment"
+  // button below, and kept separate from applyExtraPayment() because the
+  // two consume the schedule from opposite ends: an extra payment eats the
+  // tail (the LAST unpaid month), while this is specifically about the next
+  // one due, for the "I already paid next month's instalment early, outside
+  // the app" case. Scanning forward (rather than only ever checking
+  // activeMonth+1) means skipping again correctly advances to whichever
+  // month is next in line, instead of the button just disappearing once the
+  // very next one is already taken care of.
+  function nextDebtInstalment(key){
+    for(let i=activeMonth+1;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      const it = m.debts.find(x=>seriesKeyOf(x)===key && !x.checked && !x.extraPayment && (Number(x.amount)||0)>0);
+      if(it) return {mi:i, item:it};
+    }
+    return null;
+  }
+
+  // Marks next month's scheduled instalment as already paid, in place —
+  // unlike applyExtraPayment() this doesn't touch the schedule's shape or
+  // spawn a separate "extra payment" row, since nothing here is being paid
+  // off ahead of its own due date: it's the SAME instalment, just ticked
+  // now instead of when that month tab is actually reached. Keeps it
+  // showing up as a paid row (with its usual "Month X of Y" label) rather
+  // than removing it, so the month it belongs to still shows the payment
+  // when you get there.
+  function skipNextDebtPayment(key){
+    const next = nextDebtInstalment(key);
+    if(!next){ alert('There\'s nothing scheduled for this debt next month to skip.'); return; }
+    const { mi, item } = next;
+    if(!confirm('Mark "'+item.label+'" ('+fmt(item.amount)+') as already paid for '+monthLabels[mi]+' '+yearTags[mi]+'?')) return;
+    item.checked = true;
+    item.lastTicked = todayKey();
+    item.sub = (item.sub ? item.sub+' · ' : '') + '⏭ Paid early';
+    archiveClearedDebtSeries(key);
+    save();
+    if(lastDueMonthIndex()===-1) triggerConfetti();
+  }
+
   // An extra payment eats into the outstanding instalments from the BACK of the schedule
   // forward, which is what actually happens when you overpay a loan: the tail months vanish,
   // the debt-free date jumps closer, and any leftover part-payment shrinks the new final month.
@@ -2515,6 +2556,7 @@ window.__ftStart = function(){
       const done = d.remaining<=0;
       const lastLabel = d.lastDueMonth===-1 ? 'cleared' : (monthLabels[d.lastDueMonth]+' '+yearTags[d.lastDueMonth]);
       const extraNote = d.extraPaid>0 ? ` · ${fmt(d.extraPaid)} paid early` : '';
+      const nextInstalment = done ? null : nextDebtInstalment(d.key);
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${escapeAttr(d.label)}</span>
@@ -2532,6 +2574,7 @@ window.__ftStart = function(){
           <span class="hint">knocks months off the end</span>
           <input type="number" min="0.01" step="0.01" class="ds-total-input" data-series="${d.key}" placeholder="New total ${CUR}" value="${d.total}" title="Change the overall amount owed on this debt">
           <button class="ds-pay-btn ds-total-btn" data-series="${d.key}">Edit total</button>
+          ${nextInstalment ? `<button class="ds-pay-btn ds-skip-btn" data-series="${d.key}" title="Mark ${monthLabels[nextInstalment.mi]} ${yearTags[nextInstalment.mi]}'s payment as already paid, without touching this month">⏭ Skip ${monthLabels[nextInstalment.mi]} — already paid</button>` : ''}
         </div>`}
       </div>`;
     }).join('');
@@ -2553,6 +2596,10 @@ window.__ftStart = function(){
     if(btn.classList.contains('ds-total-btn')){
       const input = document.querySelector('.ds-total-input[data-series="'+key+'"]');
       if(input) editDebtTotal(key, input.value);
+      return;
+    }
+    if(btn.classList.contains('ds-skip-btn')){
+      skipNextDebtPayment(key);
       return;
     }
     if(btn.dataset.all){
