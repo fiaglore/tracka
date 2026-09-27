@@ -3691,6 +3691,86 @@ window.__ftStart = function(){
   updateClockAndCountdown();
   setInterval(updateClockAndCountdown, 1000);
   setInterval(updateTimeMessage, 5*60*1000);
+
+  // ===== First-time onboarding tour =====
+  // Purely descriptive (nothing here spotlights a live element), shown
+  // automatically once per account and replayable any time via "🧭 Take
+  // the tour" in Settings. Only auto-opens for an account that genuinely
+  // looks brand new (no income/debts/gifts/savings/expenses entered
+  // anywhere yet) — an existing account that simply predates this feature
+  // shouldn't suddenly get a "welcome" popup for a tracker it's already
+  // been using for months.
+  (function(){
+    const ONBOARDING_STEPS = [
+      { icon:'🌱', title:'Welcome to Trakka', body:"Trakka is one continuous money tracker — add your income, debts, gifts, savings and living expenses once, then just check things off as you handle them each month. Nothing resets when a new month starts." },
+      { icon:'🗓️', title:'Months, not resets', body:'Use the ‹ › arrows or the dropdown at the top to move between months. Every month keeps its own checked/unchecked state, but totals like "Still outstanding" and your streak carry across all of them.' },
+      { icon:'💸', title:'Income & Debts', body:"Add recurring income and debts once — a debt can run for several months at a time. Check items off as they're paid. The Debts tab's payoff plan lets you pay extra, skip a month you already paid early, or clear a whole loan in one go." },
+      { icon:'🎁', title:'Gifts & Savings', body:"Gift goals split what you need across the months leading up to a target date. Savings apps track running balances for each account you're building up, separate from one-off deposits." },
+      { icon:'🏠', title:'Living expenses', body:'Log day-to-day spending under your own categories, each with its own monthly budget. The daily log collapses by day so a busy month stays easy to scan.' },
+      { icon:'🌟', title:'XP, achievements & streaks', body:"Checking things off earns XP and levels you up. The XP page tracks every achievement you can unlock, and the streak chip up top counts consecutive days you've opened Trakka." },
+      { icon:'⚙️', title:"You're all set", body:'The gear icon opens Settings — currency, a quick-unlock PIN, notifications, themes, and data import/export all live there. Come back to this tour any time from "🧭 Take the tour."' }
+    ];
+    const overlay = document.getElementById('onboarding-overlay');
+    if(!overlay) return;
+    let step = 0;
+
+    function renderStep(){
+      const s = ONBOARDING_STEPS[step];
+      document.getElementById('onboarding-icon').textContent = s.icon;
+      document.getElementById('onboarding-title').textContent = s.title;
+      document.getElementById('onboarding-body').textContent = s.body;
+      document.getElementById('onboarding-dots').innerHTML = ONBOARDING_STEPS
+        .map((_,i)=>`<span class="onboarding-dot${i===step?' active':''}"></span>`).join('');
+      document.getElementById('onboarding-back').hidden = step===0;
+      document.getElementById('onboarding-next').textContent = step===ONBOARDING_STEPS.length-1 ? 'Get started' : 'Next';
+    }
+    function openOnboarding(){
+      step = 0;
+      renderStep();
+      overlay.hidden = false;
+    }
+    function closeOnboarding(){
+      overlay.hidden = true;
+      if(!cloud.onboardingSeen){
+        cloud.onboardingSeen = true;
+        saveCloudField('onboardingSeen', true);
+      }
+    }
+    document.getElementById('onboarding-next').addEventListener('click', function(){
+      if(step===ONBOARDING_STEPS.length-1){ closeOnboarding(); return; }
+      step++;
+      renderStep();
+    });
+    document.getElementById('onboarding-back').addEventListener('click', function(){
+      if(step>0){ step--; renderStep(); }
+    });
+    document.getElementById('onboarding-skip').addEventListener('click', closeOnboarding);
+    const replayBtn = document.getElementById('onboarding-replay-btn');
+    if(replayBtn) replayBtn.addEventListener('click', openOnboarding);
+
+    function looksLikeBrandNewAccount(){
+      for(let i=0;i<N;i++){
+        const m = state.months[i];
+        if(!m) continue;
+        if((m.income||[]).length>0) return false;
+        if((m.debts||[]).length>0) return false;
+        if((m.savingsApps||[]).length>0) return false;
+      }
+      if((state.giftGoals||[]).length>0) return false;
+      if((state.livingEntries||[]).length>0) return false;
+      if((state.extra||[]).length>0) return false;
+      return true;
+    }
+
+    window.__ftOnboardingShown = false;
+    // Doesn't auto-open on settings.html: that page is only ever reached
+    // from within an already-running tracker session, never a brand new
+    // sign-up's first stop.
+    if(!cloud.onboardingSeen && !window.__ftSettingsPage && looksLikeBrandNewAccount()){
+      openOnboarding();
+      window.__ftOnboardingShown = true;
+    }
+  })();
 };
 
 
@@ -3924,7 +4004,11 @@ window.__ftStart = function(){
     // next reload/sign-in as long as hasPinConfigured() is still false, by
     // design — that's what makes it a nag rather than a one-time tip.
     updatePinSetupOpenButton();
-    if(!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+    // Skipped this one time if the onboarding tour just opened instead —
+    // two full-screen overlays fighting for the same spot isn't a choice
+    // anyone needs to make. Nothing here remembers that skip, so the PIN
+    // nudge still nags as usual on every sign-in after this first one.
+    if(!window.__ftOnboardingShown && !(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
       openPinSetup(true);
     }
   }
