@@ -3794,6 +3794,14 @@ window.__ftStart = function(){
         cloud.onboardingSeen = true;
         saveCloudField('onboardingSeen', true);
       }
+      // The post-sign-in PIN nudge (see begin() in the auth IIFE below)
+      // deliberately skips itself while the tour is up rather than stacking
+      // two full-screen overlays — so once the tour's done (finished or
+      // skipped), pick up that dropped nudge here instead, same "still no
+      // PIN configured" check the nudge itself uses.
+      if(window.__ftOpenPinSetup && !(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+        window.__ftOpenPinSetup(true);
+      }
     }
     document.getElementById('onboarding-next').addEventListener('click', function(){
       if(step===ONBOARDING_STEPS.length-1){ closeOnboarding(); return; }
@@ -4227,6 +4235,10 @@ window.__ftStart = function(){
     $('pin-setup-overlay').hidden = false;
     setTimeout(function(){ $('pin-setup-password').focus(); }, 50);
   }
+  // Exposed so the onboarding tour (a separate closure, over in
+  // window.__ftStart) can hand off to this nudge once the tour closes —
+  // see closeOnboarding()'s comment for why that handoff exists.
+  window.__ftOpenPinSetup = openPinSetup;
   function closePinSetup(){
     $('pin-setup-overlay').hidden = true;
     updatePinSetupOpenButton();
