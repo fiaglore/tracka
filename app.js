@@ -276,10 +276,36 @@ window.__ftStart = function(){
     }
     N = monthLabels.length;
   }
+  // A month's start day normally just follows the global "Month starts on
+  // day" setting (PSTART), but salary doesn't always land on the same date
+  // every month — so any individual month can override it via
+  // state.monthStartOverrides, keyed by "label+yearTag" (e.g. "Jan'26")
+  // rather than by index, since that stays stable even as months are
+  // reordered or the tracked range grows.
+  function monthOverrideKey(label, yearTag){ return label + yearTag; }
+  function monthStartDayFor(label, yearTag){
+    const override = state.monthStartOverrides[monthOverrideKey(label, yearTag)];
+    return (override>=1 && override<=28) ? override : PSTART;
+  }
+  function getMonthStartOverride(mi){
+    const override = state.monthStartOverrides[monthOverrideKey(monthLabels[mi], yearTags[mi])];
+    return (override>=1 && override<=28) ? override : null;
+  }
+  function setMonthStartOverride(mi, day){
+    const key = monthOverrideKey(monthLabels[mi], yearTags[mi]);
+    if(day>=1 && day<=28) state.monthStartOverrides[key] = day;
+    else delete state.monthStartOverrides[key];
+  }
   function periodBounds(mi){
     const y = fullYear(yearTags[mi]);
     const mNum = monthNumMap[monthLabels[mi]];
-    return { start: new Date(y, mNum, PSTART), end: new Date(y, mNum+1, PSTART-1) };
+    const startDay = monthStartDayFor(monthLabels[mi], yearTags[mi]);
+    // The period's end is always the day before the NEXT month's own start
+    // day (which may itself be overridden), so consecutive periods stay
+    // contiguous — no gap or overlap — whatever start day either one uses.
+    const [nextLabel, nextYearTag] = nextMonthLabelYear(monthLabels[mi], yearTags[mi]);
+    const endDay = monthStartDayFor(nextLabel, nextYearTag) - 1;
+    return { start: new Date(y, mNum, startDay), end: new Date(y, mNum+1, endDay) };
   }
   function monthPeriodLabel(mi){
     const {start, end} = periodBounds(mi);
@@ -560,7 +586,7 @@ window.__ftStart = function(){
     const months = [];
     for(let i=0;i<N;i++) months.push(buildDefaultMonth(i));
     return {months, extra:[], giftGoals: [], giftProgress: {}, savings: [], savingsGoal: 0,
-      livingCategories: [], livingEntries: [], livingBudgetOverrides: {}};
+      livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {}};
   }
 
   function mergeItems(defaultItems, savedItems){
@@ -620,6 +646,7 @@ window.__ftStart = function(){
         livingCategories: (saved.livingCategories && saved.livingCategories.length) ? saved.livingCategories : defaults.livingCategories,
         livingEntries: Array.isArray(saved.livingEntries) ? saved.livingEntries : [],
         livingBudgetOverrides: (saved.livingBudgetOverrides && typeof saved.livingBudgetOverrides === 'object') ? saved.livingBudgetOverrides : {},
+        monthStartOverrides: (saved.monthStartOverrides && typeof saved.monthStartOverrides === 'object') ? saved.monthStartOverrides : {},
       };
     }catch(e){ return defaults; }
   }
@@ -1130,6 +1157,37 @@ window.__ftStart = function(){
     addRow.addEventListener('click', ()=>{ closeMonthPicker(); addMonth(); });
     menu.appendChild(addRow);
   }
+  // Lets the currently-viewed month's start day be overridden individually —
+  // salary doesn't always land on the same date every month, so this beats
+  // having to change the global "Month starts on day" setting back and
+  // forth. Sits next to #month-period, so it always reflects whichever
+  // month the picker above is currently on.
+  function renderMonthStartOverride(){
+    const sel = document.getElementById('month-start-override-select');
+    if(!sel) return;
+    if(!sel.options.length){
+      const def = document.createElement('option');
+      def.value = '';
+      sel.appendChild(def);
+      for(let d=1; d<=28; d++){
+        const o = document.createElement('option');
+        o.value = String(d);
+        o.textContent = ordinal(d);
+        sel.appendChild(o);
+      }
+    }
+    sel.options[0].textContent = 'Default (' + ordinal(PSTART) + ')';
+    const override = getMonthStartOverride(activeMonth);
+    sel.value = override ? String(override) : '';
+  }
+  (function wireMonthStartOverride(){
+    const sel = document.getElementById('month-start-override-select');
+    if(!sel) return;
+    sel.addEventListener('change', function(){
+      setMonthStartOverride(activeMonth, this.value ? Number(this.value) : null);
+      save();
+    });
+  })();
   // One-time wiring for prev/next + open/close — unlike the list inside,
   // these elements themselves never get rebuilt, so binding them once here
   // (rather than inside renderMonthPicker(), which runs on every render())
@@ -1560,6 +1618,7 @@ window.__ftStart = function(){
   function render(){
     renderMonthPicker();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
+    renderMonthStartOverride();
     const footerCoverageEl = document.getElementById('footer-coverage');
     if(footerCoverageEl) footerCoverageEl.textContent = monthLabels[0]+' '+yearTags[0]+' through '+monthLabels[N-1]+' '+yearTags[N-1];
     const overallMonthCountEl = document.getElementById('overall-month-count');
@@ -3187,7 +3246,7 @@ window.__ftStart = function(){
     const ns = {
       months: newLabels.map(()=>({income:[], debts:[], savingsApps:[]})),
       extra:[], giftGoals:[], giftProgress:{}, savings:[], savingsGoal:0,
-      livingCategories:[], livingEntries:[], livingBudgetOverrides:{},
+      livingCategories:[], livingEntries:[], livingBudgetOverrides:{}, monthStartOverrides:{},
     };
     const counts = {income:0, debts:0, extra:0, gifts:0, apps:0, ledger:0, cats:0, living:0};
 
