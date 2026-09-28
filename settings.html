@@ -231,6 +231,10 @@ window.__ftSettingsPage = true;
       <button type="button" class="month-nav-btn" id="month-next-btn" title="Next month" aria-label="Next month">›</button>
     </div>
     <div class="month-period" id="month-period"></div>
+    <div class="month-start-override">
+      <label for="month-start-override-select">This month starts on</label>
+      <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
+    </div>
     <div class="time-message" id="time-message">🌅 Loading...</div>
   </div>
 
@@ -513,6 +517,7 @@ window.__ftSettingsPage = true;
         <label class="xl-set">Currency <select id="set-currency"></select></label>
         <label class="xl-set">Month starts on day <select id="set-payday"></select></label>
       </div>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0;max-width:600px;">This is the default. Salary doesn't always land on the same date every month — use the "This month starts on" picker next to the month selector (🏡 Back to tracker) to override just one month at a time without changing the default for every other month.</p>
     </section>
 
     <section>
