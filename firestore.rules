@@ -15,6 +15,17 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Premium entitlement: the owner can READ their own status (to gate UI),
+    // but can never WRITE it — only the verifyPlayPurchase/refreshEntitlements
+    // Cloud Functions (running with the Admin SDK, which bypasses these
+    // rules entirely) are allowed to grant or revoke it. If this were
+    // client-writable like users/{userId} above, anyone could open devtools
+    // and set premium:true on themselves for free.
+    match /entitlements/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     // Everything else is denied by default (no matching rule = no access).
   }
 }

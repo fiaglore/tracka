@@ -18,6 +18,7 @@ const SHELL_FILES = [
   "./styles.css",
   "./app.js",
   "./firebase-init.js",
+  "./billing.js",
   "./ambient-audio.js",
   "./pwa.js",
   "./app-entry.js",
