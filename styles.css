@@ -752,6 +752,7 @@ body.ft-locked #auth-overlay{display:flex;}
 .select-btn:hover{border-color:var(--good); color:var(--good);}
 .reset-btn:hover{border-color:var(--bad); color:var(--bad);}
 
+.extra-add-label{font-size:12.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin:0 0 8px;}
 .extra-add{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px;}
 .extra-add input,.extra-add select{font-family:var(--font-body); font-size:13.5px; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); flex:1; min-width:140px;}
 .extra-add input:focus,.extra-add select:focus{border-color:var(--accent);}
