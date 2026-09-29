@@ -652,7 +652,12 @@ window.__ftStart = function(){
   }
 
   let state = load();
-  let activeMonth = 0;
+  // Open on whichever tracked month today's date actually falls in, every
+  // sign-in — not always the first tracked month. dateToMonthIndex() already
+  // clamps to the tracked range, so a device whose clock is ahead/behind the
+  // tracker's oldest/newest month just lands on that nearest end, same as
+  // it does everywhere else this function is used (e.g. the import flow).
+  let activeMonth = dateToMonthIndex(todayISO());
 
   // ===== Savings-app migration =====
   // Originally each month held its own standalone app row, so an app added in August simply
