@@ -845,6 +845,7 @@ body.ft-locked #auth-overlay{display:flex;}
    ============================================================ */
 .living-list-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
 .living-list-head h3{margin:0;}
+.living-list-head-actions{display:flex; align-items:baseline; gap:14px;}
 .link-btn{border:none; background:transparent; color:var(--accent); font-family:var(--font-body); font-size:12px; font-weight:700; cursor:pointer; padding:2px 0;}
 .link-btn:hover{text-decoration:underline;}
 #living-list{display:flex; flex-direction:column; gap:16px;}
