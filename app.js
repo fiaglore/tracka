@@ -1351,17 +1351,39 @@ window.__ftStart = function(){
   let expandedLivingDays = null;
   let lastLivingDaysList = [];
 
+  // Whether the whole daily log is hidden from view — a display preference,
+  // not tracker data, so it lives in localStorage (like HIDE_CLEARED_DEBTS_KEY
+  // above) rather than in `state`. Separate from expandedLivingDays: that
+  // controls which individual days are expanded WITHIN the log; this hides
+  // the entries list (amounts, descriptions) entirely, e.g. before sharing
+  // the screen, while still showing the category chart/budgets above it.
+  const HIDE_LIVING_LOG_KEY = 'trakkaHideLivingLogV1';
+  let hideLivingLog = false;
+  try{ hideLivingLog = localStorage.getItem(HIDE_LIVING_LOG_KEY) === '1'; }catch(e){}
+
   function updateLivingListToggleAllLabel(){
     const btn = document.getElementById('living-list-toggle-all');
-    if(!btn) return;
-    const allOpen = lastLivingDaysList.length>0 && lastLivingDaysList.every(ds=>expandedLivingDays.has(ds));
-    btn.textContent = allOpen ? 'Collapse all' : 'Expand all';
-    btn.hidden = lastLivingDaysList.length===0;
+    if(btn){
+      const allOpen = lastLivingDaysList.length>0 && lastLivingDaysList.every(ds=>expandedLivingDays.has(ds));
+      btn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+      btn.hidden = hideLivingLog || lastLivingDaysList.length===0;
+    }
+    const hideBtn = document.getElementById('living-list-hide-toggle');
+    if(hideBtn){
+      hideBtn.textContent = hideLivingLog ? '👁️ Show daily log' : '🙈 Hide daily log';
+      hideBtn.title = hideLivingLog ? 'Show the daily log again' : 'Hide every entry in the daily log from view';
+    }
   }
 
   function renderLivingDailyLog(){
     const entries = livingEntriesForMonth(activeMonth);
     const container = document.getElementById('living-list');
+    if(hideLivingLog){
+      container.innerHTML = '<div class="empty-msg">Daily log hidden — click "Show daily log" above to view it.</div>';
+      lastLivingDaysList = [];
+      updateLivingListToggleAllLabel();
+      return;
+    }
     if(entries.length===0){
       container.innerHTML = '<div class="empty-msg">No living expenses logged for this billing period yet.</div>';
       lastLivingDaysList = [];
@@ -2164,6 +2186,11 @@ window.__ftStart = function(){
     if(e.target.matches('#living-list-toggle-all')){
       const allOpen = lastLivingDaysList.length>0 && lastLivingDaysList.every(ds=>expandedLivingDays.has(ds));
       expandedLivingDays = allOpen ? new Set() : new Set(lastLivingDaysList);
+      renderLivingDailyLog();
+    }
+    if(e.target.matches('#living-list-hide-toggle')){
+      hideLivingLog = !hideLivingLog;
+      try{ localStorage.setItem(HIDE_LIVING_LOG_KEY, hideLivingLog ? '1' : '0'); }catch(err){}
       renderLivingDailyLog();
     }
     if(e.target.closest('#manage-cats-toggle')){
