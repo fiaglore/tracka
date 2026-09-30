@@ -677,7 +677,8 @@ window.__ftStart = function(){
     for(let i=0;i<N;i++) months.push(buildDefaultMonth(i));
     return {months, extra:[], giftGoals: [], giftProgress: {}, savings: [], savingsGoal: 0,
       livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {},
-      skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {}};
+      skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {},
+      investments: [], investmentPrices: []};
   }
 
   function mergeItems(defaultItems, savedItems){
@@ -742,6 +743,8 @@ window.__ftStart = function(){
         ongoingSeries: (saved.ongoingSeries && typeof saved.ongoingSeries === 'object') ? saved.ongoingSeries : {},
         assets: Array.isArray(saved.assets) ? saved.assets : [],
         accountCurrency: (saved.accountCurrency && typeof saved.accountCurrency === 'object') ? saved.accountCurrency : {},
+        investments: Array.isArray(saved.investments) ? saved.investments : [],
+        investmentPrices: Array.isArray(saved.investmentPrices) ? saved.investmentPrices : [],
       };
     }catch(e){ return defaults; }
   }
@@ -1347,7 +1350,7 @@ window.__ftStart = function(){
     return state.assets.reduce((s,a)=>s+(Number(a.amount)||0), 0);
   }
   function netWorthForMonth(mi){
-    return cumulativeBalanceUpTo(mi) + totalAppsBalanceUpToConverted(mi) - outstandingDebtsAsOf(mi) + manualAssetsTotal();
+    return cumulativeBalanceUpTo(mi) + totalAppsBalanceUpToConverted(mi) - outstandingDebtsAsOf(mi) + manualAssetsTotal() + totalInvestmentsValue();
   }
   function addAsset(label, amount){
     state.assets.push({id: makeCustomId('asset'), label, amount});
@@ -1357,6 +1360,65 @@ window.__ftStart = function(){
     state.assets = state.assets.filter(a=>a.id!==id);
     save();
   }
+
+  // ===== Investments =====
+  // A holding (stock, mutual fund, shares, commercial paper, treasury bill, crypto) is stored as
+  // a unit count plus what was actually paid for it (costBasis, in the primary currency) — never
+  // a live market feed. Gains are computed off whatever price the user has actually logged for
+  // "today" (or the most recent day they logged one), same philosophy as the FX rate on multi-
+  // currency accounts: user-entered, not fetched, so it works offline and never silently drifts.
+  // For a lump-sum instrument with no natural "per-unit" price (a commercial paper or T-bill),
+  // units is just left at 1 and the logged "price" is really the whole position's current
+  // marked-to-market value.
+  const INVESTMENT_TYPES = [
+    {id:'stock', label:'Stock', icon:'📈'},
+    {id:'mutual_fund', label:'Mutual fund', icon:'🧺'},
+    {id:'share', label:'Shares', icon:'📜'},
+    {id:'commercial_paper', label:'Commercial paper', icon:'🏦'},
+    {id:'treasury_bill', label:'Treasury bill', icon:'🏛️'},
+    {id:'crypto', label:'Crypto', icon:'🪙'},
+  ];
+  function investmentTypeInfo(id){ return INVESTMENT_TYPES.find(t=>t.id===id) || {id, label:id, icon:'💼'}; }
+  function addInvestment(type, name, units, costBasis){
+    state.investments.push({id: makeCustomId('inv'), type, name, units: Math.max(0.000001, Number(units)||1), costBasis: Math.max(0, Number(costBasis)||0)});
+    save();
+  }
+  function deleteInvestment(id){
+    const inv = state.investments.find(i=>i.id===id);
+    if(!inv) return;
+    if(!confirm('Delete "'+inv.name+'" and every price you\'ve logged for it? This can\'t be undone.')) return;
+    state.investments = state.investments.filter(i=>i.id!==id);
+    state.investmentPrices = state.investmentPrices.filter(p=>p.investmentId!==id);
+    save();
+  }
+  // One price per investment per day — logging again for a day already logged corrects it,
+  // rather than piling up duplicate entries for the same date.
+  function logInvestmentPrice(investmentId, price, date){
+    const p = Number(price);
+    if(!(p>0)){ alert('Enter a price greater than 0.'); return; }
+    const d = date || todayISO();
+    const existing = state.investmentPrices.find(x=>x.investmentId===investmentId && x.date===d);
+    if(existing){ existing.price = p; }
+    else{ state.investmentPrices.push({id: makeCustomId('invp'), investmentId, date: d, price: p}); }
+    save();
+  }
+  function pricesForInvestment(investmentId){
+    return state.investmentPrices.filter(p=>p.investmentId===investmentId).sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
+  }
+  function latestPriceEntry(investmentId){
+    const list = pricesForInvestment(investmentId);
+    return list.length ? list[list.length-1] : null;
+  }
+  // Falls back to the cost basis (i.e. zero gain) until a price has actually been logged, rather
+  // than pretending the position is worth $0.
+  function currentValueOf(inv){
+    const latest = latestPriceEntry(inv.id);
+    return latest ? latest.price * inv.units : inv.costBasis;
+  }
+  function gainAmountOf(inv){ return currentValueOf(inv) - inv.costBasis; }
+  function gainPctOf(inv){ return inv.costBasis>0 ? (gainAmountOf(inv)/inv.costBasis)*100 : null; }
+  function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+currentValueOf(i), 0); }
+  function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+i.costBasis, 0); }
 
   function renderNetWorth(){
     const content = document.getElementById('networth-content');
@@ -1374,13 +1436,15 @@ window.__ftStart = function(){
     const savings = totalAppsBalanceUpToConverted(activeMonth) + state.savings.filter(s=>s.monthIndex<=activeMonth).reduce((s,e)=>s+Number(e.amount||0),0);
     const debts = outstandingDebtsAsOf(activeMonth);
     const assets = manualAssetsTotal();
-    const total = cash + savings - debts + assets;
+    const investmentsValue = totalInvestmentsValue();
+    const total = cash + savings - debts + assets + investmentsValue;
     const setText = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = fmt(val); };
     setText('nw-total', total);
     setText('nw-cash', cash);
     setText('nw-savings', savings);
     setText('nw-debts', debts);
     setText('nw-assets', assets);
+    setText('nw-investments', investmentsValue);
 
     const trendBody = document.getElementById('nw-trend-body');
     if(trendBody){
@@ -1415,6 +1479,90 @@ window.__ftStart = function(){
       if(!desc || amt<=0) return;
       addAsset(desc, amt);
       descEl.value=''; amtEl.value='';
+    });
+  }
+
+  function renderInvestments(){
+    const head = document.getElementById('inv-head');
+    const list = document.getElementById('inv-list');
+    if(!list) return;
+    const totalCost = totalInvestmentsCost();
+    const totalValue = totalInvestmentsValue();
+    const totalGain = totalValue - totalCost;
+    const totalGainPct = totalCost>0 ? (totalGain/totalCost)*100 : null;
+    if(head){
+      head.innerHTML = `
+        <div class="n"><div class="lbl">Total invested (cost basis)</div><div class="val">${fmt(totalCost)}</div></div>
+        <div class="n"><div class="lbl">Current value</div><div class="val" style="color:var(--accent)">${fmt(totalValue)}</div></div>
+        <div class="n"><div class="lbl">Unrealised gain / (loss)</div><div class="val" style="color:${totalGain<0?'var(--bad)':'var(--good)'}">${totalGain<0?'-':'+'}${fmt(Math.abs(totalGain))}${totalGainPct===null?'':' ('+(totalGainPct<0?'':'+')+totalGainPct.toFixed(1)+'%)'}</div></div>
+        <div class="n"><div class="lbl">Holdings</div><div class="val">${state.investments.length}</div></div>
+      `;
+    }
+    if(state.investments.length===0){
+      list.innerHTML = '<div class="empty-msg">No investments logged yet — add a holding below, then log its price on any day to see gains.</div>';
+      return;
+    }
+    list.innerHTML = state.investments.map(inv=>{
+      const type = investmentTypeInfo(inv.type);
+      const latest = latestPriceEntry(inv.id);
+      const value = currentValueOf(inv);
+      const gain = gainAmountOf(inv);
+      const gainPct = gainPctOf(inv);
+      const gainHtml = latest
+        ? `<span class="ds-left ${gain<0?'':'clear'}" style="color:${gain<0?'var(--bad)':gain>0?'var(--good)':'var(--muted)'}">${gain===0?'—':(gain<0?'-':'+')+fmt(Math.abs(gain))}${gainPct===null?'':' ('+(gainPct<0?'':'+')+gainPct.toFixed(1)+'%)'}</span>`
+        : '<span class="ds-left" style="color:var(--muted)">No price logged yet</span>';
+      const priceHistory = pricesForInvestment(inv.id);
+      const historyNote = priceHistory.length>1
+        ? ` · ${priceHistory.length} prices logged, latest ${formatDateLong(latest.date)}`
+        : (latest ? ` · logged ${formatDateLong(latest.date)}` : '');
+      return `<div class="ds-row">
+        <div class="ds-top">
+          <span class="ds-name">${type.icon} ${escapeAttr(inv.name)} <span class="hint">${type.label}</span></span>
+          ${gainHtml}
+          <button class="del inv-del-btn" data-id="${inv.id}" title="Delete this investment">✕</button>
+        </div>
+        <div class="ds-meta">${inv.units} unit${inv.units===1?'':'s'} · cost basis ${fmt(inv.costBasis)} · current value ${fmt(value)}${latest ? ' (@ '+fmt(latest.price)+'/unit)' : ''}${historyNote}</div>
+        <div class="ds-pay">
+          <input type="number" min="0" step="0.01" class="inv-price-input" data-id="${inv.id}" placeholder="Today's price/unit ${CUR}" value="${latest ? latest.price : ''}">
+          <input type="date" class="inv-price-date" data-id="${inv.id}" value="${todayISO()}">
+          <button class="ds-pay-btn inv-log-price-btn" data-id="${inv.id}">Log price</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.addEventListener('click', function(e){
+    const delBtn = e.target.closest ? e.target.closest('.inv-del-btn') : null;
+    if(delBtn){ deleteInvestment(delBtn.dataset.id); return; }
+    const logBtn = e.target.closest ? e.target.closest('.inv-log-price-btn') : null;
+    if(logBtn){
+      const id = logBtn.dataset.id;
+      const priceInput = document.querySelector('.inv-price-input[data-id="'+id+'"]');
+      const dateInput = document.querySelector('.inv-price-date[data-id="'+id+'"]');
+      logInvestmentPrice(id, priceInput ? priceInput.value : 0, dateInput ? dateInput.value : todayISO());
+      return;
+    }
+  });
+  (function populateInvestmentTypeSelect(){
+    const sel = document.getElementById('inv-type');
+    if(!sel || sel.options.length) return;
+    INVESTMENT_TYPES.forEach(t=>{
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = t.icon + ' ' + t.label;
+      sel.appendChild(o);
+    });
+  })();
+  { const invBtn = document.getElementById('inv-add-btn');
+    if(invBtn) invBtn.addEventListener('click', function(){
+      const typeEl = document.getElementById('inv-type');
+      const nameEl = document.getElementById('inv-name');
+      const unitsEl = document.getElementById('inv-units');
+      const costEl = document.getElementById('inv-cost');
+      const name = nameEl.value.trim();
+      const units = Number(unitsEl.value)||1;
+      const cost = Number(costEl.value)||0;
+      if(!name || cost<=0) return;
+      addInvestment(typeEl.value, name, units, cost);
+      nameEl.value=''; unitsEl.value=''; costEl.value='';
     });
   }
 
@@ -2064,6 +2212,7 @@ window.__ftStart = function(){
     renderSavingsList();
     renderSavingsAppsList();
     renderSavingsAccounts();
+    renderInvestments();
     renderNetWorth();
     { const nwNav = document.querySelector('.page-nav-btn[data-page="networth"]'); if(nwNav) nwNav.hidden = !isFeatureUnlocked('netWorth'); }
     renderExtra();
