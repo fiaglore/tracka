@@ -70,14 +70,24 @@ export function hasLoggedToday(state, N, todayStr) {
   return false;
 }
 
-// Mirrors the XP/level formula from render() in app.js: totalXP =
-// checkedItems*10 + earnedBadges*50, level = floor(totalXP/150)+1.
+// Mirrors levelFromXP()/xpCostForLevel() in app.js: totalXP =
+// checkedItems*10 + earnedBadges*50; level L costs L*150 XP to clear
+// (150, 300, 450, ...), not a flat 150 every time.
+function xpCostForLevel(level) {
+  return 150 * level;
+}
+
 export function computeLevel(state, N, badges) {
   let checkedCount = 0;
   for (let i = 0; i < N; i++) checkedCount += allItemsForMonth(state, i).filter((x) => x.checked).length;
   const earnedBadgeCount = Object.keys(badges || {}).filter((k) => k.startsWith("badge_")).length;
   const totalXP = checkedCount * 10 + earnedBadgeCount * 50;
-  return Math.floor(totalXP / 150) + 1;
+  let level = 1, remaining = Math.max(0, totalXP);
+  while (remaining >= xpCostForLevel(level)) {
+    remaining -= xpCostForLevel(level);
+    level++;
+  }
+  return level;
 }
 
 // Today's date (YYYY-MM-DD, matching the "YYYY-MM-DD" keys app.js's own
