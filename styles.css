@@ -1088,6 +1088,7 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 .xp-badge-card .b-label{font-family:var(--font-display); font-weight:700; font-size:11.5px; color:var(--ink); line-height:1.25;}
 .xp-badge-card.locked{opacity:.4; filter:grayscale(1);}
 .xp-badge-card.earned{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
+.xp-badge-all-earned{font-size:13px; color:var(--muted); margin:4px 0 0;}
 
 /* ===== Cat companion ===== */
 .cat-companion{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); right:16px; z-index:25; display:flex; align-items:flex-end; gap:8px;}

@@ -1841,6 +1841,13 @@ window.__ftStart = function(){
     {id:'longevity', label:'📅 Longevity'},
   ];
 
+  // "Hide earned" on the XP tab — a per-device display preference (same
+  // localStorage pattern as "Hide cleared" debts), so the grid can show
+  // only what's still left to unlock. It never changes what's earned.
+  const HIDE_EARNED_XP_KEY = 'trakkaHideEarnedAchievementsV1';
+  let hideEarnedAchievements = false;
+  try{ hideEarnedAchievements = localStorage.getItem(HIDE_EARNED_XP_KEY) === '1'; }catch(e){}
+
   function render(){
     renderMonthPicker();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
@@ -2283,7 +2290,7 @@ window.__ftStart = function(){
     const xpBadgeGridEl = document.getElementById('xp-badge-grid');
     if(xpBadgeGridEl){
       xpBadgeGridEl.innerHTML = XP_CATEGORIES.map(function(cat){
-        const items = badgeDefs.filter(b=>b.category===cat.id);
+        const items = badgeDefs.filter(b=>b.category===cat.id && !(hideEarnedAchievements && b.earned));
         if(!items.length) return '';
         return `<div class="xp-badge-category">`
           + `<h3 class="xp-badge-category-head">${cat.label}</h3>`
@@ -2296,6 +2303,15 @@ window.__ftStart = function(){
             ).join('')
           + `</div></div>`;
       }).join('');
+    }
+    if(xpBadgeGridEl && hideEarnedAchievements && !xpBadgeGridEl.innerHTML){
+      xpBadgeGridEl.innerHTML = '<p class="xp-badge-all-earned">🎉 Every achievement is earned — nothing left to unlock. Tap "Show earned" to see them all.</p>';
+    }
+    const xpHideEarnedBtn = document.getElementById('xp-hide-earned-toggle');
+    if(xpHideEarnedBtn){
+      const earnedN = badgeDefs.filter(b=>b.earned).length;
+      xpHideEarnedBtn.hidden = earnedN===0;
+      xpHideEarnedBtn.textContent = hideEarnedAchievements ? 'Show earned ('+earnedN+')' : 'Hide earned';
     }
     const xpEarnedCountEl = document.getElementById('xp-page-earned-count');
     if(xpEarnedCountEl) xpEarnedCountEl.textContent = String(badgeDefs.filter(b=>b.earned).length);
@@ -3038,6 +3054,12 @@ window.__ftStart = function(){
   }
 
   document.addEventListener('click', function(e){
+    if(e.target.matches('#xp-hide-earned-toggle')){
+      hideEarnedAchievements = !hideEarnedAchievements;
+      try{ localStorage.setItem(HIDE_EARNED_XP_KEY, hideEarnedAchievements ? '1' : '0'); }catch(err){}
+      render();
+      return;
+    }
     if(e.target.matches('#payoff-hide-cleared-toggle')){
       hideClearedDebts = !hideClearedDebts;
       try{ localStorage.setItem(HIDE_CLEARED_DEBTS_KEY, hideClearedDebts ? '1' : '0'); }catch(err){}
@@ -4357,6 +4379,7 @@ window.__ftStart = function(){
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
     { title: '🎵 Embed a Spotify playlist', body: 'Settings → "🎵 Spotify playlist" now lets you paste a Spotify playlist link to embed a compact player right on your Overview page while you track. It\'s a simple public embed — no Spotify account linking needed — though without Spotify Premium (and being logged into Spotify in this browser) it only plays 30-second previews, which is a Spotify limitation on the embed itself.' },
+    { title: '🙈 Hide earned achievements on the XP tab', body: 'A new "Hide earned" link on the 🌟 XP tab collapses every achievement you\'ve already unlocked, so the grid shows only what\'s still left to earn. Tap "Show earned" to bring them back. It\'s just a view preference remembered on this device — your XP and badges are unaffected.' },
     { title: '⛈️ Thunderstorm, Windy day, and Sandstorm weather', body: 'Three new weather effects in Settings → Appearance. 🌩️ Thunderstorm (Temperate) is heavy slanting rain with occasional lightning flashes and rolling thunder. 💨 Windy day (Temperate) is fast streaks of wind with gusty rushing sound. 🏜️ Sandstorm (Tropical) blows warm, gritty sand across the screen under a dusty haze, with a howling wind to match.' },
     { title: '🌻 Temperate & Tropical weather, plus a Summer effect', body: 'The weather pickers in Settings are now simply "Temperate weather" (snow, autumn leaves, rain, spring blossom, and the new 🌻 Summer fireflies) and "Tropical weather" (harmattan haze, tropical rain, sunny). Summer comes with its own drifting-firefly look and matching weather sounds — cicadas, birdsong, and a warm breeze.' },
     { title: '🔊 Weather sounds and sound effects', body: 'The background music is gone, replaced by ambient sound that matches your weather effect — rain and drips, distant thunder in tropical rain, wind for snow, autumn and harmattan, birdsong in spring, and birds and crickets when it\'s sunny. Turn it on from Settings → "Weather sounds". There are also new sound effects: a soft pop when you untick something, and a celebratory "good job" fanfare whenever you unlock an achievement or clear a debt. Sound effects are on by default and can be switched off in Settings → "Sound effects".' },
