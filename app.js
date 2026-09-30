@@ -521,25 +521,10 @@ window.__ftStart = function(){
     if(el) el.textContent = (profile.firstName ? 'Hi '+profile.firstName+'! ' : '') + timeOfDayMessage();
   }
 
-  // ===== Satisfying "ding" on checking a box — synthesized, no audio file to load =====
-  let dingCtx = null;
-  function playDing(){
-    try{
-      if(!dingCtx) dingCtx = new (window.AudioContext||window.webkitAudioContext)();
-      if(dingCtx.state==='suspended') dingCtx.resume();
-      const t0 = dingCtx.currentTime;
-      const osc = dingCtx.createOscillator();
-      const gain = dingCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, t0);
-      osc.frequency.exponentialRampToValueAtTime(1320, t0+0.08);
-      gain.gain.setValueAtTime(0.16, t0);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0+0.18);
-      osc.connect(gain).connect(dingCtx.destination);
-      osc.start(t0);
-      osc.stop(t0+0.2);
-    }catch(e){}
-  }
+  // ===== Sound effects — synthesized in sfx.js (window.TrakkaSfx), safe no-ops if it's missing =====
+  function playDing(){ try{ window.TrakkaSfx && window.TrakkaSfx.ding(); }catch(e){} }
+  function playPop(){ try{ window.TrakkaSfx && window.TrakkaSfx.pop(); }catch(e){} }
+  function playAchievement(big){ try{ window.TrakkaSfx && window.TrakkaSfx.achievement(big); }catch(e){} }
 
   // ===== This month vs last month comparison =====
   function pctBadgeHtml(curr, prev){
@@ -2341,6 +2326,7 @@ window.__ftStart = function(){
         showAppNotification('💳 '+newlyClearedDebts.length+' debts cleared!', newlyClearedDebts.map(d=>d.label).join(' · ')+' are fully paid off!');
       }
       triggerConfetti();
+      if(newlyEarnedBadges.length || newlyClearedDebts.length) playAchievement(newlyEarnedBadges.length + newlyClearedDebts.length > 1);
       // Celebratory pet state for a few seconds, then fall back to the
       // normal net/checked-based mood — see catMilestoneUntil above.
       const species = getSpecies();
@@ -2370,6 +2356,7 @@ window.__ftStart = function(){
     // seconds later depending on what else render() does, so give the
     // companion its own instant "nice!" pulse right here.
     if(e.target.matches('.checkbox') && e.target.checked){ playDing(); pulseCatCompanion('✨'); }
+    else if(e.target.matches('.checkbox')) playPop();
     if(e.target.matches('.checkbox[data-kind]')){
       const kind = e.target.dataset.kind, idx = +e.target.dataset.idx;
       const item = state.months[activeMonth][kind][idx];
@@ -5346,6 +5333,7 @@ window.__ftStart = function(){
     resizeCanvas();
     stopAnimation();
     updateSwatchActive(id);
+    announceWeather(id);
     if(id === 'none') return;
     seedParticles(id);
     step(id);
@@ -5355,6 +5343,11 @@ window.__ftStart = function(){
     applyWeatherEffect(id);
     saveWeatherEffectPref(id);
   };
+  // Tell ambient-audio.js (weather sounds) which effect is active.
+  function announceWeather(id){
+    window.__trakkaWeather = id;
+    try{ window.dispatchEvent(new CustomEvent('trakka:weather', { detail:id })); }catch(e){}
+  }
 
   function makeWeatherBtn(w){
     var b = document.createElement('button');

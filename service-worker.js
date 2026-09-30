@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v67";
+const CACHE_VERSION = "tracka-shell-v68";
 
 const SHELL_FILES = [
   "./",
@@ -20,6 +20,7 @@ const SHELL_FILES = [
   "./app.js",
   "./firebase-init.js",
   "./ambient-audio.js",
+  "./sfx.js",
   "./pwa.js",
   "./app-entry.js",
   "./auto-logout.js",
