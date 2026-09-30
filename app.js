@@ -3847,6 +3847,36 @@ window.__ftStart = function(){
     }
   })();
 
+  // ===== What's New =====
+  // A plain-language changelog for the #page-whatsnew tab — hand-maintained
+  // (there's no way to turn a commit message into copy someone using the
+  // tracker would actually want to read), but kept as ONE array rendered
+  // into both sign-in.html and settings.html rather than duplicated HTML in
+  // each, so there's a single place to add an entry. Newest first.
+  // >>> Add a new entry here whenever a user-facing change ships. <<<
+  const WHATSNEW_ITEMS = [
+    { title: '🔔 Notifications now reach you even with Trakka closed', body: 'Your daily reminder, level-ups, and "debt cleared" alerts can now show up on your device even when the app isn\'t open — turn it on (or re-confirm it) from the 🔔 button in Settings.' },
+    { title: '🎁 See your total gifts at a glance', body: 'A "Total gifts this month" card now sits on the Overview page next to "Days left in period," and a running "Total gifts" total across every month is in the top bar. Gift goals you\'ve already bought can be tucked away with a new "Hide past" button on the Gifts tab.' },
+    { title: '🐷 See your total savings at a glance', body: '"Total savings this month" now shows on the Overview page, and a running "Total savings" total across every month sits in the top bar next to "Still outstanding."' },
+    { title: '📝 Clearer label on the Expenses tab', body: 'The box for adding a new expense to your daily log now has its own heading, so it\'s easy to spot.' },
+    { title: '🙈 Hide the whole daily log in one tap', body: 'A "Hide daily log" link on the Expenses tab collapses every logged expense out of view — handy if someone\'s looking over your shoulder.' },
+    { title: '📅 Trakka now opens on the right month automatically', body: "Signing in now takes you straight to whichever month you're actually in, instead of always starting from the first month you ever tracked." },
+    { title: '🔢 A nudge to set up your quick-unlock PIN', body: "Right after the welcome tour, you'll now be prompted to set up a PIN if you haven't already — a faster way back in after you're auto signed-out." },
+    { title: "🗓️ Change one month's start date on its own", body: 'Salary landed early or late one month? A "This month starts on" picker next to the month selector lets you override just that one month, without changing your usual start day everywhere else.' },
+    { title: '🙈 Hide everything on screen with one button', body: 'A "Hide data" button in the top bar blurs every number and entry in the tracker — quick to turn on before you hand your phone to someone, or pull up Trakka in public.' }
+  ];
+  function renderWhatsNew(){
+    const container = document.getElementById('whatsnew-list');
+    if(!container) return;
+    container.innerHTML = WHATSNEW_ITEMS.map(item => `
+      <div class="whatsnew-item">
+        <div class="whatsnew-title">${escapeAttr(item.title)}</div>
+        <div class="whatsnew-body">${escapeAttr(item.body)}</div>
+      </div>
+    `).join('');
+  }
+  renderWhatsNew();
+
   applyStaticSettings();
   populateTargetSelect();
   document.getElementById('living-entry-date').value = todayISO();
