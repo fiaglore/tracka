@@ -71,20 +71,24 @@ export function hasLoggedToday(state, N, todayStr) {
 }
 
 // Mirrors levelFromXP()/xpCostForLevel() in app.js: totalXP =
-// checkedItems*10 + earnedBadges*50; level L costs L*150 XP to clear
-// (150, 300, 450, ...), not a flat 150 every time.
-function xpCostForLevel(level) {
-  return 150 * level;
+// checkedItems*10 + earnedBadges*50; level L costs L*multiplier XP to clear
+// (multiplier*1, multiplier*2, multiplier*3, ...), not a flat cost every
+// time. The multiplier is the user's own "Leveling pace" choice from
+// Settings (cloud.xpDifficulty — easy/medium/hard), defaulting to medium
+// just like the client does.
+const XP_DIFFICULTY_MULTIPLIERS = { easy: 90, medium: 150, hard: 250 };
+function xpCostForLevel(level, xpDifficulty) {
+  return (XP_DIFFICULTY_MULTIPLIERS[xpDifficulty] || 150) * level;
 }
 
-export function computeLevel(state, N, badges) {
+export function computeLevel(state, N, badges, xpDifficulty) {
   let checkedCount = 0;
   for (let i = 0; i < N; i++) checkedCount += allItemsForMonth(state, i).filter((x) => x.checked).length;
   const earnedBadgeCount = Object.keys(badges || {}).filter((k) => k.startsWith("badge_")).length;
   const totalXP = checkedCount * 10 + earnedBadgeCount * 50;
   let level = 1, remaining = Math.max(0, totalXP);
-  while (remaining >= xpCostForLevel(level)) {
-    remaining -= xpCostForLevel(level);
+  while (remaining >= xpCostForLevel(level, xpDifficulty)) {
+    remaining -= xpCostForLevel(level, xpDifficulty);
     level++;
   }
   return level;

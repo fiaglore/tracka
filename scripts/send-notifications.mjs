@@ -104,7 +104,7 @@ async function processUser(doc) {
 
   // ---- 2. Level up ----
   try {
-    const level = computeLevel(state, N, data.badges || {});
+    const level = computeLevel(state, N, data.badges || {}, data.xpDifficulty);
     // First time this script has ever looked at this user, just record the
     // baseline silently — otherwise everyone gets a "you reached level 7!"
     // notification the moment they turn reminders on, however long they've

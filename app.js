@@ -72,16 +72,30 @@ window.__ftStart = function(){
   function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
   // ===== XP → level curve =====
-  // Level L costs L*150 XP to clear (150, 300, 450, 600, ...) rather than a
-  // flat 150 every time — cumulative XP needed to REACH level L works out to
-  // 75*L*(L-1). A flat cost made every level equally easy, so a genuinely
-  // active first month (lots of income/debt/gift items ticked, a handful of
-  // badges) could blow past a dozen levels in a few weeks; this keeps early
-  // levels feeling about like they used to (the first level-up still costs
-  // 150, same as before) while making each one after that meaningfully
-  // harder, so leveling stays a reason to keep coming back well past the
-  // first month rather than being mostly spent within it.
-  function xpCostForLevel(level){ return 150 * level; }
+  // Level L costs L*XP_DIFFICULTY_MULTIPLIER XP to clear (at the default
+  // "medium" pace: 150, 300, 450, 600, ...) rather than a flat cost every
+  // time — cumulative XP needed to REACH level L works out to
+  // (multiplier/2)*L*(L-1). A flat cost made every level equally easy, so a
+  // genuinely active first month (lots of income/debt/gift items ticked, a
+  // handful of badges) could blow past a dozen levels in a few weeks; this
+  // keeps early levels feeling about like they used to (the first level-up
+  // still costs 150 on medium, same as before) while making each one after
+  // that meaningfully harder, so leveling stays a reason to keep coming back
+  // well past the first month rather than being mostly spent within it.
+  //
+  // The exact pace is a per-user choice (Settings → "XP & achievements" →
+  // "Leveling pace") rather than one-size-fits-all, since "wayyy harder"
+  // for one person is "too slow to bother" for another — it only scales
+  // how much XP a level costs, never how XP is earned or which
+  // achievements exist, so switching pace can't be used to "cheat" a
+  // badge.
+  const XP_DIFFICULTY_MULTIPLIERS = { easy: 90, medium: 150, hard: 250 };
+  function loadXpDifficulty(){
+    const d = cloud.xpDifficulty;
+    return (d==='easy' || d==='hard') ? d : 'medium';
+  }
+  let xpDifficulty = loadXpDifficulty();
+  function xpCostForLevel(level){ return (XP_DIFFICULTY_MULTIPLIERS[xpDifficulty] || 150) * level; }
   function levelFromXP(totalXP){
     let level = 1, remaining = Math.max(0, totalXP);
     while(remaining >= xpCostForLevel(level)){
@@ -284,6 +298,8 @@ window.__ftStart = function(){
       }
       it.value = String(window.getIdleTimeoutMinutes ? window.getIdleTimeoutMinutes() : 2);
     }
+    const xd = document.getElementById('set-xp-difficulty');
+    if(xd) xd.value = xpDifficulty;
   }
 
   // Light/dark mode now lives in the theme-preset picker's own IIFE further
@@ -1950,7 +1966,11 @@ window.__ftStart = function(){
     // reused below for both the single- and multi-debt achievements.
     const allDebtSeries = debtSeriesList();
     const clearedSeries = allDebtSeries.filter(d=>d.total>0 && d.remaining<=0);
-    const giftFullyFunded = state.giftGoals.some(function(g){
+    const totalDebtPaidAllTime = allDebtSeries.reduce((s,d)=>s+d.paid,0);
+    // Count of gift goals actually fully funded (not just whether at least
+    // one is) — reused for both the single "Gift Giver" badge and the
+    // higher-tier "funded 3+/5+ goals" ladder below.
+    const giftGoalsFundedCount = state.giftGoals.filter(function(g){
       let paidTowardGoal = 0;
       for(let i=0;i<N;i++){
         giftItemsForMonth(i).forEach(function(item){
@@ -1958,7 +1978,7 @@ window.__ftStart = function(){
         });
       }
       return g.totalAmount>0 && paidTowardGoal>=g.totalAmount;
-    });
+    }).length;
     const streakDays = Number(cloud.streakCount)||0;
     // Needed by the long-term "Quarter-Million Balance" achievement below;
     // the confetti-threshold loop further down reuses this same value
@@ -1973,47 +1993,140 @@ window.__ftStart = function(){
     // something new to reach, rather than everything being earnable in
     // the first few months.
     const badgeDefs = [
-      {id:'first100k', icon:'🏅', category:'savings', label:'First '+CUR+'100k saved', earned: maxSaved>=100000},
-      {id:'debtslayer', icon:'🗡️', category:'debt', label:'Debt Slayer — first loan cleared', earned: anyLenderCleared},
-      {id:'halfway', icon:'🎯', category:'budget', label:'Halfway There', earned: pct>=50},
+      // ----- 📋 Checklist Progress (all-time items checked off + month completions) -----
       {id:'firststep', icon:'🌱', category:'checklist', label:'First Step — checked off your first item', earned: ovCheckedItems>=1},
+      {id:'check25', icon:'🔟', category:'checklist', label:'Quarter-Century — 25 items checked off, all-time', earned: ovCheckedItems>=25},
+      {id:'centurion', icon:'💯', category:'checklist', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
+      {id:'check200', icon:'🥈', category:'checklist', label:'Double Century — 200 items checked off, all-time', earned: ovCheckedItems>=200},
+      {id:'centurion500', icon:'🥇', category:'checklist', label:'Half-Grand — 500 items checked off, all-time', earned: ovCheckedItems>=500},
+      {id:'check750', icon:'🎖️', category:'checklist', label:'750 Club — 750 items checked off, all-time', earned: ovCheckedItems>=750},
+      {id:'check1000', icon:'🏵️', category:'checklist', label:'Kilo-Checker — 1,000 items checked off, all-time', earned: ovCheckedItems>=1000},
+      {id:'check2000', icon:'🌟', category:'checklist', label:'2K Club — 2,000 items checked off, all-time', earned: ovCheckedItems>=2000},
+      {id:'check5000', icon:'🌌', category:'checklist', label:'5K Club — 5,000 items checked off, all-time', earned: ovCheckedItems>=5000},
       {id:'perfectmonth', icon:'🏆', category:'checklist', label:'Perfect Month — one month fully checked off', earned: complete>=1},
       {id:'threepeat', icon:'🥉', category:'checklist', label:'Three-peat — 3 months fully complete', earned: complete>=3},
       {id:'allmonths', icon:'👑', category:'checklist', label:'Clean Sweep — every tracked month complete', earned: N>0 && complete===N},
-      {id:'centurion', icon:'💯', category:'checklist', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
-      {id:'centurion500', icon:'🥇', category:'checklist', label:'Half-Grand — 500 items checked off, all-time', earned: ovCheckedItems>=500},
+
+      // ----- 🐷 Savings (all-time high-water mark + hitting your own goal) -----
       {id:'savingsstarter', icon:'🐷', category:'savings', label:'Piggy Bank Started — first savings deposit', earned: maxSaved>0},
+      {id:'saver1k', icon:'🌰', category:'savings', label:'First '+CUR+'1,000 saved', earned: maxSaved>=1000},
       {id:'saver10k', icon:'🪙', category:'savings', label:'First '+CUR+'10k saved', earned: maxSaved>=10000},
+      {id:'saver50k', icon:'🏦', category:'savings', label:'First '+CUR+'50k saved', earned: maxSaved>=50000},
+      {id:'first100k', icon:'🏅', category:'savings', label:'First '+CUR+'100k saved', earned: maxSaved>=100000},
+      {id:'saver250k', icon:'🥈', category:'savings', label:'First '+CUR+'250k saved', earned: maxSaved>=250000},
       {id:'saver500k', icon:'💰', category:'savings', label:'Half Saved — '+CUR+'500k saved', earned: maxSaved>=500000},
       {id:'saver1m', icon:'💎', category:'savings', label:'Millionaire Saver — '+CUR+'1,000,000 saved', earned: maxSaved>=1000000},
+      {id:'saver2m', icon:'👑', category:'savings', label:'Two Million Saved — '+CUR+'2,000,000 saved', earned: maxSaved>=2000000},
+      {id:'saver5m', icon:'🌠', category:'savings', label:'Five Million Saved — '+CUR+'5,000,000 saved', earned: maxSaved>=5000000},
       {id:'savingsgoalhit', icon:'🌻', category:'savings', label:'Goal Getter — hit your savings goal', earned: goal>0 && totalSavedToDate>=goal},
-      {id:'debtfree', icon:'🎉', category:'debt', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
+
+      // ----- 💳 Debt (loans cleared + total ever paid down) -----
+      {id:'firstdebtpayment', icon:'🩹', category:'debt', label:'First Payment — made a payment toward any debt', earned: totalDebtPaidAllTime>0},
+      {id:'debtslayer', icon:'🗡️', category:'debt', label:'Debt Slayer — first loan cleared', earned: anyLenderCleared},
+      {id:'debtpaid100k', icon:'📉', category:'debt', label:'First '+CUR+'100k paid toward debt, all-time', earned: totalDebtPaidAllTime>=100000},
       {id:'multidebtslayer', icon:'⚔️', category:'debt', label:'Debt Crusher — 3+ debts fully cleared', earned: clearedSeries.length>=3},
+      {id:'debtpaid500k', icon:'📊', category:'debt', label:'First '+CUR+'500k paid toward debt, all-time', earned: totalDebtPaidAllTime>=500000},
       {id:'debtcrusher5', icon:'💥', category:'debt', label:'Debt Annihilator — 5+ debts fully cleared', earned: clearedSeries.length>=5},
+      {id:'debtpaid1m', icon:'🏦', category:'debt', label:CUR+'1,000,000 paid toward debt, all-time', earned: totalDebtPaidAllTime>=1000000},
+      {id:'debtpaid2m', icon:'🏆', category:'debt', label:CUR+'2,000,000 paid toward debt, all-time', earned: totalDebtPaidAllTime>=2000000},
+      {id:'debtcrusher10', icon:'🌪️', category:'debt', label:'Debt Hurricane — 10+ debts fully cleared', earned: clearedSeries.length>=10},
+      {id:'debtfree', icon:'🎉', category:'debt', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
+
+      // ----- 🎁 Gifts (goals planned + goals actually fully funded) -----
+      {id:'firstgiftpayment', icon:'🎈', category:'gifts', label:'First gift payment — set aside money toward a gift', earned: ovGifts>0},
       {id:'giftplanner', icon:'🎁', category:'gifts', label:'Gift Planner — first gift goal created', earned: state.giftGoals.length>=1},
-      {id:'giftgiver', icon:'🎀', category:'gifts', label:'Gift Giver — fully funded a gift goal', earned: giftFullyFunded},
+      {id:'giftplanner5', icon:'🎊', category:'gifts', label:'Gift Planner — 5+ gift goals created', earned: state.giftGoals.length>=5},
+      {id:'giftplanner10', icon:'🎉', category:'gifts', label:'Gift Planner — 10+ gift goals created', earned: state.giftGoals.length>=10},
+      {id:'giftgiver', icon:'🎀', category:'gifts', label:'Gift Giver — fully funded a gift goal', earned: giftGoalsFundedCount>=1},
+      {id:'giftgiver3', icon:'🥉', category:'gifts', label:'Gift Giver — 3+ gift goals fully funded', earned: giftGoalsFundedCount>=3},
+      {id:'giftgiver5', icon:'🥇', category:'gifts', label:'Gift Giver — 5+ gift goals fully funded', earned: giftGoalsFundedCount>=5},
+      {id:'giftbudget100k', icon:'💐', category:'gifts', label:'First '+CUR+'100k set aside for gifts, all-time', earned: ovGifts>=100000},
+      {id:'giftbudget500k', icon:'🌹', category:'gifts', label:'First '+CUR+'500k set aside for gifts, all-time', earned: ovGifts>=500000},
+      {id:'giftbudget1m', icon:'💝', category:'gifts', label:CUR+'1,000,000 set aside for gifts, all-time', earned: ovGifts>=1000000},
+
+      // ----- 💰 Budget & Balance (checklist %, this month's health, cumulative balance) -----
+      {id:'quarterway', icon:'🎯', category:'budget', label:'Quarter Way There', earned: pct>=25},
+      {id:'halfway', icon:'🎯', category:'budget', label:'Halfway There', earned: pct>=50},
+      {id:'threequarterway', icon:'🎯', category:'budget', label:'Three-Quarters There', earned: pct>=75},
+      {id:'fullchecklist', icon:'🎯', category:'budget', label:'Fully Checked Off — 100% of all line items, all-time', earned: pct>=100},
       {id:'budgeter', icon:'✅', category:'budget', label:'Budget Boss — within budget this month', earned: !bhOver},
       {id:'frugalmonth', icon:'🏠', category:'budget', label:'Frugal Month — under your living budget', earned: livingBudgetTotal>0 && livingChecked<livingBudgetTotal},
+      {id:'positivemonth', icon:'📈', category:'budget', label:'In The Green — positive net this month', earned: net>=0},
       {id:'quartermillion', icon:'💵', category:'budget', label:'Quarter-Million Balance — '+CUR+'250k cumulative', earned: fullCumBalance>=250000},
+      {id:'halfmillionbalance', icon:'💷', category:'budget', label:'Half-Million Balance — '+CUR+'500k cumulative', earned: fullCumBalance>=500000},
+      {id:'millionbalance', icon:'💴', category:'budget', label:'Millionaire Balance — '+CUR+'1,000,000 cumulative', earned: fullCumBalance>=1000000},
+
+      // ----- 🍾 Extra Income (windfalls logged + income actually received) -----
+      {id:'extrastart', icon:'🎉', category:'income', label:'First Windfall — logged extra income', earned: sumExtraAll()>0},
+      {id:'extra10k', icon:'🍾', category:'income', label:CUR+'10k+ in windfalls logged, all-time', earned: sumExtraAll()>=10000},
+      {id:'extra25k', icon:'🍾', category:'income', label:CUR+'25k+ in windfalls logged, all-time', earned: sumExtraAll()>=25000},
       {id:'extrahustle', icon:'🍾', category:'income', label:'Extra Hustle — '+CUR+'50k+ in windfalls logged', earned: sumExtraAll()>=50000},
+      {id:'extra100k', icon:'🥂', category:'income', label:CUR+'100k+ in windfalls logged, all-time', earned: sumExtraAll()>=100000},
+      {id:'extra250k', icon:'🥂', category:'income', label:CUR+'250k+ in windfalls logged, all-time', earned: sumExtraAll()>=250000},
+      {id:'extra500k', icon:'🍾', category:'income', label:CUR+'500k+ in windfalls logged, all-time', earned: sumExtraAll()>=500000},
+      {id:'extra1m', icon:'🎇', category:'income', label:CUR+'1,000,000+ in windfalls logged, all-time', earned: sumExtraAll()>=1000000},
+      {id:'firstpaycheck', icon:'💵', category:'income', label:'First Paycheck — received your first income item', earned: ovIncome>0},
+      {id:'income1m', icon:'🏆', category:'income', label:CUR+'1,000,000+ income received, all-time', earned: ovIncome>=1000000},
+
+      // ----- 📱 Tools & Habits (features actually used, not just balances) -----
       {id:'savingsappuser', icon:'📱', category:'tools', label:'App-Savvy — added a savings app', earned: allSavingsAppIds().length>=1},
+      {id:'multisavingsapps', icon:'📲', category:'tools', label:'Multi-App Saver — 3+ savings apps tracked', earned: allSavingsAppIds().length>=3},
+      {id:'budgetsetter', icon:'🏷️', category:'tools', label:'Budget Setter — set a living expense budget', earned: livingBudgetTotal>0},
+      {id:'categorycustomizer', icon:'🎨', category:'tools', label:'Category Customizer — 5+ expense categories', earned: state.livingCategories.length>=5},
+      {id:'pinconfigured', icon:'🔢', category:'tools', label:'PIN Protected — set up a quick-unlock PIN', earned: !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())},
+      {id:'notificationsenabled', icon:'🔔', category:'tools', label:'Stay Notified — turned on notifications', earned: !!cloud.remindersEnabled},
+      {id:'monthoverride', icon:'🗓️', category:'tools', label:'Calendar Tweaker — customized a month\'s start date', earned: Object.keys(state.monthStartOverrides||{}).length>=1},
+      {id:'debtorganizer', icon:'📊', category:'tools', label:'Debt Organizer — tracking 3+ debts', earned: allDebtSeries.length>=3},
+      {id:'extralogger', icon:'🍾', category:'tools', label:'Windfall Logger — logged 10+ extra income entries', earned: state.extra.length>=10},
+      {id:'livinglogger', icon:'🧾', category:'tools', label:'Expense Logger — logged 25+ daily expenses', earned: state.livingEntries.length>=25},
+
+      // ----- 🔥 Streaks (consecutive days logged) -----
+      {id:'streak3', icon:'✨', category:'streaks', label:'3-Day Streak', earned: streakDays>=3},
       {id:'streak7', icon:'🔥', category:'streaks', label:'Week-Long Streak — 7 days in a row', earned: streakDays>=7},
+      {id:'streak14', icon:'🔥', category:'streaks', label:'Two-Week Streak — 14 days in a row', earned: streakDays>=14},
       {id:'streak30', icon:'🔥🔥', category:'streaks', label:'Monthly Streak — 30 days in a row', earned: streakDays>=30},
+      {id:'streak50', icon:'🔥🔥', category:'streaks', label:'50-Day Streak', earned: streakDays>=50},
       {id:'streak100', icon:'🔥🔥🔥', category:'streaks', label:'Century Streak — 100 days in a row', earned: streakDays>=100},
+      {id:'streak200', icon:'🔥🔥🔥', category:'streaks', label:'200-Day Streak', earned: streakDays>=200},
       {id:'streak365', icon:'🎆', category:'streaks', label:'Year-Long Streak — 365 days in a row', earned: streakDays>=365},
+      {id:'streak500', icon:'🎇', category:'streaks', label:'500-Day Streak', earned: streakDays>=500},
+      {id:'streak1000', icon:'🌟', category:'streaks', label:'1,000-Day Streak', earned: streakDays>=1000},
+
+      // ----- 🌟 Level (reached via the XP system above) -----
+      {id:'levelup3', icon:'⭐', category:'level', label:'Reached Level 3', earned: level>=3},
       {id:'levelup5', icon:'🌟', category:'level', label:'Rising Star — reached Level 5', earned: level>=5},
       {id:'levelup10', icon:'🎖️', category:'level', label:'Veteran — reached Level 10', earned: level>=10},
+      {id:'levelup15', icon:'🎖️', category:'level', label:'Reached Level 15', earned: level>=15},
       {id:'levelup20', icon:'🏵️', category:'level', label:'Elite — reached Level 20', earned: level>=20},
+      {id:'levelup25', icon:'🏵️', category:'level', label:'Reached Level 25', earned: level>=25},
+      {id:'levelup30', icon:'💫', category:'level', label:'Reached Level 30', earned: level>=30},
       {id:'levelup50', icon:'🌌', category:'level', label:'Legend — reached Level 50', earned: level>=50},
+      {id:'levelup75', icon:'🌠', category:'level', label:'Reached Level 75', earned: level>=75},
+      {id:'levelup100', icon:'🛸', category:'level', label:'Centennial — reached Level 100', earned: level>=100},
+
+      // ----- 📅 Longevity (how many months you've kept tracking) -----
+      {id:'longhauler1', icon:'🌱', category:'longevity', label:'Getting Started — your first tracked month', earned: N>=1},
+      {id:'longhauler3', icon:'📆', category:'longevity', label:'Quarter Tracker — tracking 3+ months', earned: N>=3},
+      {id:'longhauler6', icon:'📆', category:'longevity', label:'Half-Year Tracker — tracking 6+ months', earned: N>=6},
       {id:'longhauler12', icon:'📅', category:'longevity', label:'Long Hauler — tracking 12+ months', earned: N>=12},
+      {id:'longhauler18', icon:'🗓️', category:'longevity', label:'Year-and-a-Half Tracker — tracking 18+ months', earned: N>=18},
       {id:'longhauler24', icon:'🗓️', category:'longevity', label:'Two-Year Tracker — tracking 24+ months', earned: N>=24},
+      {id:'longhauler36', icon:'🏛️', category:'longevity', label:'Three-Year Tracker — tracking 36+ months', earned: N>=36},
+      {id:'longhauler48', icon:'🏛️', category:'longevity', label:'Four-Year Tracker — tracking 48+ months', earned: N>=48},
+      {id:'longhauler60', icon:'🏛️', category:'longevity', label:'Five-Year Tracker — tracking 60+ months', earned: N>=60},
+      {id:'longhauler120', icon:'🌌', category:'longevity', label:'Decade Tracker — tracking 120+ months', earned: N>=120},
     ];
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
-      // Icon-only on Overview — with dozens of achievements the old full-label
-      // pills ran the row long; the label still shows on hover/focus (title),
-      // and the full, categorized version lives on the dedicated XP page.
-      badgeRowEl.innerHTML = badgeDefs.map(b=>`<span class="badge-chip ${b.earned?'':'locked'}" title="${escapeAttr(b.label)}">${b.icon}</span>`).join('');
+      // Icon-only on Overview, and only the ones actually earned — with 100+
+      // achievements now available (see the XP page for the full locked/
+      // earned grid), showing every locked icon here too would bury the
+      // handful someone's actually unlocked in a wall of grey. The label
+      // still shows on hover/focus (title).
+      const earnedBadges = badgeDefs.filter(b=>b.earned);
+      badgeRowEl.innerHTML = earnedBadges.length
+        ? earnedBadges.map(b=>`<span class="badge-chip" title="${escapeAttr(b.label)}">${b.icon}</span>`).join('')
+        : `<span class="badge-chip-empty">No achievements unlocked yet — check the 🌟 XP tab to see what's available.</span>`;
     }
     // Full detail version of the same badgeDefs, grouped by category, on the
     // dedicated XP page. Grouping is purely a display grouping (see the
@@ -3656,6 +3769,15 @@ window.__ftStart = function(){
     PSTART = Number(this.value) || 1; saveCloudField('payStart', PSTART);
     applyStaticSettings(); render(); updateClockAndCountdown();
   });
+  var xpDifficultySelect = document.getElementById('set-xp-difficulty');
+  if(xpDifficultySelect){
+    xpDifficultySelect.addEventListener('change', function(){
+      xpDifficulty = (this.value==='easy'||this.value==='hard') ? this.value : 'medium';
+      cloud.xpDifficulty = xpDifficulty;
+      saveCloudField('xpDifficulty', xpDifficulty);
+      render();
+    });
+  }
   var idleTimeoutSelect = document.getElementById('set-idle-timeout');
   if(idleTimeoutSelect){
     idleTimeoutSelect.addEventListener('change', function(){
@@ -3949,6 +4071,8 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🏅 Over 100 achievements to unlock, and only your earned ones clutter the Overview', body: 'Every achievement category — Checklist, Savings, Debt, Gifts, Budget, Income, Tools, Streaks, Level, Longevity — now has 10+ tiers instead of a handful, including a proper all-time "items checked off" ladder (25, 100, 200, 500, 750, 1,000... up to 5,000). The Overview page now only shows the icons you\'ve actually earned, instead of a long row of greyed-out locked ones — the full locked-and-earned grid, grouped by category, still lives on the 🌟 XP tab.' },
+    { title: '🎮 Choose your own leveling pace', body: 'A new "Leveling pace" setting (Settings → "XP & achievements") lets you pick Easy, Trakka Mode (the default), or Hard for how much XP each level takes to reach. It only changes how fast levels climb — how you earn XP and which achievements exist are exactly the same on every setting, so nobody\'s stuck with a pace that doesn\'t fit them.' },
     { title: '⭐ Leveling up now takes longer, on purpose', body: 'Each level now costs more XP than the last — level 1→2 is still 150 XP, but 2→3 takes 300, 3→4 takes 450, and so on. Levels were flying by in the first few weeks for active users; this spreads them out over months instead, so there\'s still a reason to level up long after you started. Your XP total hasn\'t changed, only how far it has to stretch — so your level number may look lower today than it did yesterday.' },
     { title: '💾 A Save button in Settings', body: 'A "💾 Save changes" button now sits at the top of Settings. Everything there already saved and applied instantly — this just gives a clear confirmation once it\'s done, and forces through anything still in flight (like a checkbox ticked on the tracker right before opening Settings).' },
     { title: '🙈 Data is hidden by default every time you sign in', body: 'Every figure, chip, and log entry now starts blurred the moment you sign in — no setup needed. Click "👁️ Show data" in the top bar to reveal it for this visit; it resets to hidden again next time you sign in, so it can\'t accidentally stay switched off on a shared device.' },
