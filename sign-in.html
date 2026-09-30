@@ -253,6 +253,7 @@
     <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
     <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
+    <button type="button" class="page-nav-btn" data-page="investments"><span class="ic">💹</span>Investments</button>
     <button type="button" class="page-nav-btn" data-page="networth"><span class="ic">📈</span>Net Worth</button>
     <button type="button" class="page-nav-btn page-nav-btn-right" data-page="whatsnew"><span class="ic">✨</span>What's New</button>
   </nav>
@@ -518,6 +519,26 @@
   </div>
 
   <!-- ============ NET WORTH ============ -->
+  <!-- ============ INVESTMENTS ============ -->
+  <div class="app-page" id="page-investments" data-page="investments">
+    <section>
+      <div class="section-head"><h2>💹 Investments</h2></div>
+      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:640px;">Stocks, mutual funds, shares, commercial papers, treasury bills, crypto — anything you hold units of. Log a price for "today" whenever you check it, and your gain/(loss) updates off the most recent price you've logged, not a live feed.</p>
+      <div class="payoff-panel" id="inv-panel">
+        <div class="payoff-head" id="inv-head"></div>
+        <div id="inv-list"></div>
+      </div>
+      <div class="extra-add">
+        <select id="inv-type"></select>
+        <input type="text" id="inv-name" placeholder="Name / ticker, e.g. GTCO or BTC">
+        <input type="number" id="inv-units" placeholder="Units (1 for a lump-sum instrument)" min="0" step="0.000001" style="width:220px;">
+        <input type="number" id="inv-cost" placeholder="Total cost basis {c}" data-ph="Total cost basis {c}">
+        <button id="inv-add-btn">Add</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ NET WORTH ============ -->
   <div class="app-page" id="page-networth" data-page="networth">
     <section>
       <div class="section-head"><h2>📈 Net worth</h2></div>
@@ -529,6 +550,7 @@
             <div class="summary-card"><div class="lbl">Cash balance (cumulative)</div><div class="num mono" id="nw-cash">0</div></div>
             <div class="summary-card"><div class="lbl">Savings &amp; app balances</div><div class="num mono" id="nw-savings">0</div></div>
             <div class="summary-card"><div class="lbl">Still outstanding on debts</div><div class="num coral mono" id="nw-debts">0</div></div>
+            <div class="summary-card"><div class="lbl">Investments (current value)</div><div class="num mono" id="nw-investments">0</div></div>
             <div class="summary-card"><div class="lbl">Other assets</div><div class="num mono" id="nw-assets">0</div></div>
           </div>
         </div>
@@ -537,9 +559,9 @@
           <div id="nw-trend-body"></div>
         </div>
         <div class="section-head" style="margin-top:20px;"><h3>🏺 Other assets</h3></div>
-        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Anything not already tracked elsewhere — property, investments, a vehicle — valued by you, not auto-updated.</p>
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Anything not already tracked elsewhere — property, a vehicle — valued by you, not auto-updated. Stocks, funds and other unit-priced holdings belong on the Investments tab instead, where gains are tracked.</p>
         <div class="extra-add">
-          <input type="text" id="asset-desc" placeholder="What is it? e.g. Investment portfolio">
+          <input type="text" id="asset-desc" placeholder="What is it? e.g. Rental property">
           <input type="number" id="asset-amt" placeholder="Value {c}" data-ph="Value {c}">
           <button id="asset-add-btn">Add</button>
         </div>
