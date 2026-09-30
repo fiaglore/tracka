@@ -2263,6 +2263,62 @@ window.__ftStart = function(){
       {id:'longhauler60', icon:'🏛️', category:'longevity', label:'Five-Year Tracker — tracking 60+ months', earned: N>=60},
       {id:'longhauler120', icon:'🌌', category:'longevity', label:'Decade Tracker — tracking 120+ months', earned: N>=120},
     ];
+    // ===== Endless ladders — so there's always something new to reach =====
+    // The hand-written tiers above stop at a fixed top rung. Past that, each
+    // ladder below keeps generating its next rungs on demand: every rung
+    // you've earned stays listed, plus exactly ONE next rung still ahead of
+    // you, so the XP grid never floods but never runs dry either. Rung values
+    // follow a 1 / 1.2 / 1.5 / 2 / 2.5 / 3 / 4 / 5 / 6 / 8 pattern per decade
+    // (money rungs go through ct() like the fixed ones, so they scale with
+    // currency). A generated rung's id is derived from its value, so once
+    // it's earned it stays earned (badgeMemory) and pays its 50 XP exactly
+    // like any other badge.
+    const NICE_STEPS = [1,1.2,1.5,2,2.5,3,4,5,6,8];
+    function niceValuesAbove(base){
+      const vals = [];
+      for(let e=Math.max(0, Math.floor(Math.log10(Math.max(base,1)))-1); e<15 && vals.length<300; e++){
+        NICE_STEPS.forEach(function(m){
+          const v = Math.round(m*Math.pow(10,e));
+          if(v>base && (!vals.length || v>vals[vals.length-1])) vals.push(v);
+        });
+      }
+      return vals;
+    }
+    function everyStepAbove(base, step){
+      const vals = [];
+      for(let v=base+step; vals.length<300; v+=step) vals.push(v);
+      return vals;
+    }
+    const num = function(n){ return n.toLocaleString('en-NG'); };
+    const ENDLESS_LADDERS = [
+      {key:'items',    category:'checklist', icons:['🚀','🌠','🪐','☄️'],       value:ovCheckedItems,             base:12000,   label:v=>num(v)+' items checked off, all-time'},
+      {key:'perfect',  category:'checklist', icons:['🏆','🥇','🎯','👑'],       value:complete,                   base:3,       label:v=>v+' months fully complete'},
+      {key:'saved',    category:'savings',   icons:['💠','🏦','💎','🌠'],       value:maxSaved,                   base:5000000, money:true, label:v=>fmt(ct(v))+' saved'},
+      {key:'debtpaid', category:'debt',      icons:['📉','🏆','⚔️','🛡️'],      value:totalDebtPaidAllTime,       base:2000000, money:true, label:v=>fmt(ct(v))+' paid toward debt, all-time'},
+      {key:'debtclr',  category:'debt',      icons:['💥','🌪️','🔱','⚡'],      value:clearedSeries.length,       base:12,      label:v=>v+'+ debts fully cleared'},
+      {key:'giftgoals',category:'gifts',     icons:['🎁','🎊','🎉','🎀'],       value:state.giftGoals.length,     base:15,      label:v=>v+'+ gift goals created'},
+      {key:'giftfund', category:'gifts',     icons:['🥇','💝','🌹','💐'],       value:giftGoalsFundedCount,       base:7,       label:v=>v+'+ gift goals fully funded'},
+      {key:'giftamt',  category:'gifts',     icons:['💝','🌷','🌺','🌸'],       value:ovGifts,                    base:1000000, money:true, label:v=>fmt(ct(v))+' set aside for gifts, all-time'},
+      {key:'balance',  category:'budget',    icons:['💴','💶','💷','💳'],       value:fullCumBalance,             base:1000000, money:true, label:v=>fmt(ct(v))+' cumulative balance'},
+      {key:'windfall', category:'income',    icons:['🎇','🥂','🍾','🎆'],       value:sumExtraAll(),              base:1000000, money:true, label:v=>fmt(ct(v))+'+ in windfalls logged, all-time'},
+      {key:'income',   category:'income',    icons:['🏆','💼','🏢','🌍'],       value:ovIncome,                   base:1000000, money:true, label:v=>fmt(ct(v))+'+ income received, all-time'},
+      {key:'windlog',  category:'tools',     icons:['🍾','📝','🗂️','🗃️'],      value:state.extra.length,         base:10,      label:v=>'Windfall Logger — '+v+'+ extra income entries logged'},
+      {key:'explog',   category:'tools',     icons:['🧾','📒','📚','🗄️'],      value:state.livingEntries.length, base:25,      label:v=>'Expense Logger — '+num(v)+'+ daily expenses logged'},
+      {key:'streak',   category:'streaks',   icons:['🔥','🌋','☀️','🌟'],       value:streakDays,                 base:1000,    label:v=>num(v)+'-Day Streak'},
+      {key:'level',    category:'level',     icons:['🛸','🌌','🪐','✨'],       value:level,                      base:100,     label:v=>'Reached Level '+v},
+      {key:'months',   category:'longevity', icons:['🌌','🏛️','🗿','🌍'],      value:N,                          base:120,     step:12, label:v=>(v%12===0 ? (v/12)+'-Year Tracker — ' : '')+'tracking '+v+'+ months'}
+    ];
+    ENDLESS_LADDERS.forEach(function(l){
+      const rungs = l.step ? everyStepAbove(l.base, l.step) : niceValuesAbove(l.base);
+      for(let i=0;i<rungs.length;i++){
+        const v = rungs[i];
+        const id = 'endless_'+l.key+'_'+v;
+        const live = l.value >= (l.money ? ct(v) : v);
+        const earned = live || !!badgeMemory['badge_'+id];
+        badgeDefs.push({id:id, icon:l.icons[i%l.icons.length], category:l.category, label:l.label(v), earned:earned});
+        if(!earned) break; // the one rung still ahead — stop here
+      }
+    });
     // These tiers were pushed further apart (2025 rebalance) to fix clumping —
     // the "items checked off" ladder around 500-1000, and the debt/gift count
     // badges around 5-10. Anyone who'd already earned one of them under its old,
@@ -4378,6 +4434,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '♾️ Achievements that never run out', body: 'Reached the top of an achievement ladder? It now keeps going. Past the final built-in tier, Trakka automatically adds the next milestone — more items checked off, bigger savings and debt paid down, longer streaks, higher levels, more months tracked, and so on — so there\'s always a next one to aim for on the 🌟 XP tab. Each new one is worth 50 XP like any other achievement, and only your earned ones plus the single next goal in each ladder are shown, so the list stays tidy.' },
     { title: '🎵 Embed a Spotify playlist', body: 'Settings → "🎵 Spotify playlist" now lets you paste a Spotify playlist link to embed a compact player right on your Overview page while you track. It\'s a simple public embed — no Spotify account linking needed — though without Spotify Premium (and being logged into Spotify in this browser) it only plays 30-second previews, which is a Spotify limitation on the embed itself.' },
     { title: '🙈 Hide earned achievements on the XP tab', body: 'A new "Hide earned" link on the 🌟 XP tab collapses every achievement you\'ve already unlocked, so the grid shows only what\'s still left to earn. Tap "Show earned" to bring them back. It\'s just a view preference remembered on this device — your XP and badges are unaffected.' },
     { title: '⛈️ Thunderstorm, Windy day, and Sandstorm weather', body: 'Three new weather effects in Settings → Appearance. 🌩️ Thunderstorm (Temperate) is heavy slanting rain with occasional lightning flashes and rolling thunder. 💨 Windy day (Temperate) is fast streaks of wind with gusty rushing sound. 🏜️ Sandstorm (Tropical) blows warm, gritty sand across the screen under a dusty haze, with a howling wind to match.' },
