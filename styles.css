@@ -28,12 +28,20 @@
    screen is safe to have visible in public, without logging anyone out
    or losing their place. The topbar controls themselves stay sharp so
    the same button can turn it back off.
+
+   #page-settings and #page-whatsnew are excluded from the blanket
+   `.app-page` blur below: neither shows financial figures worth hiding
+   (theme swatches, profile fields, the changelog), and since privacy
+   defaults to hidden on every fresh page load, blurring them meant
+   Settings looked broken by default every single time someone opened
+   it — nothing to actually protect there, just an unreadable page
+   until "Show data" was clicked.
    ============================================================ */
 body[data-privacy="on"] .app-shell > .month-bar,
 body[data-privacy="on"] .app-shell > .page-nav,
 body[data-privacy="on"] .meta-chips,
 body[data-privacy="on"] .overall,
-body[data-privacy="on"] .app-page{
+body[data-privacy="on"] .app-page:not(#page-settings):not(#page-whatsnew){
   filter: blur(9px);
   user-select: none;
   transition: filter .15s ease;
@@ -813,6 +821,13 @@ body.ft-locked #auth-overlay{display:flex;}
 .extra-add-label{font-size:12.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin:0 0 8px;}
 .extra-add{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px;}
 .extra-add input,.extra-add select{font-family:var(--font-body); font-size:13.5px; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); flex:1; min-width:140px;}
+/* The description field's placeholder ("Add a source, e.g. Side gig
+   payout") is far longer than the amount field's ("Amount $") — equal
+   flex:1 on both meant they split the row evenly and the longer one
+   just clipped mid-word on a narrow phone. Letting the amount field stay
+   compact gives the description room to actually show its placeholder. */
+.extra-add input[type="number"]{flex:0 1 100px; min-width:90px;}
+.extra-add input[type="text"]{flex:2 1 180px;}
 .extra-add input:focus,.extra-add select:focus{border-color:var(--accent);}
 .extra-add button{font-family:var(--font-display); font-weight:700; font-size:13.5px; padding:9px 18px; border-radius:10px; border:none; background:var(--accent); color:#fff; cursor:pointer;}
 .extra-add button:hover{filter:brightness(.95);}
@@ -1121,7 +1136,31 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
   .item-row{flex-wrap:wrap;}
   .item-amt{width:90px;}
   .overall-nums{gap:16px;}
-  .page-nav{overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px;}
+  /* Hide/Undo/Redo/Settings/🔔/name/Sign out right-align on one line by
+     design (see .xl-actions-row) — fine when they all fit, but on a narrow
+     phone they wrap onto 2+ lines, and right-aligning each wrapped line
+     independently left a ragged, inconsistent-looking stagger (the fuller
+     first line sits near the left edge just from filling the width, while
+     a half-empty second line visibly clumps over to the right). Left-
+     aligning once wrapped reads as one coherent block instead. */
+  .xl-actions-row{justify-content:flex-start;}
+  /* .notif-dropdown normally hangs from the bell button's right edge
+     (right:0), which only stays on-screen because the actions row keeps
+     the bell near the row's own right edge on wider screens. Once that
+     row left-aligns above, the bell can end up much further from the
+     screen's right edge, and a right:0 dropdown extending 320px further
+     left than that would run off the left side of the viewport entirely.
+     Anchoring to the bell's left edge instead keeps it growing rightward,
+     back on-screen (the existing max-width still caps it on very narrow
+     phones). */
+  .notif-dropdown{left:0; right:auto;}
+  /* With 8 tabs, the nav bar never fits a narrow phone's width — it was
+     scrollable already, but with nothing to hint that "Gifts", "Savings",
+     "XP" etc. exist off to the right, past whichever 2-3 tabs fit on
+     screen. An inset shadow along the scrolling element's own edge (not
+     scrolled away with its content, unlike a child element would be)
+     gives a permanent "there's more this way" cue with no extra markup. */
+  .page-nav{overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; box-shadow:inset -18px 0 12px -12px rgba(0,0,0,.18);}
   .page-nav-btn{flex:0 0 auto;}
 }
 @media (min-width:701px) and (max-width:920px){
