@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Help &amp; FAQ - Trakka</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#D98E2B">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="landing-page">
+  <div class="landing-inner faq-page">
+
+    <header class="landing-nav">
+      <div class="landing-brand"><span class="landing-mark">🌱</span> Trakka</div>
+      <a class="landing-nav-signin" href="sign-in.html">Back to tracker</a>
+    </header>
+
+    <section class="faq-hero">
+      <h1>❓ Help &amp; FAQ</h1>
+      <p>In-depth, plain-language walkthroughs of every part of Trakka. Click a question to expand it — nothing here requires you to be signed in to read.</p>
+    </section>
+
+    <!-- ============ GETTING STARTED ============ -->
+    <section class="faq-section">
+      <h2>🌱 Getting started</h2>
+
+      <details class="faq-item">
+        <summary>What's a "billing period," and why isn't it just the calendar month?</summary>
+        <div class="faq-body">
+          <p>Trakka tracks money in <b>billing periods</b> instead of calendar months, because most people's pay cycle doesn't line up with the 1st of the month. By default a period runs from the 1st to the last day of the month, but in Settings you can change "Month starts on day" to whatever day your salary actually lands on — say the 25th — and every period from then on runs the 25th through the 24th of the next month instead.</p>
+          <p>Everything in the app (income, debts, gifts, budgets, the daily log) is filed into whichever period its date falls into, using that start day.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I move between months?</summary>
+        <div class="faq-body">
+          <p>Right under the top summary cards is a month picker: a "‹" and "›" arrow on either side of a dropdown showing the current month and year. Click the dropdown to jump straight to any tracked month, or use the arrows to step one at a time. A colored dot next to each month shows its status — grey means nothing's checked off yet, gold means it's partly done, green means every item in it is fully checked.</p>
+          <p>At the bottom of that same dropdown is a "+ Add [next month]" option, which appends a brand-new, empty month right after your most recent one.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Does anything ever get deleted or reset when a new month starts?</summary>
+        <div class="faq-body">
+          <p>No — that's the whole idea behind Trakka. It's one continuous log, not a fresh sheet every month. Recurring income and debts you've already added simply carry forward; what resets is only which checkboxes are ticked, since a new month's payments haven't happened yet.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ INCOME ============ -->
+    <section class="faq-section">
+      <h2>💸 Income</h2>
+
+      <details class="faq-item">
+        <summary>How do I add a source of income?</summary>
+        <div class="faq-body">
+          <p>On the Income tab, use the "Add a source" box near the top: type a name (e.g. "Salary" or "Side gig retainer") and an amount, then hit Add. It appears as a checklist item every month from then on — tick it once that income actually arrives.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's the difference between regular income and "extra / windfall income"?</summary>
+        <div class="faq-body">
+          <p>Regular income is something you expect every month (a salary, a retainer) and shows up as a repeating checklist item. Extra income is a one-off — a refund, a gift you received, a freelance payout — logged with its own date, in the "🍾 Extra / windfall income" section further down the Income tab. It still counts toward your totals, but it isn't expected to repeat next month.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ DEBTS ============ -->
+    <section class="faq-section">
+      <h2>💳 Debts</h2>
+
+      <details class="faq-item">
+        <summary>How do I add a debt or loan?</summary>
+        <div class="faq-body">
+          <p>On the Debts tab, fill in the "Add a debt/payment" box: a name, the amount due each month, and how many months it runs for. Trakka then adds one checklist instalment to each of those months automatically, labeled "Month 1 of 6," "Month 2 of 6," and so on, so you always know how far along you are.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's the "🏁 Payoff plan," and what can I do from it?</summary>
+        <div class="faq-body">
+          <p>The Payoff plan groups every instalment by debt and shows, for each one: how much has been repaid, how much is left, and when the last payment is due. From there you can:</p>
+          <ul>
+            <li><b>Pay extra</b> — put down more than a single instalment; it knocks months off the end instead of just prepaying the next one.</li>
+            <li><b>Clear it all</b> — pay off everything remaining on that debt in one go.</li>
+            <li><b>Edit total</b> — correct the overall amount owed if it changes.</li>
+            <li><b>Skip [month] — already paid</b> — mark next month's instalment as handled without touching the current month, for when you've paid ahead.</li>
+          </ul>
+          <p>Once a debt is fully cleared, a "Hide cleared" link appears so old, finished debts don't clutter the list.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>My "days until debt-free" countdown — what is it counting down to?</summary>
+        <div class="faq-body">
+          <p>It's the date of the very last instalment on your longest-running unpaid debt. As you pay debts off (especially with "Pay extra" or "Clear it all"), that date moves closer and the countdown shrinks. Once every debt is cleared, it reads "Cleared 🎉" instead.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ GIFTS ============ -->
+    <section class="faq-section">
+      <h2>🎁 Gifts</h2>
+
+      <details class="faq-item">
+        <summary>How do gift goals work?</summary>
+        <div class="faq-body">
+          <p>A gift goal is money you set aside gradually for something you'll buy on a specific future date — a birthday present, a holiday gift. When you create one, you give it a total cost, how many months you want to spread it over, and a target month. Trakka then splits the total evenly and adds a small checklist deduction to each of those lead-up months, so you're not hit with the full cost all at once.</p>
+          <p>Once the target month actually arrives, the goal disappears from the monthly deduction checklist — because that's when it's assumed you've actually bought the gift.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where do I see gift goals I've already finished?</summary>
+        <div class="faq-body">
+          <p>The Gifts tab's "Gift goals" list keeps every goal you've ever created, including ones whose target month has already passed. If that list is getting long, click "Hide past" to tuck away anything already bought — the count next to "Show past (n)" tells you how many are hidden, and clicking it again brings them all back. Nothing is ever deleted by hiding it.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where can I see my total gift spending?</summary>
+        <div class="faq-body">
+          <p>The Overview tab has a "Total gifts this month" card showing what's committed for the month you're viewing, and the top bar (visible from any tab) has a running "🎁 Total gifts" total — everything you've actually checked off as set aside, across every month you've ever tracked.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ SAVINGS ============ -->
+    <section class="faq-section">
+      <h2>🐷 Savings</h2>
+
+      <details class="faq-item">
+        <summary>What's the difference between the free-form savings ledger and "savings apps"?</summary>
+        <div class="faq-body">
+          <p>The <b>ledger</b> (bottom of the Savings tab) is for logging one-off top-ups in any amount, whenever you like — "Emergency fund top-up, ₦20,000," for example. Each entry locks for 3 months from the month you add it, so "just this once" can't touch it right away.</p>
+          <p><b>Savings apps</b> (Piggyvest, Cowrywise, Kuda, or whatever you actually use) are running accounts that carry a balance forward month to month, the same way a real savings app would. Set this month's top-up for each one and tick it once it's actually gone in — next month's opening balance picks up right where this month left off.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Why is my savings amount "locked," and when does it unlock?</summary>
+        <div class="faq-body">
+          <p>Every ledger entry locks for exactly 3 months from the month it was added, shown right on the entry itself ("🔒 locked until [month]" or "✅ unlocked since [month]"). It's a soft commitment device — the money is still yours, but the app keeps it out of your spendable "cumulative balance" figure until the lock lifts, so a moment of temptation doesn't wipe out savings you meant to keep.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where do I see how much I've saved overall?</summary>
+        <div class="faq-body">
+          <p>The Overview tab shows "Total savings this month" (the ledger entries and app top-ups you've actually ticked this month), plus a "🌻 Savings goal" progress bar and "% of balance saved" figure on the Savings tab itself. The top bar's "🐷 Total savings" chip adds up everything — ledger plus every savings app's balance — across every month you've tracked, visible from any tab.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ LIVING EXPENSES ============ -->
+    <section class="faq-section">
+      <h2>🏠 Living expenses</h2>
+
+      <details class="faq-item">
+        <summary>How do I log a daily expense?</summary>
+        <div class="faq-body">
+          <p>On the Expenses tab, look for the "➕ Add an expense to the daily log" box: pick a date and category, type what it was for, enter the amount, and hit Add. It's filed into whichever category and billing period that date falls into, and shows up in the "Daily log" list below, grouped by day.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do categories and budgets work?</summary>
+        <div class="faq-body">
+          <p>Click "Categories &amp; budget" to expand it (it starts collapsed to keep the page tidy). From there you can add your own categories and set a budget for each — but note that a budget only applies to the billing period you're currently viewing, so you can set a tighter or looser budget for a specific month without it affecting any other month.</p>
+          <p>The "By category, this billing period" chart (also collapsed by default — click it to expand) shows a bar per category: green while you're under budget, orange once you go over.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I hide my expense history from view?</summary>
+        <div class="faq-body">
+          <p>Yes — click "🙈 Hide daily log" above the daily log list to collapse every entry into a placeholder message, handy if someone's looking over your shoulder. Click "👁️ Show daily log" to bring it back exactly as it was, including which days were expanded. This is separate from the app-wide "Hide data" button described below.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ XP & ACHIEVEMENTS ============ -->
+    <section class="faq-section">
+      <h2>🌟 XP, levels &amp; achievements</h2>
+
+      <details class="faq-item">
+        <summary>How do I earn XP and level up?</summary>
+        <div class="faq-body">
+          <p>Every checklist item you tick off (income received, a debt payment, a gift deduction) is worth 10 XP. Unlocking an achievement badge is worth 50 XP. Every 150 XP moves you up one level — the XP bar on the Overview tab and the dedicated XP tab both show your progress toward the next one.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What are the achievement badges, and can I lose one once I've earned it?</summary>
+        <div class="faq-body">
+          <p>The XP tab lists every achievement Trakka tracks — completing a month fully, hitting savings milestones, clearing a debt, and more. Most, once earned, are permanent. A few (like "Budget Boss," which reflects your current budget status) can go back to locked if the underlying condition stops being true later — but the XP they already paid out when you first earned them stays banked either way.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <section class="faq-section">
+      <h2>🔔 Notifications</h2>
+
+      <details class="faq-item">
+        <summary>What do notifications actually alert me about?</summary>
+        <div class="faq-body">
+          <p>Four things: a daily reminder if you haven't logged anything yet that day, leveling up, unlocking an achievement, and fully clearing a debt. Turn it on from the 🔔 button in Settings — your browser will ask for notification permission the first time.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Do notifications still work if I close the app completely?</summary>
+        <div class="faq-body">
+          <p>Yes, for three of the four: the daily reminder, level-ups, and debt-cleared alerts now reach you even with Trakka fully closed. They're checked roughly every 15 minutes behind the scenes, so think of it as "instant-ish" rather than exact to the second, and the daily reminder is timed to your own device's timezone. Achievement-unlock notifications are the one exception — those still only fire while the app is actually open.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ SETTINGS & CUSTOMIZATION ============ -->
+    <section class="faq-section">
+      <h2>⚙️ Settings &amp; customization</h2>
+
+      <details class="faq-item">
+        <summary>Can I change my currency after I've already entered numbers?</summary>
+        <div class="faq-body">
+          <p>Yes — Settings' "Currency &amp; billing period" section fetches a live exchange rate and rescales every amount already in the tracker to the new currency, so switching from $ to ₦ (for example) converts your existing numbers instead of just relabeling them.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What if my payday lands early or late just one month?</summary>
+        <div class="faq-body">
+          <p>Next to the month picker at the top of the app is a "This month starts on" dropdown. It overrides the start day for whichever month you're currently viewing only, without touching your usual default everywhere else — pick "Default" to go back to your normal start day for that month.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's a quick-unlock PIN, and how is it different from my password?</summary>
+        <div class="faq-body">
+          <p>Trakka automatically signs you out after a period of inactivity (adjustable in Settings). A quick-unlock PIN is a short, device-specific shortcut back in afterward, so you don't have to retype your full password every time on a device you already trust. It doesn't replace your actual account password as what secures your account — think of it as a convenience, not a stronger lock. You'll be prompted to set one up right after the welcome tour if you haven't already.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I make everything on screen private in a hurry?</summary>
+        <div class="faq-body">
+          <p>Yes — the "🙈 Hide data" button in the top bar blurs every figure, chip, and log entry across the whole app in one click. Click "👁️ Show data" to bring it back. It's separate from (and in addition to) the daily-log-only hide toggle and the gift goals' "Hide past" toggle described above.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I change the color theme or add background music?</summary>
+        <div class="faq-body">
+          <p>Settings' "🎨 Appearance" section has a full set of color themes, a pet companion you can swap, weather effects, a light/dark mode toggle, and a soft background music toggle — mix and match whatever you like.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ IMPORT / EXPORT ============ -->
+    <section class="faq-section">
+      <h2>📁 Import &amp; export</h2>
+
+      <details class="faq-item">
+        <summary>Can I get my data out of Trakka?</summary>
+        <div class="faq-body">
+          <p>Yes — Settings' "📁 Data" section has an "📤 Export" button that downloads everything in your tracker as a regular .xlsx workbook, openable in Excel, Google Sheets, or any spreadsheet app.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I bring existing data into Trakka, or start from a template?</summary>
+        <div class="faq-body">
+          <p>The same "📁 Data" section has "📥 Import" (loads a filled-in workbook, replacing what's currently in the tracker) and "📄 Blank template" (downloads an empty workbook with the right sheets and columns already set up, ready to fill in and import back).</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ INSTALLING AS AN APP ============ -->
+    <section class="faq-section">
+      <h2>📲 Installing Trakka as an app</h2>
+
+      <details class="faq-item">
+        <summary>How do I install Trakka on my phone or computer?</summary>
+        <div class="faq-body">
+          <p>On Chrome, Edge, or Android, a "📲 Install app" button appears automatically in Settings once your browser offers it — click it to add a home-screen/desktop icon. On iPhone/iPad, Safari doesn't offer that same button; instead use the Share sheet and choose "Add to Home Screen."</p>
+          <p>Once installed, Trakka opens instantly, works offline for anything already loaded, and feels like a regular app rather than a browser tab.</p>
+        </div>
+      </details>
+
+    </section>
+
+    <footer class="landing-footer">🌱 Trakka — one continuous log, nothing resets. <a href="sign-in.html">Back to your tracker →</a></footer>
+  </div>
+</div>
+
+</body>
+</html>
