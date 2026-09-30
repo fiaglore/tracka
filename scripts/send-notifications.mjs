@@ -22,16 +22,16 @@
 //                               the Web Push protocol so a push service can
 //                               reach you if something's misconfigured.
 //
-// Scope note: this intentionally does NOT reimplement every one of the 34
-// in-app achievement conditions (app.js's ACHIEVEMENTS list) — that's a lot
-// of business logic to keep duplicated and in sync in two languages for
-// fairly low-stakes notifications. Achievements still show live the moment
-// you're in the app, same as before; only the reminder, level-up, and
-// debt-cleared notifications are wired up to fire while it's closed.
+// Scope note: this intentionally does NOT reimplement every one of app.js's
+// 100+ achievement conditions (its badgeDefs list) — that's a lot of
+// business logic to keep duplicated and in sync in two languages for fairly
+// low-stakes notifications. Achievements still show live the moment you're
+// in the app, same as before; only the reminder, level-up, debt-cleared,
+// and birthday notifications are wired up to fire while it's closed.
 
 import admin from "firebase-admin";
 import webpush from "web-push";
-import { debtSeriesList, hasLoggedToday, computeLevel, localDateParts } from "./lib/notify-logic.mjs";
+import { debtSeriesList, hasLoggedToday, computeLevel, isBirthdayToday, localDateParts } from "./lib/notify-logic.mjs";
 
 const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
 
@@ -136,6 +136,25 @@ async function processUser(doc) {
     updates["notifyState.lastClearedDebtKeys"] = clearedKeys;
   } catch (e) {
     console.error(`Debt check failed for ${uid}:`, e.message);
+  }
+
+  // ---- 4. Birthday ----
+  try {
+    const dob = (data.profile || {}).dob;
+    if (dob) {
+      const { dateStr } = localDateParts(timeZone);
+      const year = dateStr.slice(0, 4);
+      if (isBirthdayToday(dob, dateStr) && notifyState.lastBirthdayYear !== year) {
+        const name = data.profile.firstName ? `, ${data.profile.firstName}` : "";
+        subs = await sendToUser(
+          uid, subs, "🎂 Happy Birthday!",
+          `Happy birthday${name}! Wishing you a great year ahead — treat yourself, you've earned it.`
+        );
+        updates["notifyState.lastBirthdayYear"] = year;
+      }
+    }
+  } catch (e) {
+    console.error(`Birthday check failed for ${uid}:`, e.message);
   }
 
   if (subs.length !== subscriptions.length) updates.pushSubscriptions = subs;

@@ -162,11 +162,24 @@ window.__ftSettingsPage = true;
                would just navigate to this same page again, so it isn't
                reused with a different id here). -->
           <button class="xl-btn" id="back-to-tracker-btn" type="button" title="Back to your tracker">🏡 Back to tracker</button>
-        </div>
-        <div class="xl-account-row">
+          <div class="notif-wrap">
+            <button class="xl-btn" id="notif-bell-btn" type="button" title="Notifications" aria-haspopup="true" aria-expanded="false">🔔<span class="notif-badge" id="notif-badge" hidden>0</span></button>
+            <div class="notif-dropdown" id="notif-dropdown" hidden>
+              <div class="notif-dropdown-head">🔔 Notifications</div>
+              <div class="notif-list" id="notif-list"></div>
+            </div>
+          </div>
           <span class="xl-user" id="xl-user"></span>
           <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
         </div>
+      </div>
+    </div>
+
+    <div class="profile-banner" id="profile-banner">
+      <span class="profile-avatar" id="profile-avatar">🙂</span>
+      <div class="profile-banner-text">
+        <div class="time-message" id="time-message">🌅 Loading...</div>
+        <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
       </div>
     </div>
 
@@ -522,6 +535,22 @@ window.__ftSettingsPage = true;
       <button type="button" class="xl-btn primary" id="settings-save-btn">💾 Save changes</button>
       <span class="xl-status" id="settings-save-status" style="width:auto;margin:0;">Everything below already saves the moment you change it — this just confirms it's all synced and forces through anything still in flight.</span>
     </div>
+
+    <section>
+      <div class="section-head"><h2>👤 Profile</h2></div>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Personalizes your greeting and lets Trakka send you a birthday shoutout. None of this is required.</p>
+      <div class="toolbar">
+        <label class="xl-set">First name <input type="text" id="profile-first-name" maxlength="40" placeholder="e.g. Ada" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
+        <label class="xl-set">Surname <input type="text" id="profile-last-name" maxlength="40" placeholder="e.g. Okafor" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
+        <label class="xl-set">Username <input type="text" id="profile-username" maxlength="30" placeholder="e.g. ada_o" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
+        <label class="xl-set">Date of birth <input type="date" id="profile-dob" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
+      </div>
+      <div class="theme-picker" style="margin-top:10px;">
+        <span class="theme-picker-label">Profile icon</span>
+        <div class="avatar-picker" id="avatar-picker"></div>
+      </div>
+    </section>
+
     <section>
       <div class="section-head"><h2>🎨 Appearance</h2></div>
       <div class="toolbar">

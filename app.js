@@ -510,7 +510,7 @@ window.__ftStart = function(){
   }
   function updateTimeMessage(){
     const el = document.getElementById('time-message');
-    if(el) el.textContent = timeOfDayMessage();
+    if(el) el.textContent = (profile.firstName ? 'Hi '+profile.firstName+'! ' : '') + timeOfDayMessage();
   }
 
   // ===== Satisfying "ding" on checking a box — synthesized, no audio file to load =====
@@ -799,6 +799,76 @@ window.__ftStart = function(){
     // saveCloudField, not save() — save() calls render(), which isn't wired up this early.
     if(JSON.stringify(state.months) !== before) saveCloudField('trackerState', state);
   })();
+
+  // ===== Profile (name, username, date of birth, avatar) =====
+  // Entirely optional — used only to personalize the greeting, show a name
+  // instead of "you" in the top bar, and (via the DOB) let the scheduled
+  // GitHub Actions notification script send a birthday push even while the
+  // app's closed. Nothing here is required to use Trakka.
+  function loadProfile(){
+    return (cloud.profile && typeof cloud.profile === 'object') ? cloud.profile : {};
+  }
+  let profile = loadProfile();
+  const PROFILE_ICONS = ['🙂','😎','🦊','🐱','🐶','🐼','🦁','🐨','🐸','🦉','🐧','🌻'];
+  function loadProfileIcon(){
+    return PROFILE_ICONS.includes(cloud.profileIcon) ? cloud.profileIcon : PROFILE_ICONS[0];
+  }
+  let profileIcon = loadProfileIcon();
+  function applyProfileAvatar(){
+    const el = document.getElementById('profile-avatar');
+    if(el) el.textContent = profileIcon;
+  }
+  function saveProfileField(){
+    const wasComplete = !!(cloud.profile && cloud.profile.firstName && cloud.profile.lastName && cloud.profile.username && cloud.profile.dob);
+    saveCloudField('profile', profile);
+    cloud.profile = profile;
+    const isComplete = !!(profile.firstName && profile.lastName && profile.username && profile.dob);
+    if(isComplete && !wasComplete && !cloud.profileCompleteNotified){
+      cloud.profileCompleteNotified = true;
+      saveCloudField('profileCompleteNotified', true);
+      logAppNotification('🎉', 'Profile complete!', "Thanks for filling in your details — Trakka's ready to greet you by name and remember your birthday.");
+    }
+  }
+
+  // ===== In-app notification center =====
+  // A persisted log of everything showAppNotification() has ever fired for
+  // this account, shown in the 🔔 dropdown in the top bar — independent of
+  // whether OS push permission was ever granted, so it works even for
+  // someone who's never turned on notifications. Capped to the most recent
+  // 50 so the Firestore document doesn't grow without bound.
+  function loadNotifLog(){
+    return Array.isArray(cloud.notifications) ? cloud.notifications : [];
+  }
+  let notifLog = loadNotifLog();
+  function saveNotifLog(){ cloud.notifications = notifLog; saveCloudField('notifications', notifLog); }
+  function notifTimeAgo(ts){
+    const mins = Math.floor((Date.now()-ts)/60000);
+    if(mins<1) return 'just now';
+    if(mins<60) return mins+'m ago';
+    const hrs = Math.floor(mins/60);
+    if(hrs<24) return hrs+'h ago';
+    return Math.floor(hrs/24)+'d ago';
+  }
+  function renderNotifBell(){
+    const badge = document.getElementById('notif-badge');
+    if(badge){
+      const unread = notifLog.filter(n=>!n.read).length;
+      badge.textContent = unread>9 ? '9+' : String(unread);
+      badge.hidden = unread===0;
+    }
+    const list = document.getElementById('notif-list');
+    if(list){
+      list.innerHTML = notifLog.length
+        ? notifLog.map(n=>`<div class="notif-item ${n.read?'':'unread'}"><span class="notif-icon">${n.icon}</span><div><div class="notif-title">${escapeAttr(n.title)}</div><div class="notif-text">${escapeAttr(n.body)}</div><div class="notif-time">${notifTimeAgo(n.ts)}</div></div></div>`).join('')
+        : `<div class="notif-empty">No notifications yet.</div>`;
+    }
+  }
+  function logAppNotification(icon, title, body){
+    notifLog.unshift({ id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), icon, title, body, ts:Date.now(), read:false });
+    if(notifLog.length>50) notifLog.length = 50;
+    saveNotifLog();
+    renderNotifBell();
+  }
 
   // ===== Gamification: badge/milestone memory =====
   // Kept in a separate Firestore field (not the main trackerState blob) so it can be
@@ -3778,6 +3848,66 @@ window.__ftStart = function(){
       render();
     });
   }
+  // ===== Profile fields + avatar picker =====
+  function wireProfileField(id, key){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.value = profile[key] || '';
+    el.addEventListener('change', function(){
+      profile[key] = this.value.trim();
+      saveProfileField();
+      if(key==='firstName') updateTimeMessage();
+    });
+  }
+  wireProfileField('profile-first-name', 'firstName');
+  wireProfileField('profile-last-name', 'lastName');
+  wireProfileField('profile-username', 'username');
+  wireProfileField('profile-dob', 'dob');
+  function renderAvatarPicker(){
+    const el = document.getElementById('avatar-picker');
+    if(!el) return;
+    el.innerHTML = PROFILE_ICONS.map(ic=>`<button type="button" class="avatar-picker-item${ic===profileIcon?' selected':''}" data-icon="${ic}" title="${ic}">${ic}</button>`).join('');
+    el.querySelectorAll('.avatar-picker-item').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        profileIcon = btn.dataset.icon;
+        cloud.profileIcon = profileIcon;
+        saveCloudField('profileIcon', profileIcon);
+        renderAvatarPicker();
+        applyProfileAvatar();
+      });
+    });
+  }
+  renderAvatarPicker();
+  applyProfileAvatar();
+
+  // ===== Notification bell dropdown =====
+  (function(){
+    const bellBtn = document.getElementById('notif-bell-btn');
+    const dropdown = document.getElementById('notif-dropdown');
+    if(!bellBtn || !dropdown) return;
+    function closeDropdown(){
+      dropdown.hidden = true;
+      bellBtn.setAttribute('aria-expanded', 'false');
+    }
+    function openDropdown(){
+      dropdown.hidden = false;
+      bellBtn.setAttribute('aria-expanded', 'true');
+      if(notifLog.some(n=>!n.read)){
+        notifLog.forEach(n=>{ n.read = true; });
+        saveNotifLog();
+        renderNotifBell();
+      }
+    }
+    bellBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(dropdown.hidden) openDropdown(); else closeDropdown();
+    });
+    document.addEventListener('click', function(e){
+      if(!dropdown.hidden && !dropdown.contains(e.target) && e.target!==bellBtn) closeDropdown();
+    });
+  })();
+  renderNotifBell();
+
   var idleTimeoutSelect = document.getElementById('set-idle-timeout');
   if(idleTimeoutSelect){
     idleTimeoutSelect.addEventListener('change', function(){
@@ -3942,7 +4072,12 @@ window.__ftStart = function(){
   // the daily reminder, a level-up, a newly-earned achievement, a debt
   // getting fully cleared — goes through here, gated on the same
   // permission + on/off toggle as the original reminders feature.
-  function showAppNotification(title, body){
+  function showAppNotification(title, body, icon){
+    // Always logged to the in-app 🔔 notification center, regardless of OS
+    // push permission or the reminders on/off toggle below — someone who's
+    // never granted push permission (or has it switched off) still gets to
+    // see what happened inside the app.
+    logAppNotification(icon || '🔔', title, body);
     // `cloud` was fetched once at load and saveCloudField() only ever writes
     // to Firestore, never back into it — so the on/off toggle below has to
     // (and does) mutate cloud.remindersEnabled directly the moment it's
@@ -4071,6 +4206,9 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '👤 Profile info, a personalized greeting, and a birthday shoutout', body: 'Settings → "👤 Profile" now lets you add a first name, surname, username, date of birth, and pick a profile icon from a handful of options. Fill in a first name and your greeting at the top of the page becomes "Hi, [name]!" instead of a generic message, and your name/username shows in place of "you" — and if you add your birthday, Trakka will send you a "🎂 Happy Birthday" notification on the day, even if the app is closed. Every field is optional.' },
+    { title: '🔔 A notifications bell with your personal notification history', body: 'A new 🔔 bell in the top bar (next to Undo/Redo) drops down to show everything Trakka has notified you about — XP level-ups, achievements unlocked, debts cleared, daily reminders, and more — whether or not you ever turned on push notifications. Unread notifications show a small count badge; opening the dropdown marks them read.' },
+    { title: '📌 Top bar tidied up — everything on one line', body: '"Hide data," Undo/Redo, Settings, the notification bell, your name, and Sign out now sit together on a single row instead of two, and your personalized greeting plus the daily quote moved up into the top bar too, right where you\'ll see them first.' },
     { title: '🏅 Over 100 achievements to unlock, and only your earned ones clutter the Overview', body: 'Every achievement category — Checklist, Savings, Debt, Gifts, Budget, Income, Tools, Streaks, Level, Longevity — now has 10+ tiers instead of a handful, including a proper all-time "items checked off" ladder (25, 100, 200, 500, 750, 1,000... up to 5,000). The Overview page now only shows the icons you\'ve actually earned, instead of a long row of greyed-out locked ones — the full locked-and-earned grid, grouped by category, still lives on the 🌟 XP tab.' },
     { title: '🎮 Choose your own leveling pace', body: 'A new "Leveling pace" setting (Settings → "XP & achievements") lets you pick Easy, Trakka Mode (the default), or Hard for how much XP each level takes to reach. It only changes how fast levels climb — how you earn XP and which achievements exist are exactly the same on every setting, so nobody\'s stuck with a pace that doesn\'t fit them.' },
     { title: '💾 A Save button in Settings', body: 'A "💾 Save changes" button now sits at the top of Settings. Everything there already saved and applied instantly — this just gives a clear confirmation once it\'s done, and forces through anything still in flight (like a checkbox ticked on the tracker right before opening Settings).' },
@@ -4195,6 +4333,16 @@ window.__ftStart = function(){
       window.__ftOnboardingShown = true;
     }
   })();
+
+  // One-time nudge (via the 🔔 notification center, not another overlay) to
+  // fill in a profile — only ever fires once per account, and never if a
+  // first name's already set (covers someone who filled it in before this
+  // nudge shipped).
+  if(!cloud.profileNudgeShown && !profile.firstName){
+    cloud.profileNudgeShown = true;
+    saveCloudField('profileNudgeShown', true);
+    logAppNotification('👤', 'Tell us about yourself', 'Add your name and birthday in Settings → Profile to personalize Trakka and get a birthday shoutout.');
+  }
 };
 
 
@@ -4415,7 +4563,8 @@ window.__ftStart = function(){
       return;
     }
     window.__ftCloudData = cloudData || {};
-    $('xl-user').textContent = '👤 ' + (user.displayName || window.__ftCloudData.displayName || 'you');
+    const ftProfile = window.__ftCloudData.profile || {};
+    $('xl-user').textContent = '👤 ' + (ftProfile.username || (ftProfile.firstName && ftProfile.lastName ? ftProfile.firstName+' '+ftProfile.lastName : '') || user.displayName || window.__ftCloudData.displayName || 'you');
     hideAuthLoading();
     document.body.classList.remove('ft-locked');
     $('auth-pass').value = ''; $('auth-pass2').value = '';

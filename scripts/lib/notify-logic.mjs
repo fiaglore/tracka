@@ -94,6 +94,13 @@ export function computeLevel(state, N, badges, xpDifficulty) {
   return level;
 }
 
+// Compares month+day only (dob's own birth year never matters), so this is
+// true every year on the right date regardless of how old dob says the
+// user is. Both dates are expected as "YYYY-MM-DD" strings.
+export function isBirthdayToday(dob, dateStr) {
+  return typeof dob === "string" && dob.length >= 10 && dob.slice(5, 10) === dateStr.slice(5, 10);
+}
+
 // Today's date (YYYY-MM-DD, matching the "YYYY-MM-DD" keys app.js's own
 // dateKey()/todayKey() use) and the current hour, both as they'd read on a
 // device actually set to `timeZone` — this is the whole point of storing
