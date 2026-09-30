@@ -3963,6 +3963,61 @@ window.__ftStart = function(){
   renderAvatarPicker();
   applyProfileAvatar();
 
+  // ===== Spotify playlist embed =====
+  // A simple public embed (no OAuth, no API key) — open.spotify.com/embed/
+  // just needs the playlist's own id. Without Spotify Premium and being
+  // logged into Spotify in this browser, the embed only plays 30-second
+  // previews of each track; that's a Spotify limitation on the embed
+  // itself, not something Trakka can change.
+  function parseSpotifyPlaylistId(input){
+    const trimmed = String(input||'').trim();
+    if(!trimmed) return null;
+    const uriMatch = trimmed.match(/^spotify:playlist:([A-Za-z0-9]+)$/);
+    if(uriMatch) return uriMatch[1];
+    const urlMatch = trimmed.match(/open\.spotify\.com\/(?:embed\/)?playlist\/([A-Za-z0-9]+)/);
+    if(urlMatch) return urlMatch[1];
+    return null;
+  }
+  function renderSpotifyEmbed(){
+    const id = cloud.spotifyPlaylistId || null;
+    const src = id ? `https://open.spotify.com/embed/playlist/${id}?utm_source=generator` : '';
+    [
+      {wrap:'spotify-embed-wrap', frame:'spotify-embed-frame'},
+      {wrap:'spotify-embed-wrap-overview', frame:'spotify-embed-frame-overview'}
+    ].forEach(function(pair){
+      const wrap = document.getElementById(pair.wrap);
+      const frame = document.getElementById(pair.frame);
+      if(!wrap || !frame) return;
+      wrap.hidden = !id;
+      if(frame.src !== src) frame.src = src;
+    });
+    const input = document.getElementById('spotify-playlist-input');
+    if(input && document.activeElement !== input) input.value = id ? `https://open.spotify.com/playlist/${id}` : '';
+  }
+  const spotifyInput = document.getElementById('spotify-playlist-input');
+  if(spotifyInput){
+    spotifyInput.addEventListener('change', function(){
+      const id = parseSpotifyPlaylistId(this.value);
+      if(this.value.trim() && !id){
+        alert('That doesn\'t look like a Spotify playlist link. Copy the "Share → Copy link to playlist" link from Spotify and paste it here.');
+        renderSpotifyEmbed();
+        return;
+      }
+      cloud.spotifyPlaylistId = id;
+      saveCloudField('spotifyPlaylistId', id);
+      renderSpotifyEmbed();
+    });
+  }
+  const spotifyClearBtn = document.getElementById('spotify-playlist-clear');
+  if(spotifyClearBtn){
+    spotifyClearBtn.addEventListener('click', function(){
+      cloud.spotifyPlaylistId = null;
+      saveCloudField('spotifyPlaylistId', null);
+      renderSpotifyEmbed();
+    });
+  }
+  renderSpotifyEmbed();
+
   // ===== Notification bell dropdown =====
   (function(){
     const bellBtn = document.getElementById('notif-bell-btn');
@@ -4301,6 +4356,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🎵 Embed a Spotify playlist', body: 'Settings → "🎵 Spotify playlist" now lets you paste a Spotify playlist link to embed a compact player right on your Overview page while you track. It\'s a simple public embed — no Spotify account linking needed — though without Spotify Premium (and being logged into Spotify in this browser) it only plays 30-second previews, which is a Spotify limitation on the embed itself.' },
     { title: '⛈️ Thunderstorm, Windy day, and Sandstorm weather', body: 'Three new weather effects in Settings → Appearance. 🌩️ Thunderstorm (Temperate) is heavy slanting rain with occasional lightning flashes and rolling thunder. 💨 Windy day (Temperate) is fast streaks of wind with gusty rushing sound. 🏜️ Sandstorm (Tropical) blows warm, gritty sand across the screen under a dusty haze, with a howling wind to match.' },
     { title: '🎂 Birthday shoutouts now also fire the moment you open the app', body: 'Add a date of birth in Settings → Profile, and Trakka now wishes you a happy birthday instantly the moment you open the app on the day — no need to have push notifications turned on first. The closed-app push version (for when you\'re not in the app) still needs push notifications enabled from the 🔔 button in Settings, same as before; this is in addition to that, not instead of it.' },
     { title: '🌻 Temperate & Tropical weather, plus a Summer effect', body: 'The weather pickers in Settings are now simply "Temperate weather" (snow, autumn leaves, rain, spring blossom, and the new 🌻 Summer fireflies) and "Tropical weather" (harmattan haze, tropical rain, sunny). Summer comes with its own drifting-firefly look and matching weather sounds — cicadas, birdsong, and a warm breeze.' },

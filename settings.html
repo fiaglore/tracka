@@ -581,6 +581,18 @@ window.__ftSettingsPage = true;
     </section>
 
     <section>
+      <div class="section-head"><h2>🎵 Spotify playlist</h2></div>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Paste a Spotify playlist link to embed a player on your Overview page while you track. Without Spotify Premium (and being logged into Spotify in this browser), it only plays 30-second previews — that's a Spotify limitation, not Trakka's.</p>
+      <div class="toolbar">
+        <label class="xl-set" style="flex:1;min-width:220px;">Playlist link <input type="text" id="spotify-playlist-input" placeholder="https://open.spotify.com/playlist/..." style="flex:1;font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
+        <button class="xl-btn" id="spotify-playlist-clear" type="button" title="Remove the embedded playlist">🗑️ Remove</button>
+      </div>
+      <div class="spotify-embed-wrap" id="spotify-embed-wrap" hidden>
+        <iframe id="spotify-embed-frame" src="" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" title="Spotify playlist"></iframe>
+      </div>
+    </section>
+
+    <section>
       <div class="section-head"><h2>📌 Top bar cards</h2></div>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which cards show in the bar at the top of every page. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again.</p>
       <div class="toolbar">
