@@ -1,0 +1,13 @@
+{
+  "name": "trakka-notifications",
+  "private": true,
+  "type": "module",
+  "description": "Server-side piece of Trakka's push notifications — see scripts/send-notifications.mjs and .github/workflows/notify.yml. Lives in its own notifications/ folder, separate from the repo root, specifically so Cloudflare Pages (which auto-installs any package.json it finds in the build root, even with an empty build command) never sees this one and tries to npm-install firebase-admin for what is otherwise a plain static site with no build step of its own.",
+  "scripts": {
+    "notify": "node scripts/send-notifications.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "web-push": "^3.6.7"
+  }
+}

@@ -162,7 +162,7 @@ self.addEventListener("fetch", (event) => {
 // the one piece of the notification system that genuinely can't run as
 // plain page JS, since nothing is executing to receive it otherwise. The
 // actual decision of WHEN to send lives entirely outside this file, in the
-// scheduled GitHub Actions job (scripts/send-notifications.mjs) that calls
+// scheduled GitHub Actions job (notifications/scripts/send-notifications.mjs) that calls
 // the Web Push protocol directly — this handler just displays whatever
 // payload it's handed. See subscribeToPush() in firebase-init.js for how a
 // device registers to receive these in the first place.

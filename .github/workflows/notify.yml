@@ -1,7 +1,7 @@
 name: Send notifications
 
 # Runs the one part of Trakka's notification system that has to happen
-# outside the browser — see scripts/send-notifications.mjs for why (in
+# outside the browser — see notifications/scripts/send-notifications.mjs for why (in
 # short: nothing runs client-side to notice a quiet day once the app/tab is
 # fully closed). Every 15 minutes is close enough to "instant" for a
 # level-up or debt-cleared push without needing a live database trigger.
@@ -25,6 +25,14 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    defaults:
+      run:
+        # package.json lives in notifications/, not the repo root — kept out
+        # of the root on purpose so Cloudflare Pages' build (which auto-
+        # installs any root-level package.json, even with no build command
+        # configured) never tries to npm-install firebase-admin for what's
+        # otherwise a dependency-free static site.
+        working-directory: notifications
     steps:
       - uses: actions/checkout@v4
 
