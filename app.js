@@ -2081,12 +2081,12 @@ window.__ftStart = function(){
       {id:'firststep', icon:'🌱', category:'checklist', label:'First Step — checked off your first item', earned: ovCheckedItems>=1},
       {id:'check25', icon:'🔟', category:'checklist', label:'Quarter-Century — 25 items checked off, all-time', earned: ovCheckedItems>=25},
       {id:'centurion', icon:'💯', category:'checklist', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
-      {id:'check300', icon:'🥈', category:'checklist', label:'Triple Century — 300 items checked off, all-time', earned: ovCheckedItems>=300},
-      {id:'check750', icon:'🎖️', category:'checklist', label:'750 Club — 750 items checked off, all-time', earned: ovCheckedItems>=750},
-      {id:'check1500', icon:'🏵️', category:'checklist', label:'1,500 Club — 1,500 items checked off, all-time', earned: ovCheckedItems>=1500},
-      {id:'check3000', icon:'🌟', category:'checklist', label:'3K Club — 3,000 items checked off, all-time', earned: ovCheckedItems>=3000},
-      {id:'check5000', icon:'🌌', category:'checklist', label:'5K Club — 5,000 items checked off, all-time', earned: ovCheckedItems>=5000},
-      {id:'check10000', icon:'🌌', category:'checklist', label:'10K Club — 10,000 items checked off, all-time', earned: ovCheckedItems>=10000},
+      {id:'check200', icon:'🥈', category:'checklist', label:'Triple Century — 300 items checked off, all-time', earned: ovCheckedItems>=300},
+      {id:'centurion500', icon:'🥇', category:'checklist', label:'Seven Hundred Club — 700 items checked off, all-time', earned: ovCheckedItems>=700},
+      {id:'check750', icon:'🎖️', category:'checklist', label:'1,500 Club — 1,500 items checked off, all-time', earned: ovCheckedItems>=1500},
+      {id:'check1000', icon:'🏵️', category:'checklist', label:'3K Club — 3,000 items checked off, all-time', earned: ovCheckedItems>=3000},
+      {id:'check2000', icon:'🌟', category:'checklist', label:'6K Club — 6,000 items checked off, all-time', earned: ovCheckedItems>=6000},
+      {id:'check5000', icon:'🌌', category:'checklist', label:'12K Club — 12,000 items checked off, all-time', earned: ovCheckedItems>=12000},
       {id:'perfectmonth', icon:'🏆', category:'checklist', label:'Perfect Month — one month fully checked off', earned: complete>=1},
       {id:'threepeat', icon:'🥉', category:'checklist', label:'Three-peat — 3 months fully complete', earned: complete>=3},
       {id:'allmonths', icon:'👑', category:'checklist', label:'Clean Sweep — every tracked month complete', earned: N>0 && complete===N},
@@ -2110,20 +2110,20 @@ window.__ftStart = function(){
       {id:'debtpaid100k', icon:'📉', category:'debt', label:'First '+fmt(ct(100000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(100000)},
       {id:'multidebtslayer', icon:'⚔️', category:'debt', label:'Debt Crusher — 3+ debts fully cleared', earned: clearedSeries.length>=3},
       {id:'debtpaid500k', icon:'📊', category:'debt', label:'First '+fmt(ct(500000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(500000)},
-      {id:'debtcrusher6', icon:'💥', category:'debt', label:'Debt Annihilator — 6+ debts fully cleared', earned: clearedSeries.length>=6},
+      {id:'debtcrusher5', icon:'💥', category:'debt', label:'Debt Annihilator — 6+ debts fully cleared', earned: clearedSeries.length>=6},
       {id:'debtpaid1m', icon:'🏦', category:'debt', label:fmt(ct(1000000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(1000000)},
       {id:'debtpaid2m', icon:'🏆', category:'debt', label:fmt(ct(2000000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(2000000)},
-      {id:'debtcrusher12', icon:'🌪️', category:'debt', label:'Debt Hurricane — 12+ debts fully cleared', earned: clearedSeries.length>=12},
+      {id:'debtcrusher10', icon:'🌪️', category:'debt', label:'Debt Hurricane — 12+ debts fully cleared', earned: clearedSeries.length>=12},
       {id:'debtfree', icon:'🎉', category:'debt', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
 
       // ----- 🎁 Gifts (goals planned + goals actually fully funded) -----
       {id:'firstgiftpayment', icon:'🎈', category:'gifts', label:'First gift payment — set aside money toward a gift', earned: ovGifts>0},
       {id:'giftplanner', icon:'🎁', category:'gifts', label:'Gift Planner — first gift goal created', earned: state.giftGoals.length>=1},
       {id:'giftplanner5', icon:'🎊', category:'gifts', label:'Gift Planner — 5+ gift goals created', earned: state.giftGoals.length>=5},
-      {id:'giftplanner15', icon:'🎉', category:'gifts', label:'Gift Planner — 15+ gift goals created', earned: state.giftGoals.length>=15},
+      {id:'giftplanner10', icon:'🎉', category:'gifts', label:'Gift Planner — 15+ gift goals created', earned: state.giftGoals.length>=15},
       {id:'giftgiver', icon:'🎀', category:'gifts', label:'Gift Giver — fully funded a gift goal', earned: giftGoalsFundedCount>=1},
       {id:'giftgiver3', icon:'🥉', category:'gifts', label:'Gift Giver — 3+ gift goals fully funded', earned: giftGoalsFundedCount>=3},
-      {id:'giftgiver7', icon:'🥇', category:'gifts', label:'Gift Giver — 7+ gift goals fully funded', earned: giftGoalsFundedCount>=7},
+      {id:'giftgiver5', icon:'🥇', category:'gifts', label:'Gift Giver — 7+ gift goals fully funded', earned: giftGoalsFundedCount>=7},
       {id:'giftbudget100k', icon:'💐', category:'gifts', label:'First '+fmt(ct(100000))+' set aside for gifts, all-time', earned: ovGifts>=ct(100000)},
       {id:'giftbudget500k', icon:'🌹', category:'gifts', label:'First '+fmt(ct(500000))+' set aside for gifts, all-time', earned: ovGifts>=ct(500000)},
       {id:'giftbudget1m', icon:'💝', category:'gifts', label:fmt(ct(1000000))+' set aside for gifts, all-time', earned: ovGifts>=ct(1000000)},
@@ -2200,6 +2200,15 @@ window.__ftStart = function(){
       {id:'longhauler60', icon:'🏛️', category:'longevity', label:'Five-Year Tracker — tracking 60+ months', earned: N>=60},
       {id:'longhauler120', icon:'🌌', category:'longevity', label:'Decade Tracker — tracking 120+ months', earned: N>=120},
     ];
+    // These tiers were pushed further apart (2025 rebalance) to fix clumping —
+    // the "items checked off" ladder around 500-1000, and the debt/gift count
+    // badges around 5-10. Anyone who'd already earned one of them under its old,
+    // lower bar keeps it: raising the live threshold must never make an already-
+    // earned badge look locked again.
+    const REBALANCED_BADGE_IDS = ['check200','centurion500','check750','check1000','check2000','check5000','debtcrusher5','debtcrusher10','giftplanner10','giftgiver5'];
+    badgeDefs.forEach(function(b){
+      if(!b.earned && REBALANCED_BADGE_IDS.indexOf(b.id)!==-1 && badgeMemory['badge_'+b.id]) b.earned = true;
+    });
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
       // Icon-only on Overview, and only the ones actually earned — with 100+
