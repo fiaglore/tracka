@@ -848,13 +848,23 @@ window.__ftStart = function(){
   // A persisted log of everything showAppNotification() has ever fired for
   // this account, shown in the 🔔 dropdown in the top bar — independent of
   // whether OS push permission was ever granted, so it works even for
-  // someone who's never turned on notifications. Capped to the most recent
-  // 50 so the Firestore document doesn't grow without bound.
+  // someone who's never turned on notifications. Only the most recent 6 are
+  // kept around by default (oldest ones fall off as new ones arrive) — but
+  // pinning one with 📌 exempts it from that limit indefinitely, and 🗑️
+  // deletes one outright regardless of pinned status.
+  const NOTIF_LOG_LIMIT = 6;
   function loadNotifLog(){
     return Array.isArray(cloud.notifications) ? cloud.notifications : [];
   }
   let notifLog = loadNotifLog();
   function saveNotifLog(){ cloud.notifications = notifLog; saveCloudField('notifications', notifLog); }
+  // Applies the 6-notification limit retroactively for anyone who already
+  // had a longer history saved before this limit existed.
+  (function applyNotifLogLimitOnLoad(){
+    const before = notifLog.length;
+    trimNotifLog();
+    if(notifLog.length !== before) saveNotifLog();
+  })();
   function notifTimeAgo(ts){
     const mins = Math.floor((Date.now()-ts)/60000);
     if(mins<1) return 'just now';
@@ -862,6 +872,18 @@ window.__ftStart = function(){
     const hrs = Math.floor(mins/60);
     if(hrs<24) return hrs+'h ago';
     return Math.floor(hrs/24)+'d ago';
+  }
+  // notifLog stays newest-first, so counting only non-kept entries as they're
+  // walked in that order and cutting off after NOTIF_LOG_LIMIT of them keeps
+  // exactly the most recent 6 non-kept notifications, however many kept ones
+  // sit interleaved among them.
+  function trimNotifLog(){
+    let seen = 0;
+    notifLog = notifLog.filter(function(n){
+      if(n.kept) return true;
+      seen++;
+      return seen <= NOTIF_LOG_LIMIT;
+    });
   }
   function renderNotifBell(){
     const badge = document.getElementById('notif-badge');
@@ -873,13 +895,37 @@ window.__ftStart = function(){
     const list = document.getElementById('notif-list');
     if(list){
       list.innerHTML = notifLog.length
-        ? notifLog.map(n=>`<div class="notif-item ${n.read?'':'unread'}"><span class="notif-icon">${n.icon}</span><div><div class="notif-title">${escapeAttr(n.title)}</div><div class="notif-text">${escapeAttr(n.body)}</div><div class="notif-time">${notifTimeAgo(n.ts)}</div></div></div>`).join('')
+        ? notifLog.map(n=>`<div class="notif-item ${n.read?'':'unread'}" data-notif-id="${n.id}">`
+            +`<span class="notif-icon">${n.icon}</span>`
+            +`<div class="notif-body">`
+              +`<div class="notif-title">${escapeAttr(n.title)}</div>`
+              +`<div class="notif-text">${escapeAttr(n.body)}</div>`
+              +`<div class="notif-time">${notifTimeAgo(n.ts)}</div>`
+            +`</div>`
+            +`<div class="notif-actions">`
+              +`<button type="button" class="notif-keep-btn${n.kept?' active':''}" data-notif-id="${n.id}" title="${n.kept?'Stop keeping this notification':'Keep this notification — exempts it from the 6-notification limit'}">${n.kept?'📌':'📍'}</button>`
+              +`<button type="button" class="notif-del-btn" data-notif-id="${n.id}" title="Delete this notification">🗑️</button>`
+            +`</div>`
+          +`</div>`).join('')
         : `<div class="notif-empty">No notifications yet.</div>`;
     }
   }
   function logAppNotification(icon, title, body){
-    notifLog.unshift({ id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), icon, title, body, ts:Date.now(), read:false });
-    if(notifLog.length>50) notifLog.length = 50;
+    notifLog.unshift({ id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), icon, title, body, ts:Date.now(), read:false, kept:false });
+    trimNotifLog();
+    saveNotifLog();
+    renderNotifBell();
+  }
+  function toggleKeepNotification(id){
+    const n = notifLog.find(x=>x.id===id);
+    if(!n) return;
+    n.kept = !n.kept;
+    trimNotifLog();
+    saveNotifLog();
+    renderNotifBell();
+  }
+  function deleteNotification(id){
+    notifLog = notifLog.filter(n=>n.id!==id);
     saveNotifLog();
     renderNotifBell();
   }
@@ -3930,6 +3976,18 @@ window.__ftStart = function(){
     document.addEventListener('click', function(e){
       if(!dropdown.hidden && !dropdown.contains(e.target) && e.target!==bellBtn) closeDropdown();
     });
+    // Delegated so it keeps working after every renderNotifBell() rebuilds
+    // #notif-list's innerHTML, rather than needing per-button listeners
+    // re-attached on every render.
+    const list = document.getElementById('notif-list');
+    if(list){
+      list.addEventListener('click', function(e){
+        const keepBtn = e.target.closest('.notif-keep-btn');
+        if(keepBtn){ toggleKeepNotification(keepBtn.dataset.notifId); return; }
+        const delBtn = e.target.closest('.notif-del-btn');
+        if(delBtn){ deleteNotification(delBtn.dataset.notifId); }
+      });
+    }
   })();
   renderNotifBell();
 
@@ -4231,6 +4289,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🔔 Keep or delete notifications from the bell dropdown', body: 'The 🔔 notification history now automatically keeps just your 6 most recent notifications, clearing older ones out of the way. Want to hold onto one longer? Tap 📍 to pin it — pinned notifications never get auto-cleared, however many new ones arrive. Tap 🗑️ on any notification to delete it outright.' },
     { title: '👤 Profile info, a personalized greeting, and a birthday shoutout', body: 'Settings → "👤 Profile" now lets you add a first name, surname, username, date of birth, and pick a profile icon from a handful of options — and if you add your birthday, Trakka will send you a "🎂 Happy Birthday" notification on the day, even if the app is closed. Every field is optional.' },
     { title: '🔔 A notifications bell with your personal notification history', body: 'A new 🔔 bell in the top bar (next to Undo/Redo) drops down to show everything Trakka has notified you about — XP level-ups, achievements unlocked, debts cleared, daily reminders, and more — whether or not you ever turned on push notifications. Unread notifications show a small count badge; opening the dropdown marks them read.' },
     { title: '📌 Top bar tidied up — everything on one line', body: '"Hide data," Undo/Redo, Settings, the notification bell, your name, and Sign out now sit together on a single row instead of two, and your personalized greeting plus the daily quote moved up into the top bar too, right where you\'ll see them first.' },
