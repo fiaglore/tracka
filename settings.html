@@ -435,8 +435,13 @@ window.__ftSettingsPage = true;
       <div class="section-head"><h2>🏠 Living expenses</h2><div class="head-right"><div class="totals" id="living-totals"></div></div></div>
 
       <div class="living-subpanel">
-        <h3>By category, this billing period</h3>
-        <div id="living-cat-chart"></div>
+        <button type="button" class="living-subpanel-toggle" id="living-cat-chart-toggle">
+          <span class="day-chevron">▸</span>
+          <span>By category, this billing period</span>
+        </button>
+        <div class="living-subpanel-body" id="living-cat-chart-body" hidden>
+          <div id="living-cat-chart"></div>
+        </div>
       </div>
 
       <div class="living-subpanel">
@@ -455,10 +460,10 @@ window.__ftSettingsPage = true;
 
       <div class="manage-cats">
         <button type="button" class="manage-cats-head" id="manage-cats-toggle">
-          <span class="day-chevron">▾</span>
+          <span class="day-chevron">▸</span>
           <span>Categories &amp; budget — <span id="manage-cats-month-label"></span></span>
         </button>
-        <div class="manage-cats-body" id="manage-cats-body">
+        <div class="manage-cats-body" id="manage-cats-body" hidden>
           <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px;max-width:600px;">Each category's budget below applies to the billing period you're currently viewing only — switch months to set a different budget for that month.</p>
           <div class="cat-manage-list" id="living-cat-manage-list"></div>
           <div class="new-cat-form">

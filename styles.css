@@ -954,6 +954,8 @@ body.ft-locked #auth-overlay{display:flex;}
 
 .living-subpanel{border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); padding:14px 16px; margin-bottom:14px;}
 .living-subpanel h3{font-size:12.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:10px;}
+.living-subpanel-toggle{display:flex; align-items:center; gap:6px; width:100%; font-family:inherit; font-size:12.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; border:none; background:transparent; padding:0; margin-bottom:10px; cursor:pointer; text-align:left;}
+.living-subpanel-body[hidden]{display:none;}
 .chart-scroll{overflow-x:auto;}
 .manage-cats{border:1px dashed var(--line); border-radius:var(--radius-md); background:var(--bg-soft); padding:14px 16px; margin:16px 0;}
 .manage-cats-head{display:flex; align-items:center; gap:8px; width:100%; font-family:inherit; font-weight:700; font-size:13.5px; margin-bottom:4px; border:none; background:transparent; color:inherit; padding:0; cursor:pointer; text-align:left;}

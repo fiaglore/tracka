@@ -2239,6 +2239,13 @@ window.__ftStart = function(){
       body.hidden = nowHidden;
       if(chevron) chevron.textContent = nowHidden ? '▸' : '▾';
     }
+    if(e.target.closest('#living-cat-chart-toggle')){
+      const body = document.getElementById('living-cat-chart-body');
+      const chevron = document.querySelector('#living-cat-chart-toggle .day-chevron');
+      const nowHidden = !body.hidden;
+      body.hidden = nowHidden;
+      if(chevron) chevron.textContent = nowHidden ? '▸' : '▾';
+    }
   });
 
   function addCustomItem(kind, label, amount){
