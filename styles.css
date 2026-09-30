@@ -595,6 +595,10 @@ button,input,select,textarea{font-family:inherit;}
    so it needs its own small button here instead of .page-nav-btn's
    larger, labeled tab styling. */
 #settings-nav-btn{padding:7px 10px; font-size:14px; line-height:1;}
+/* Same icon-only sizing as #settings-nav-btn above, for the matching
+   "back to tracker" button on settings.html's toolbar — keeps that row
+   of buttons lined up the same compact way on both pages. */
+#back-to-tracker-btn{padding:7px 10px; font-size:14px; line-height:1;}
 /* Same icon-only sizing as .theme-toggle — see #ambient-toggle-btn in
    sign-in.html / ambient-audio.js. .active marks the synthesized ambient
    pad as currently on, matching the accent-outline convention .theme-swatch
