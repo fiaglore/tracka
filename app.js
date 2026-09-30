@@ -1747,6 +1747,14 @@ window.__ftStart = function(){
     const savedPct = cumBalance>0 ? (cumSavings/cumBalance*100) : 0;
     document.getElementById('sum-savings-pct').textContent = cumBalance>0 ? savedPct.toFixed(1)+'%' : '—';
 
+    // This month's own contribution to savings — the free-form ledger entries
+    // added this month plus whatever's actually been ticked off in the
+    // savings apps this month (net of any ticked withdrawal), as distinct
+    // from cumSavings/sum-cumulative above which run cumulative-to-date.
+    const savingsThisMonth = savingsLoggedThisMonth + appTopupChecked;
+    const sumSavingsMonthEl = document.getElementById('sum-savings-month');
+    if(sumSavingsMonthEl) sumSavingsMonthEl.textContent = (savingsThisMonth<0?'-':'') + fmt(Math.abs(savingsThisMonth));
+
     let ovIncome=0, ovExpense=0, ovTotalItems=0, ovCheckedItems=0, complete=0;
     for(let i=0;i<N;i++){
       const mm = state.months[i];
@@ -1840,6 +1848,11 @@ window.__ftStart = function(){
       const netChip = document.getElementById('chip-net');
       if(netChip) netChip.classList.toggle('bad', net<0);
     }
+    // Total saved across every tracked month (free-form savings ledger +
+    // every savings app balance combined) — the savings counterpart to the
+    // "Still outstanding" chip above, same "visible from any tab" reasoning.
+    const chipSavingsEl = document.getElementById('chip-savings-val');
+    if(chipSavingsEl) chipSavingsEl.textContent = fmt(cumulativeSavingsUpTo(N-1));
 
     // ===== Gamification: achievement badges =====
     let maxSaved = 0;
