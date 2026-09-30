@@ -531,6 +531,7 @@ button,input,select,textarea{font-family:inherit;}
 
 /* toolbar (excel + currency/payday + user + theme) */
 .toolbar{margin-top:14px; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); display:flex; flex-wrap:wrap; align-items:center; gap:8px; box-shadow:var(--shadow-sm);}
+.settings-save-bar{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--line);}
 .toolbar .xl-title{font-family:var(--font-display); font-weight:700; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-right:2px;}
 .xl-btn{font-family:var(--font-display); font-weight:600; font-size:12.5px; padding:7px 12px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:background .15s ease,border-color .15s ease;}
 .xl-btn:hover{background:var(--bg-soft); border-color:var(--accent);}

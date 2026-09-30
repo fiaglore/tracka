@@ -3638,6 +3638,37 @@ window.__ftStart = function(){
       if(window.setIdleTimeoutMinutes) window.setIdleTimeoutMinutes(this.value);
     });
   }
+  // Every control on this page already saves (and applies) the moment
+  // it's changed — there's no "unsaved" state anywhere in Settings. This
+  // button doesn't change that; it just gives a visible action + confirmation
+  // for peace of mind, and forces through the one thing that genuinely can
+  // be sitting in a short debounce queue: a tracker edit (a ticked box, a
+  // new entry) made just before landing on this page, via the same flush
+  // auto-logout.js already uses before signing out.
+  var settingsSaveBtn = document.getElementById('settings-save-btn');
+  if(settingsSaveBtn){
+    var settingsSaveStatus = document.getElementById('settings-save-status');
+    var settingsSaveDefaultText = settingsSaveStatus ? settingsSaveStatus.textContent : '';
+    var settingsSaveResetTimer = null;
+    settingsSaveBtn.addEventListener('click', function(){
+      settingsSaveBtn.disabled = true;
+      settingsSaveBtn.textContent = '💾 Saving…';
+      var flush = (window.__ftFlushSave && window.__ftFlushSave()) || Promise.resolve();
+      Promise.resolve(flush).catch(function(){}).then(function(){
+        settingsSaveBtn.disabled = false;
+        settingsSaveBtn.textContent = '💾 Save changes';
+        if(settingsSaveStatus){
+          settingsSaveStatus.textContent = '✅ Saved — everything is synced.';
+          settingsSaveStatus.style.color = 'var(--good)';
+          if(settingsSaveResetTimer) clearTimeout(settingsSaveResetTimer);
+          settingsSaveResetTimer = setTimeout(function(){
+            settingsSaveStatus.textContent = settingsSaveDefaultText;
+            settingsSaveStatus.style.color = '';
+          }, 3000);
+        }
+      });
+    });
+  }
   document.getElementById('xl-template-btn').addEventListener('click', xlDoTemplate);
   document.getElementById('xl-export-btn').addEventListener('click', xlDoExport);
   document.getElementById('xl-import-btn').addEventListener('click', ()=> document.getElementById('xl-file-input').click());
@@ -3894,6 +3925,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💾 A Save button in Settings', body: 'A "💾 Save changes" button now sits at the top of Settings. Everything there already saved and applied instantly — this just gives a clear confirmation once it\'s done, and forces through anything still in flight (like a checkbox ticked on the tracker right before opening Settings).' },
     { title: '🙈 Data is hidden by default every time you sign in', body: 'Every figure, chip, and log entry now starts blurred the moment you sign in — no setup needed. Click "👁️ Show data" in the top bar to reveal it for this visit; it resets to hidden again next time you sign in, so it can\'t accidentally stay switched off on a shared device.' },
     { title: '🔒 Signed out when you leave for the logo or the FAQ', body: 'Tapping the 🌱 logo or "❓ Help & FAQ" now signs you out before taking you there, for security — sign back in anytime. Going between the tracker and Settings (the gear icon / "Back to tracker") is unaffected.' },
     { title: '📌 Choose which cards show at the top', body: 'A new "Top bar cards" section in Settings lets you pick which cards show in the bar at the top of every page — clock, countdown, level, streak, outstanding debt, this month\'s net, total savings, total gifts. Turning one off just hides it; nothing is deleted, and the choice follows you across devices.' },
