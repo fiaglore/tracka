@@ -3894,6 +3894,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🙈 Data is hidden by default every time you sign in', body: 'Every figure, chip, and log entry now starts blurred the moment you sign in — no setup needed. Click "👁️ Show data" in the top bar to reveal it for this visit; it resets to hidden again next time you sign in, so it can\'t accidentally stay switched off on a shared device.' },
     { title: '🔒 Signed out when you leave for the logo or the FAQ', body: 'Tapping the 🌱 logo or "❓ Help & FAQ" now signs you out before taking you there, for security — sign back in anytime. Going between the tracker and Settings (the gear icon / "Back to tracker") is unaffected.' },
     { title: '📌 Choose which cards show at the top', body: 'A new "Top bar cards" section in Settings lets you pick which cards show in the bar at the top of every page — clock, countdown, level, streak, outstanding debt, this month\'s net, total savings, total gifts. Turning one off just hides it; nothing is deleted, and the choice follows you across devices.' },
     { title: '❓ A Help & FAQ page', body: 'A new "❓ Help & FAQ" link in Settings (under "📲 App") opens an in-depth walkthrough of every part of Trakka — income, debts, gifts, savings, budgets, notifications, and more.' },
@@ -4630,11 +4631,11 @@ window.__ftStart = function(){
   }
 
   // ----- privacy mode: blur every figure/label so the screen is safe to
-  // have visible in public. A display preference, not tracker data — and
-  // one you'd want to flip back off the moment someone's out of view — so
-  // it lives in localStorage per device, same as HIDE_CLEARED_DEBTS_KEY,
-  // rather than syncing through the cloud doc.
-  var PRIVACY_STORAGE_KEY = 'trakkaPrivacyModeV1';
+  // have visible in public. Defaults to ON at the start of every sign-in —
+  // deliberately not remembered from a previous visit (no localStorage/cloud
+  // read here), so the very first thing rendered after signing in is always
+  // hidden by default; from there it's just a display preference for the
+  // rest of this page view, toggled with the button like before.
   function applyPrivacyMode(on){
     document.body.setAttribute('data-privacy', on ? 'on' : 'off');
     var btn = document.getElementById('privacy-toggle-btn');
@@ -4644,7 +4645,6 @@ window.__ftStart = function(){
     }
   }
   window.setPrivacyMode = function(on){
-    try{ localStorage.setItem(PRIVACY_STORAGE_KEY, on ? '1' : '0'); }catch(e){}
     applyPrivacyMode(on);
   };
   var privacyBtn = document.getElementById('privacy-toggle-btn');
@@ -4653,11 +4653,7 @@ window.__ftStart = function(){
       window.setPrivacyMode(document.body.getAttribute('data-privacy') !== 'on');
     });
   }
-  (function(){
-    var stored = false;
-    try{ stored = localStorage.getItem(PRIVACY_STORAGE_KEY) === '1'; }catch(e){}
-    applyPrivacyMode(stored);
-  })();
+  applyPrivacyMode(true);
 
   function refreshThemeForCurrentUser(){
     buildSwatches();
