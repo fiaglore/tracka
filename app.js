@@ -677,7 +677,7 @@ window.__ftStart = function(){
     for(let i=0;i<N;i++) months.push(buildDefaultMonth(i));
     return {months, extra:[], giftGoals: [], giftProgress: {}, savings: [], savingsGoal: 0,
       livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {},
-      skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {},
+      skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {}, currencyRates: {},
       investments: [], investmentPrices: []};
   }
 
@@ -743,6 +743,7 @@ window.__ftStart = function(){
         ongoingSeries: (saved.ongoingSeries && typeof saved.ongoingSeries === 'object') ? saved.ongoingSeries : {},
         assets: Array.isArray(saved.assets) ? saved.assets : [],
         accountCurrency: (saved.accountCurrency && typeof saved.accountCurrency === 'object') ? saved.accountCurrency : {},
+        currencyRates: (saved.currencyRates && typeof saved.currencyRates === 'object') ? saved.currencyRates : {},
         investments: Array.isArray(saved.investments) ? saved.investments : [],
         investmentPrices: Array.isArray(saved.investmentPrices) ? saved.investmentPrices : [],
       };
@@ -824,14 +825,30 @@ window.__ftStart = function(){
       }
     });
   }
-  // Run the migration and persist it immediately if it actually changed anything. Previously
-  // its output sat in memory until some unrelated action happened to save, which made the
-  // rewritten rows look like they were caused by whatever the user clicked next.
+  // Savings accounts used to carry their own {code, rate} pair (one rate per ACCOUNT). That let
+  // the same real-world currency end up with two different remembered rates on two different
+  // accounts, so totals disagreed depending on which one you'd last touched — the bug this
+  // migration cleans up, folding every account's currency down to just a code and seeding the
+  // new shared state.currencyRates table from whichever rate was set most recently.
+  function migrateAccountCurrencyShape(){
+    Object.keys(state.accountCurrency).forEach(key=>{
+      const rec = state.accountCurrency[key];
+      if(rec && typeof rec === 'object'){
+        if(rec.code && Number(rec.rate)>0) state.currencyRates[rec.code] = Number(rec.rate);
+        state.accountCurrency[key] = rec.code || null;
+        if(!state.accountCurrency[key]) delete state.accountCurrency[key];
+      }
+    });
+  }
+  // Run the migrations and persist immediately if anything actually changed. Previously their
+  // output sat in memory until some unrelated action happened to save, which made the rewritten
+  // rows look like they were caused by whatever the user clicked next.
   (function runStartupMigration(){
-    const before = JSON.stringify(state.months);
+    const before = JSON.stringify({months: state.months, accountCurrency: state.accountCurrency, currencyRates: state.currencyRates});
     migrateSavingsApps();
+    migrateAccountCurrencyShape();
     // saveCloudField, not save() — save() calls render(), which isn't wired up this early.
-    if(JSON.stringify(state.months) !== before) saveCloudField('trackerState', state);
+    if(JSON.stringify({months: state.months, accountCurrency: state.accountCurrency, currencyRates: state.currencyRates}) !== before) saveCloudField('trackerState', state);
   })();
 
   // ===== Profile (name, username, date of birth, avatar) =====
@@ -1190,8 +1207,80 @@ window.__ftStart = function(){
   function fmt(n){ n=Number(n)||0; return CUR+Math.round(n).toLocaleString('en-NG'); }
   function escapeAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  function sumChecked(items){ return items.filter(i=>i.checked).reduce((s,i)=>s+Number(i.amount||0),0); }
-  function sumAll(items){ return items.reduce((s,i)=>s+Number(i.amount||0),0); }
+  // ===== Multi-currency (shared across every tab) =====
+  // A single item — one income source, one debt/loan, one gift goal, one savings account — can be
+  // denominated in a currency other than the tracker's primary one, via an `item.currency` field
+  // (undefined/omitted means "primary"). What that currency is worth is looked up from ONE shared
+  // table (state.currencyRates), never a rate typed in separately on each item: that was the
+  // earlier bug — the same real-world currency could end up with a different remembered rate on
+  // two different rows, so totals silently disagreed depending on which row you'd last edited.
+  // Now there's exactly one rate per currency code, edited from the "Currency rates" panel in
+  // Settings (or inline wherever a foreign currency is first chosen), reused everywhere that
+  // currency shows up. Native amounts on a row are NEVER auto-converted or rewritten — only sums
+  // shown as a TOTAL (Overview cards, debt/gift/income totals, net worth) run through this.
+  function symbolForCode(code){
+    const c = CURRENCIES.find(x=>x.code===code);
+    return c ? c.sym : (code ? code+' ' : CUR);
+  }
+  function rateFor(code){
+    if(!code || code===currencyCode()) return 1;
+    const r = Number(state.currencyRates[code]);
+    return r>0 ? r : 1;
+  }
+  function setCurrencyRate(code, rate){
+    if(!code || code===currencyCode()){ return; }
+    const r = Number(rate);
+    if(r>0) state.currencyRates[code] = r; else delete state.currencyRates[code];
+  }
+  function convertToPrimary(amount, code){ return (Number(amount)||0) * rateFor(code); }
+  // Formats an amount in ITS OWN currency's symbol — never the primary symbol slapped on a
+  // foreign-denominated number, which is what silently mislabeled amounts before.
+  function fmtIn(amount, code){
+    const n = Number(amount)||0;
+    if(!code || code===currencyCode()) return fmt(n);
+    return symbolForCode(code) + Math.round(n).toLocaleString('en-NG');
+  }
+  // Every currency code that's actually tagged on something right now — income, debts, gifts,
+  // savings accounts — so the Settings rate panel only ever shows rates that matter, not the
+  // full ~14-currency list every time.
+  function currenciesInUse(){
+    const codes = new Set();
+    state.months.forEach(m=>{
+      (m.income||[]).forEach(it=>{ if(it.currency) codes.add(it.currency); });
+      (m.debts||[]).forEach(it=>{ if(it.currency) codes.add(it.currency); });
+    });
+    state.giftGoals.forEach(g=>{ if(g.currency) codes.add(g.currency); });
+    Object.values(state.accountCurrency).forEach(code=>{ if(code && code!==currencyCode()) codes.add(typeof code==='string' ? code : code.code); });
+    codes.delete(currencyCode());
+    return Array.from(codes);
+  }
+  // The single place every foreign-currency rate is set — lists only the currencies actually
+  // tagged on something right now, so it's never a wall of 14 empty rate boxes. Applies on blur/
+  // change, no separate save step (the earlier bug's fix: a per-row "Save" button left a window
+  // where the typed value could get wiped by the next re-render before it was ever committed).
+  function renderCurrencyRates(){
+    const list = document.getElementById('currency-rates-list');
+    if(!list) return;
+    const codes = currenciesInUse();
+    if(codes.length===0){
+      list.innerHTML = '<div class="empty-msg">No foreign currency in use yet — pick one on an Income, Debt, Gift or Savings account row and its rate will show up here.</div>';
+      return;
+    }
+    list.innerHTML = codes.map(code=>`
+      <label class="xl-set currency-rate-row">1 ${code} =
+        <input type="number" min="0.000001" step="0.000001" class="currency-rate-input" data-code="${code}" value="${rateFor(code)}">
+        ${currencyCode()}
+      </label>
+    `).join('');
+  }
+  document.addEventListener('change', function(e){
+    if(!e.target.matches('.currency-rate-input')) return;
+    setCurrencyRate(e.target.dataset.code, e.target.value);
+    save();
+  });
+
+  function sumChecked(items){ return items.filter(i=>i.checked).reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0); }
+  function sumAll(items){ return items.reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0); }
 
   function extraForMonth(mi){ return state.extra.filter(e=>e.monthIndex===mi); }
   function sumExtraForMonth(mi){ return extraForMonth(mi).reduce((s,e)=>s+Number(e.amount||0),0); }
@@ -1211,6 +1300,7 @@ window.__ftStart = function(){
           amount: prog.amount!==undefined ? prog.amount : Math.round((g.totalAmount/g.months)*100)/100,
           checked: !!prog.checked,
           lastTicked: prog.lastTicked,
+          currency: g.currency,
         };
       });
   }
@@ -1253,8 +1343,7 @@ window.__ftStart = function(){
     const incomeChecked = sumChecked(mm.income) + sumExtraForMonth(mi);
     const debtChecked = sumChecked(mm.debts);
     const livingChecked = sumLivingForMonth(mi);
-    const giftItems = giftItemsForMonth(mi);
-    const giftChecked = giftItems.filter(g=>g.checked).reduce((s,g)=>s+Number(g.amount||0),0);
+    const giftChecked = sumChecked(giftItemsForMonth(mi));
     return incomeChecked - (debtChecked + livingChecked + giftChecked);
   }
 
@@ -1262,7 +1351,7 @@ window.__ftStart = function(){
   // Combines the free-form savings ledger with everything ticked off in the savings apps.
   function cumulativeSavingsUpTo(mi){
     const ledger = state.savings.filter(s=>s.monthIndex<=mi).reduce((s,e)=>s+Number(e.amount||0),0);
-    return ledger + totalAppsBalanceUpTo(mi);
+    return ledger + totalAppsBalanceUpToConverted(mi);
   }
 
   // Every savings account that has ever existed in any month, keyed by its persistent appId.
@@ -1307,27 +1396,19 @@ window.__ftStart = function(){
     return allSavingsAppIds().reduce((s,id)=>s+appBalanceUpTo(id, mi), 0);
   }
 
-  // ===== Multi-currency savings accounts (premium) =====
-  // Scoped deliberately small: a savings account can be tagged with a currency other than the
-  // tracker's primary one, plus a manual conversion rate (how many units of the PRIMARY currency
-  // one unit of the account's currency is worth) — set by the user, not fetched live, so it never
-  // depends on network access and never silently drifts. Income, debts and living expenses stay
-  // in the primary currency throughout; only savings-account balances can hold a second currency,
-  // converted at display time for the combined/net-worth totals. Everywhere else in the app
-  // (appBalanceUpTo, totalAppsBalanceUpTo, cumulativeSavingsUpTo) keeps reading the raw, un-
-  // converted amount, so existing math is untouched — conversion only happens in the functions
-  // below that explicitly ask for it.
-  function getAccountCurrency(key){
-    const rec = state.accountCurrency[key];
-    return (rec && rec.code) ? {code:rec.code, rate:Number(rec.rate)>0 ? Number(rec.rate) : 1} : {code: currencyCode(), rate:1};
-  }
-  function setAccountCurrency(key, code, rate){
-    if(!code || code===currencyCode()){ delete state.accountCurrency[key]; return; }
-    state.accountCurrency[key] = {code, rate: Number(rate)>0 ? Number(rate) : 1};
+  // ===== Multi-currency savings accounts =====
+  // A savings account can be tagged with a currency other than the tracker's primary one — just
+  // the code, no rate of its own; the rate comes from the shared state.currencyRates table above,
+  // same as every other tab. Applied the instant the currency is changed (a plain <select> change
+  // event, no separate "save" step) so there's no window where a picked-but-unsaved value gets
+  // wiped out by the next re-render.
+  function getAccountCurrencyCode(key){ return state.accountCurrency[key] || currencyCode(); }
+  function setAccountCurrencyCode(key, code){
+    if(!code || code===currencyCode()) delete state.accountCurrency[key];
+    else state.accountCurrency[key] = code;
   }
   function convertedAppBalanceUpTo(key, mi){
-    const {rate} = getAccountCurrency(key);
-    return appBalanceUpTo(key, mi) * rate;
+    return convertToPrimary(appBalanceUpTo(key, mi), getAccountCurrencyCode(key));
   }
   function totalAppsBalanceUpToConverted(mi){
     return allSavingsAppIds().reduce((s,id)=>s+convertedAppBalanceUpTo(id, mi), 0);
@@ -1342,7 +1423,7 @@ window.__ftStart = function(){
     for(let i=0;i<=mi;i++){
       const m = state.months[i];
       if(!m || !m.debts) continue;
-      m.debts.forEach(it=>{ if(!it.checked && !it.extraPayment) total += Number(it.amount)||0; });
+      m.debts.forEach(it=>{ if(!it.checked && !it.extraPayment) total += convertToPrimary(it.amount, it.currency); });
     }
     return total;
   }
@@ -1551,6 +1632,20 @@ window.__ftStart = function(){
       sel.appendChild(o);
     });
   })();
+  // Every "denominate this item in a currency" select on the add-forms (income, debt, gift) —
+  // populated once each, defaulted to the primary currency so leaving it alone behaves exactly
+  // like before this feature existed.
+  (function populateItemCurrencySelects(){
+    document.querySelectorAll('.item-currency-select').forEach(sel=>{
+      if(sel.options.length) return;
+      CURRENCIES.forEach(c=>{
+        const o = document.createElement('option');
+        o.value = c.code; o.textContent = c.sym + ' ' + c.code;
+        sel.appendChild(o);
+      });
+      sel.value = currencyCode();
+    });
+  })();
   { const invBtn = document.getElementById('inv-add-btn');
     if(invBtn) invBtn.addEventListener('click', function(){
       const typeEl = document.getElementById('inv-type');
@@ -1740,11 +1835,14 @@ window.__ftStart = function(){
     Object.keys(state.ongoingSeries).forEach(seriesId=>{
       const series = state.ongoingSeries[seriesId];
       const latest = latestSeriesInstalment(series.kind, seriesId);
-      state.months[mi][series.kind].push({
+      const item = {
         id: makeCustomId(series.kind), label: latest ? latest.label : series.label,
         sub: '🔁 Repeats monthly', amount: latest ? latest.amount : series.amount,
         checked:false, custom:true, seriesId
-      });
+      };
+      const cur = (latest && latest.currency) || series.currency;
+      if(cur) item.currency = cur;
+      state.months[mi][series.kind].push(item);
     });
     activeMonth = mi;
     populateTargetSelect();
@@ -1761,17 +1859,21 @@ window.__ftStart = function(){
     items.forEach((item, idx)=>{
       const row = document.createElement('div');
       row.className = 'item-row' + (item.checked?' checked':'');
+      const foreign = item.currency && item.currency!==currencyCode();
+      const convertedSub = foreign ? `<span class="sub currency-converted">≈ ${fmt(convertToPrimary(item.amount, item.currency))} at the saved rate</span>` : '';
       row.innerHTML = `
         <input type="checkbox" class="checkbox" ${item.checked?'checked':''} data-kind="${kind}" data-idx="${idx}">
         <div class="item-label">
           <input type="text" class="item-label-input" value="${escapeAttr(item.label)}" data-kind="${kind}" data-idx="${idx}">
           ${item.sub? `<span class="sub">${item.sub}</span>`:''}
           ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked ${fmtTickDate(item.lastTicked)}</span>`:''}
+          ${convertedSub}
         </div>
         <div class="currency-prefix">
-          <span>${CUR}</span>
+          <span>${symbolForCode(item.currency)}</span>
           <input type="number" class="item-amt" value="${item.amount}" data-kind="${kind}" data-idx="${idx}">
         </div>
+        ${foreign ? `<span class="item-currency-badge" title="Denominated in ${item.currency}, converted to ${currencyCode()} at the rate set in Settings → Currency rates">${item.currency}</span>` : ''}
         ${item.custom ? `<button class="del" data-kind="${kind}" data-del-idx="${idx}" title="Remove">✕</button>` : ''}
       `;
       container.appendChild(row);
@@ -1956,17 +2058,21 @@ window.__ftStart = function(){
     items.forEach(item=>{
       const row = document.createElement('div');
       row.className = 'item-row' + (item.checked?' checked':'');
+      const foreign = item.currency && item.currency!==currencyCode();
+      const convertedSub = foreign ? `<span class="sub currency-converted">≈ ${fmt(convertToPrimary(item.amount, item.currency))} at the saved rate</span>` : '';
       row.innerHTML = `
         <input type="checkbox" class="checkbox" ${item.checked?'checked':''} data-gift-key="${item.id}">
         <div class="item-label">
           <input type="text" class="item-label-input" value="${escapeAttr(item.label)}" data-goal-id="${item.goalId}">
           ${item.sub? `<span class="sub">${item.sub}</span>`:''}
           ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked ${fmtTickDate(item.lastTicked)}</span>`:''}
+          ${convertedSub}
         </div>
         <div class="currency-prefix">
-          <span>${CUR}</span>
+          <span>${symbolForCode(item.currency)}</span>
           <input type="number" class="item-amt" value="${item.amount}" data-gift-key="${item.id}">
         </div>
+        ${foreign ? `<span class="item-currency-badge" title="Denominated in ${item.currency}, converted to ${currencyCode()} at the rate set in Settings → Currency rates">${item.currency}</span>` : ''}
       `;
       container.appendChild(row);
     });
@@ -1999,12 +2105,14 @@ window.__ftStart = function(){
       const card = document.createElement('div');
       card.className = 'goal-card';
       const monthlyAmt = Math.round((g.totalAmount/g.months)*100)/100;
+      const foreign = g.currency && g.currency!==currencyCode();
+      const convertedNote = foreign ? ` (≈ ${fmt(convertToPrimary(g.totalAmount, g.currency))})` : '';
       card.innerHTML = `
         <div class="gname">
           <input type="text" class="gname-input" value="${escapeAttr(g.label)}" data-goal-id="${g.id}">
-          <span class="gmeta">${g.months}-month plan · target ${monthLabels[g.targetMonthIndex]} ${yearTags[g.targetMonthIndex]} · ${fmt(monthlyAmt)}/mo</span>
+          <span class="gmeta">${g.months}-month plan · target ${monthLabels[g.targetMonthIndex]} ${yearTags[g.targetMonthIndex]} · ${fmtIn(monthlyAmt, g.currency)}/mo${foreign ? ' <span class="item-currency-badge">'+g.currency+'</span>' : ''}</span>
         </div>
-        <div class="gamt">${fmt(g.totalAmount)}</div>
+        <div class="gamt">${fmtIn(g.totalAmount, g.currency)}${convertedNote}</div>
         <button class="del" data-goal-id="${g.id}" title="Remove goal">✕</button>
       `;
       container.appendChild(card);
@@ -2214,6 +2322,7 @@ window.__ftStart = function(){
     renderSavingsAccounts();
     renderInvestments();
     renderNetWorth();
+    renderCurrencyRates();
     { const nwNav = document.querySelector('.page-nav-btn[data-page="networth"]'); if(nwNav) nwNav.hidden = !isFeatureUnlocked('netWorth'); }
     renderExtra();
 
@@ -2222,8 +2331,8 @@ window.__ftStart = function(){
     const livingChecked = sumLivingForMonth(activeMonth), livingTotal = livingChecked;
     const livingBudgetTotal = state.livingCategories.reduce((s,c)=>s+getLivingBudget(activeMonth, c.id),0);
     const giftItems = giftItemsForMonth(activeMonth);
-    const giftChecked = giftItems.filter(i=>i.checked).reduce((s,i)=>s+Number(i.amount||0),0);
-    const giftTotal = giftItems.reduce((s,i)=>s+Number(i.amount||0),0);
+    const giftChecked = sumChecked(giftItems);
+    const giftTotal = sumAll(giftItems);
     const extraMonth = sumExtraForMonth(activeMonth);
 
     // ===== Monthly budget health: full committed obligations vs. max available income =====
@@ -2313,7 +2422,7 @@ window.__ftStart = function(){
       ovIncome += sumChecked(mm.income);
       ovExpense += sumChecked(mm.debts)+sumLivingForMonth(i);
       const gItems = giftItemsForMonth(i);
-      const gChecked = gItems.filter(g=>g.checked).reduce((s,g)=>s+Number(g.amount||0),0);
+      const gChecked = sumChecked(gItems);
       ovExpense += gChecked;
       ovGifts += gChecked;
       const items = allItemsForMonth(i);
@@ -2421,7 +2530,7 @@ window.__ftStart = function(){
     // are visible from any tab, the same reasoning as the level chip above.
     const chipOutstandingEl = document.getElementById('chip-outstanding-val');
     if(chipOutstandingEl){
-      const totalOutstanding = debtSeriesList().reduce((s,d)=>s+d.remaining,0);
+      const totalOutstanding = debtSeriesList().reduce((s,d)=>s+convertToPrimary(d.remaining, d.currency),0);
       chipOutstandingEl.textContent = fmt(totalOutstanding);
       const outstandingChip = document.getElementById('chip-outstanding');
       if(outstandingChip) outstandingChip.classList.toggle('clear', totalOutstanding<=0);
@@ -3018,9 +3127,11 @@ window.__ftStart = function(){
     if(stopBtn){ stopOngoingSeries(stopBtn.dataset.series); return; }
   });
 
-  function addCustomItem(kind, label, amount){
+  function addCustomItem(kind, label, amount, currency){
     const id = makeCustomId(kind);
-    state.months[activeMonth][kind].push({id, label, sub:'', amount, checked:false, custom:true});
+    const item = {id, label, sub:'', amount, checked:false, custom:true};
+    if(currency && currency!==currencyCode()) item.currency = currency;
+    state.months[activeMonth][kind].push(item);
     save();
   }
 
@@ -3093,39 +3204,33 @@ window.__ftStart = function(){
       const growthText = a.movement===0 ? 'no movement this month'
         : (growth===null ? '✨ first money in' : (a.movement>0?'▲ ':'▼ ')+Math.abs(growth).toFixed(1)+'% this month');
       const pending = a.plannedTopup>0 && a.movement<=0 ? ` · ${fmt(a.plannedTopup)} top-up still unticked` : '';
-      const acctCur = getAccountCurrency(a.key);
-      const multiCurrencyOn = isFeatureUnlocked('multiCurrency');
-      const convertedNote = multiCurrencyOn && acctCur.code!==currencyCode()
-        ? ` · ≈ ${fmt(convertedAppBalanceUpTo(a.key, activeMonth))} at your saved rate` : '';
+      const acctCode = getAccountCurrencyCode(a.key);
+      const foreign = acctCode!==currencyCode();
+      const convertedNote = foreign ? ` · ≈ ${fmt(convertedAppBalanceUpTo(a.key, activeMonth))} at the saved rate` : '';
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${escapeAttr(a.label)}</span>
-          <span class="ds-left clear">${acctCur.code!==currencyCode() ? acctCur.code+' ' : ''}${fmt(a.closing)}</span>
+          <span class="ds-left clear">${fmtIn(a.closing, acctCode)}</span>
         </div>
         <div class="ds-track"><div class="ds-fill" style="width:${pct}%"></div></div>
-        <div class="ds-meta">${fmt(a.opening)} brought forward ${a.movement<0?'−':'+'} ${fmt(Math.abs(a.movement))} = ${fmt(a.closing)} · ${growthText}${pending}${convertedNote}</div>
+        <div class="ds-meta">${fmtIn(a.opening, acctCode)} brought forward ${a.movement<0?'−':'+'} ${fmtIn(Math.abs(a.movement), acctCode)} = ${fmtIn(a.closing, acctCode)} · ${growthText}${pending}${convertedNote}</div>
         <div class="ds-pay">
-          <input type="number" min="0" class="acct-wd-input" data-app="${a.key}" placeholder="Withdraw ${CUR}">
+          <input type="number" min="0" class="acct-wd-input" data-app="${a.key}" placeholder="Withdraw ${symbolForCode(acctCode)}">
           <button class="acct-wd-btn ds-undo" data-app="${a.key}">Withdraw</button>
           <span class="hint">drops the balance from ${currentMonthTag()} onward</span>
         </div>
-        ${multiCurrencyOn ? `<div class="ds-pay acct-currency-row">
+        <div class="ds-pay acct-currency-row">
           <label class="hint">Held in
-            <select class="acct-currency-select" data-app="${a.key}">${CURRENCIES.map(c=>`<option value="${c.code}" ${c.code===acctCur.code?'selected':''}>${c.code}</option>`).join('')}</select>
+            <select class="acct-currency-select" data-app="${a.key}">${CURRENCIES.map(c=>`<option value="${c.code}" ${c.code===acctCode?'selected':''}>${c.code}</option>`).join('')}</select>
           </label>
-          <input type="number" min="0.0001" step="0.0001" class="acct-rate-input" data-app="${a.key}" value="${acctCur.rate}" placeholder="Rate to ${currencyCode()}" title="How many ${currencyCode()} one unit of that currency is worth — set by you, not fetched live">
-          <button class="acct-currency-save-btn ds-pay-btn" data-app="${a.key}">Save currency</button>
-        </div>` : ''}
+          ${foreign ? `<span class="hint">rate to ${currencyCode()}: ${rateFor(acctCode)} — edit in Settings → Currency rates</span>` : ''}
+        </div>
       </div>`;
     }).join('');
   }
-  document.addEventListener('click', function(e){
-    const saveBtn = e.target.closest ? e.target.closest('.acct-currency-save-btn') : null;
-    if(!saveBtn) return;
-    const key = saveBtn.dataset.app;
-    const sel = document.querySelector('.acct-currency-select[data-app="'+key+'"]');
-    const rateInput = document.querySelector('.acct-rate-input[data-app="'+key+'"]');
-    setAccountCurrency(key, sel ? sel.value : currencyCode(), rateInput ? rateInput.value : 1);
+  document.addEventListener('change', function(e){
+    if(!e.target.matches('.acct-currency-select')) return;
+    setAccountCurrencyCode(e.target.dataset.app, e.target.value);
     save();
   });
 
@@ -3144,9 +3249,10 @@ window.__ftStart = function(){
   // source with no end date (rent, subscriptions, salary) — instead of asking upfront how many
   // months to stamp out, that registers the series in state.ongoingSeries so addMonth() keeps
   // extending it automatically every time the tracker grows, without having to re-add it by hand.
-  function addRecurringItem(kind, label, amount, duration){
+  function addRecurringItem(kind, label, amount, duration, currency){
     const seriesId = makeCustomId(kind);
     const ongoing = duration === 'ongoing';
+    const cur = (currency && currency!==currencyCode()) ? currency : null;
     // This used to clamp silently to whatever was left on the tracker, so asking for a
     // 12-month debt while sitting on the last tracked month gave you 1 month, with no
     // "Month 1 of 12" label (sub only renders when months>1) and no hint that 11 were dropped.
@@ -3164,9 +3270,11 @@ window.__ftStart = function(){
     for(let k=0;k<months;k++){
       const mi = activeMonth+k;
       const sub = ongoing ? '🔁 Repeats monthly' : (months>1 ? `Month ${k+1} of ${months}` : '');
-      state.months[mi][kind].push({id:makeCustomId(kind), label, sub, amount, checked:false, custom:true, seriesId});
+      const item = {id:makeCustomId(kind), label, sub, amount, checked:false, custom:true, seriesId};
+      if(cur) item.currency = cur;
+      state.months[mi][kind].push(item);
     }
-    if(ongoing) state.ongoingSeries[seriesId] = {kind, label, amount};
+    if(ongoing) state.ongoingSeries[seriesId] = {kind, label, amount, currency: cur};
     save();
   }
   // Stops an ongoing series from being carried into any FUTURE month added after this — existing
@@ -3209,11 +3317,12 @@ window.__ftStart = function(){
         const key = seriesKeyOf(it);
         if(!map.has(key)){
           map.set(key, {key, label:it.label, paid:0, remaining:0, extraPaid:0,
-                        paymentsLeft:0, lastDueMonth:-1, firstMonth:i});
+                        paymentsLeft:0, lastDueMonth:-1, firstMonth:i, currency:it.currency});
         }
         const s = map.get(key);
         const amt = Number(it.amount)||0;
         if(!it.extraPayment) s.label = it.label;      // scheduled rows carry the real name
+        if(it.currency) s.currency = it.currency;     // every instalment of a series shares one currency
         if(it.checked){
           s.paid += amt;
           if(it.extraPayment) s.extraPaid += amt;
@@ -3489,9 +3598,13 @@ window.__ftStart = function(){
       return;
     }
 
-    const totalBorrowed = list.reduce((s,d)=>s+d.total,0);
-    const totalPaid     = list.reduce((s,d)=>s+d.paid,0);
-    const totalLeft     = list.reduce((s,d)=>s+d.remaining,0);
+    // Head totals combine every series' native amount converted to the primary currency — you
+    // can't meaningfully add a €500 loan to a $2,000 one without converting first. Each row below
+    // still shows its own native amount (fmtIn), since that's the currency the loan is actually
+    // denominated in.
+    const totalBorrowed = list.reduce((s,d)=>s+convertToPrimary(d.total, d.currency),0);
+    const totalPaid     = list.reduce((s,d)=>s+convertToPrimary(d.paid, d.currency),0);
+    const totalLeft     = list.reduce((s,d)=>s+convertToPrimary(d.remaining, d.currency),0);
     const target        = debtFreeDate();
     const lastIdx       = lastDueMonthIndex();
 
@@ -3516,22 +3629,24 @@ window.__ftStart = function(){
       const extraNote = d.extraPaid>0 ? ` · ${fmt(d.extraPaid)} paid early` : '';
       const nextInstalment = done ? null : nextDebtInstalment(d.key);
       const ongoing = !!state.ongoingSeries[d.key];
+      const foreign = d.currency && d.currency!==currencyCode();
+      const convertedNote = foreign ? ` · ≈ ${fmt(convertToPrimary(d.remaining, d.currency))} at the saved rate` : '';
       return `<div class="ds-row">
         <div class="ds-top">
-          <span class="ds-name">${escapeAttr(d.label)}${ongoing ? ' <span class="ds-ongoing-badge" title="Automatically added to every new month until stopped">🔁</span>' : ''}</span>
+          <span class="ds-name">${escapeAttr(d.label)}${ongoing ? ' <span class="ds-ongoing-badge" title="Automatically added to every new month until stopped">🔁</span>' : ''}${foreign ? ' <span class="item-currency-badge">'+d.currency+'</span>' : ''}</span>
           <span class="ds-top-right">
-            <span class="ds-left ${done?'clear':''}">${done ? '✔ Fully cleared' : fmt(d.remaining)+' left'}</span>
+            <span class="ds-left ${done?'clear':''}">${done ? '✔ Fully cleared' : fmtIn(d.remaining, d.currency)+' left'}</span>
             <button class="del ds-del-btn" data-series="${d.key}" title="Delete this debt entirely">✕</button>
           </span>
         </div>
         <div class="ds-track"><div class="ds-fill" style="width:${pct}%"></div></div>
-        <div class="ds-meta">${fmt(d.paid)} of ${fmt(d.total)} repaid (${pct.toFixed(0)}%) · ${d.paymentsLeft} payment${d.paymentsLeft===1?'':'s'} left · last due ${lastLabel}${extraNote}</div>
+        <div class="ds-meta">${fmtIn(d.paid, d.currency)} of ${fmtIn(d.total, d.currency)} repaid (${pct.toFixed(0)}%) · ${d.paymentsLeft} payment${d.paymentsLeft===1?'':'s'} left · last due ${lastLabel}${extraNote}${convertedNote}</div>
         ${done ? '' : `<div class="ds-pay">
-          <input type="number" min="0" class="ds-extra-input" data-series="${d.key}" placeholder="Extra payment ${CUR}">
+          <input type="number" min="0" class="ds-extra-input" data-series="${d.key}" placeholder="Extra payment ${symbolForCode(d.currency)}">
           <button class="ds-pay-btn" data-series="${d.key}">Pay extra</button>
-          <button class="ds-pay-btn ds-clear-btn" data-series="${d.key}" data-all="1">Clear it all (${fmt(d.remaining)})</button>
+          <button class="ds-pay-btn ds-clear-btn" data-series="${d.key}" data-all="1">Clear it all (${fmtIn(d.remaining, d.currency)})</button>
           <span class="hint">knocks months off the end</span>
-          <input type="number" min="0.01" step="0.01" class="ds-total-input" data-series="${d.key}" placeholder="New total ${CUR}" value="${d.total}" title="Change the overall amount owed on this debt — updates every future instalment at once">
+          <input type="number" min="0.01" step="0.01" class="ds-total-input" data-series="${d.key}" placeholder="New total ${symbolForCode(d.currency)}" value="${d.total}" title="Change the overall amount owed on this debt — updates every future instalment at once">
           <button class="ds-pay-btn ds-total-btn" data-series="${d.key}">Edit total</button>
           ${nextInstalment ? `<button class="ds-pay-btn ds-skip-btn" data-series="${d.key}" title="Mark ${monthLabels[nextInstalment.mi]} ${yearTags[nextInstalment.mi]}'s payment as already paid, without touching this month">⏭ Skip ${monthLabels[nextInstalment.mi]} — already paid</button>` : ''}
           ${ongoing ? `<button class="ds-pay-btn ds-stop-ongoing-btn" data-series="${d.key}" title="Stop adding this bill to new months — months already added keep it">⏹ Stop repeating</button>` : ''}
@@ -3646,12 +3761,14 @@ window.__ftStart = function(){
     const descEl = document.getElementById('income-desc');
     const amtEl = document.getElementById('income-amt');
     const ongoingEl = document.getElementById('income-ongoing');
+    const curEl = document.getElementById('income-currency');
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
+    const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
-    if(ongoingEl && ongoingEl.checked){ addRecurringItem('income', desc, amt, 'ongoing'); }
-    else{ addCustomItem('income', desc, amt); }
-    descEl.value=''; amtEl.value=''; if(ongoingEl) ongoingEl.checked = false;
+    if(ongoingEl && ongoingEl.checked){ addRecurringItem('income', desc, amt, 'ongoing', cur); }
+    else{ addCustomItem('income', desc, amt, cur); }
+    descEl.value=''; amtEl.value=''; if(ongoingEl) ongoingEl.checked = false; if(curEl) curEl.value = currencyCode();
   });
 
   document.getElementById('debt-add-btn').addEventListener('click', function(){
@@ -3659,12 +3776,14 @@ window.__ftStart = function(){
     const amtEl = document.getElementById('debt-amt');
     const durEl = document.getElementById('debt-duration');
     const ongoingEl = document.getElementById('debt-ongoing');
+    const curEl = document.getElementById('debt-currency');
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
+    const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
-    if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing'); }
-    else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur); }
-    descEl.value=''; amtEl.value=''; durEl.value=''; if(ongoingEl) ongoingEl.checked = false;
+    if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing', cur); }
+    else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur, cur); }
+    descEl.value=''; amtEl.value=''; durEl.value=''; if(ongoingEl) ongoingEl.checked = false; if(curEl) curEl.value = currencyCode();
   });
 
   document.getElementById('living-entry-add-btn').addEventListener('click', function(){
@@ -3734,15 +3853,19 @@ window.__ftStart = function(){
     const totalEl = document.getElementById('goal-total');
     const monthsEl = document.getElementById('goal-months');
     const targetEl = document.getElementById('goal-target');
+    const curEl = document.getElementById('goal-currency');
     const name = nameEl.value.trim();
     const total = Number(totalEl.value)||0;
     const months = Math.max(1, Number(monthsEl.value)||0);
     const target = Number(targetEl.value);
+    const cur = (curEl && curEl.value!==currencyCode()) ? curEl.value : null;
     if(!name || total<=0 || months<=0 || Number.isNaN(target)) return;
     if(months > target){ alert("Months to save can't exceed the number of months before the target date."); return; }
     const id = 'gift_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,24) + '_' + Date.now();
-    state.giftGoals.push({id, label:name, totalAmount:total, months, targetMonthIndex:target});
-    nameEl.value=''; totalEl.value=''; monthsEl.value='';
+    const goal = {id, label:name, totalAmount:total, months, targetMonthIndex:target};
+    if(cur) goal.currency = cur;
+    state.giftGoals.push(goal);
+    nameEl.value=''; totalEl.value=''; monthsEl.value=''; if(curEl) curEl.value = currencyCode();
     save();
   });
 
@@ -4963,6 +5086,13 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🌍 Multi-currency now covers Income, Debts, Gifts and Savings', body: 'Any Income source, Debt/bill, Gift goal or Savings account can now be tagged with a currency other than your primary one — not just Savings accounts like before. Every currency shares ONE rate, set once in Settings → "🌍 Currency rates" and reused everywhere it\'s tagged, so the same currency can\'t end up disagreeing with itself between tabs (the bug behind the old per-account rate field, now removed). Each row still shows its own native amount and symbol; totals (Overview, debt payoff, gift totals, Net worth) show the converted sum in your primary currency. Picking a currency also applies immediately — no separate "Save" step to forget.' },
+    { title: '💹 A new Investments tab', body: 'Track stocks, mutual funds, shares, commercial papers, treasury bills and crypto in one place. Add a holding with its units and cost basis, then log a price for "today" whenever you check it — gains/losses are computed off the most recently logged price, not a live feed, same philosophy as everything else in Trakka. Portfolio totals and each holding\'s current value now also count toward your Net worth.' },
+    { title: '📈 A Net worth page', body: 'A new "📈 Net Worth" tab rolls up cumulative cash, converted savings, outstanding debts, investments and any manually-added asset (property, a vehicle) into one number, with a month-by-month trend underneath.' },
+    { title: '📑 Export to CSV', body: 'Settings → "📁 Data" now has a "📑 Export CSV" button alongside the existing Excel export, for anyone who wants a plain, scriptable file instead of a workbook.' },
+    { title: '🔁 Bills and income that repeat automatically', body: 'Adding an Income source or Debt/bill now offers "🔁 Repeat monthly" — tick it and that item keeps getting added to every new month automatically, at its last-set amount, instead of being re-entered by hand each time. A "⏹ Stop repeating" button ends it going forward without touching months already added, and a recurring series\' amount can be updated for every future month at once (a raise, a price change) rather than editing each month individually.' },
+    { title: '🔎 Search across every month', body: 'A search box at the top of the Overview page now looks across every month\'s income, debts, gifts and logged expenses at once — click a result to jump straight to it, instead of paging through months one at a time.' },
+    { title: '🔇 Mark a month as not tracked', body: 'A month you never actually logged (traveled, forgot, nothing to track) can now be marked "not tracked" from the month picker, so it\'s left out of the month-over-month comparison instead of reading as a false 100% drop.' },
     { title: '📱 Mobile polish pass', body: 'Settings and What\'s New no longer show blurred by default on a phone (there was never anything sensitive to hide there — you can still Hide/Show the tracker itself as before). The tab bar now shows a subtle shadow hinting there are more tabs to swipe to, the top-bar buttons wrap more consistently on narrow screens, the 🔔 notification dropdown no longer runs off the edge of the screen, and the "Add a source"/"What was it?" fields show more of their placeholder text instead of clipping mid-word.' },
     { title: '♾️ Achievements that never run out', body: 'Reached the top of an achievement ladder? It now keeps going. Past the final built-in tier, Trakka automatically adds the next milestone — more items checked off, bigger savings and debt paid down, longer streaks, higher levels, more months tracked, and so on — so there\'s always a next one to aim for on the 🌟 XP tab. Each new one is worth 50 XP like any other achievement, and only your earned ones plus the single next goal in each ladder are shown, so the list stays tidy.' },
     { title: '🎵 Embed a Spotify playlist', body: 'Settings → "🎵 Spotify playlist" now lets you paste a Spotify playlist link to embed a compact player right on your Overview page while you track. It\'s a simple public embed — no Spotify account linking needed — though without Spotify Premium (and being logged into Spotify in this browser) it only plays 30-second previews, which is a Spotify limitation on the embed itself.' },
