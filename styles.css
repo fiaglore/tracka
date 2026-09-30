@@ -508,7 +508,7 @@ button,input,select,textarea{font-family:inherit;}
    ============================================================ */
 .topbar{padding:22px 0 14px;}
 .brand-row{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;}
-.brand{display:flex; align-items:center; gap:10px;}
+.brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit;}
 .brand-mark{font-size:26px; line-height:1;}
 .brand-text h1{font-size:clamp(19px,2.6vw,24px); font-weight:700;}
 .brand-text .tag{font-size:12px; color:var(--muted); margin-top:1px;}
@@ -694,7 +694,7 @@ body.ft-locked #auth-overlay{display:flex;}
 .landing-inner{max-width:1040px; margin:0 auto; padding:0 20px 60px;}
 
 .landing-nav{display:flex; align-items:center; justify-content:space-between; padding:20px 0;}
-.landing-brand{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:800; font-size:19px; color:var(--ink);}
+.landing-brand{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:800; font-size:19px; color:var(--ink); text-decoration:none;}
 .landing-mark{font-size:22px;}
 .landing-nav-links{display:flex; align-items:center; gap:18px;}
 .landing-nav-link{font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--muted); text-decoration:none;}
