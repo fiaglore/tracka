@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v46";
+const CACHE_VERSION = "tracka-shell-v47";
 
 const SHELL_FILES = [
   "./",
@@ -81,8 +81,32 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static shell assets: cache-first, refreshing the cache in the
-  // background when the network has a newer copy.
+  // Code/style shell files: network-first, same as navigations above. These
+  // change with every feature PR, and navigations already fetch the latest
+  // HTML network-first — cache-first here used to let a stale cached app.js
+  // get paired with that fresh HTML for one whole page load right after a
+  // deploy (new markup, e.g. a new card's DOM, wired up by old JS that
+  // doesn't know about it — the card would sit there never updating). Only
+  // falls back to cache when actually offline.
+  if (/\.(js|css)$/.test(url.pathname)) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Everything else (icons, manifest): cache-first, refreshing the cache in
+  // the background when the network has a newer copy. These essentially
+  // never change, so serving instantly from cache is worth it here in a way
+  // it isn't for code/styles above.
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req)
