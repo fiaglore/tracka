@@ -4301,7 +4301,9 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '⛈️ Thunderstorm, Windy day, and Sandstorm weather', body: 'Three new weather effects in Settings → Appearance. 🌩️ Thunderstorm (Temperate) is heavy slanting rain with occasional lightning flashes and rolling thunder. 💨 Windy day (Temperate) is fast streaks of wind with gusty rushing sound. 🏜️ Sandstorm (Tropical) blows warm, gritty sand across the screen under a dusty haze, with a howling wind to match.' },
     { title: '🎂 Birthday shoutouts now also fire the moment you open the app', body: 'Add a date of birth in Settings → Profile, and Trakka now wishes you a happy birthday instantly the moment you open the app on the day — no need to have push notifications turned on first. The closed-app push version (for when you\'re not in the app) still needs push notifications enabled from the 🔔 button in Settings, same as before; this is in addition to that, not instead of it.' },
+    { title: '🌻 Temperate & Tropical weather, plus a Summer effect', body: 'The weather pickers in Settings are now simply "Temperate weather" (snow, autumn leaves, rain, spring blossom, and the new 🌻 Summer fireflies) and "Tropical weather" (harmattan haze, tropical rain, sunny). Summer comes with its own drifting-firefly look and matching weather sounds — cicadas, birdsong, and a warm breeze.' },
     { title: '🔊 Weather sounds and sound effects', body: 'The background music is gone, replaced by ambient sound that matches your weather effect — rain and drips, distant thunder in tropical rain, wind for snow, autumn and harmattan, birdsong in spring, and birds and crickets when it\'s sunny. Turn it on from Settings → "Weather sounds". There are also new sound effects: a soft pop when you untick something, and a celebratory "good job" fanfare whenever you unlock an achievement or clear a debt. Sound effects are on by default and can be switched off in Settings → "Sound effects".' },
     { title: '✨ Older updates tucked away in What\'s New', body: 'This tab now only shows the 10 most recent updates by default, so it stays quick to skim. A "Show older updates" button at the bottom reveals the rest whenever you want them — nothing is ever deleted, and "Hide older updates" tucks them away again.' },
     { title: '🔔 Keep or delete notifications from the bell dropdown', body: 'The 🔔 notification history now automatically keeps just your 6 most recent notifications, clearing older ones out of the way. Want to hold onto one longer? Tap 📍 to pin it — pinned notifications never get auto-cleared, however many new ones arrive. Tap 🗑️ on any notification to delete it outright.' },
@@ -5187,8 +5189,8 @@ window.__ftStart = function(){
 
    Two option groups share one underlying setting (`weatherEffect` on the
    user doc) — only one effect is ever active at a time — split visually
-   into "Weather effect" (snow/autumn/rain/spring) and "Nigerian /
-   Tropical weather" (harmattan/tropical rain/sunny) purely because that's
+   into "Temperate weather" (snow/autumn/rain/thunderstorm/windy/spring/summer)
+   and "Tropical weather" (harmattan/tropical rain/sandstorm/sunny) purely because that's
    how the Settings page presents the choice, not because they're two
    separate settings.
    ================================================================ */
@@ -5198,14 +5200,18 @@ window.__ftStart = function(){
     { id:'snow',         name:'Snow',             icon:'❄️', group:'season' },
     { id:'autumn',       name:'Autumn leaves',    icon:'🍂', group:'season' },
     { id:'rain',         name:'Rain',             icon:'🌧️', group:'season' },
+    { id:'thunderstorm', name:'Thunderstorm',     icon:'🌩️', group:'season' },
+    { id:'windy',        name:'Windy day',        icon:'💨', group:'season' },
     { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season' },
+    { id:'summer',       name:'Summer fireflies', icon:'🌻', group:'season' },
     { id:'harmattan',    name:'Harmattan haze',   icon:'🌫️', group:'tropical' },
     { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical' },
+    { id:'sandstorm',    name:'Sandstorm',        icon:'🏜️', group:'tropical' },
     { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' }
   ];
   var AUTUMN_COLORS = ['#C1592F', '#D98E2B', '#B8860B', '#8B3A1F', '#C6752F'];
   var SPRING_COLORS = ['#F5C6D6', '#FBEAF0', '#E8A9C0', '#FFFFFF', '#F0D9E4'];
-  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, harmattan:90, sunny:32 };
+  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, summer:45, thunderstorm:170, windy:36, sandstorm:230, harmattan:90, sunny:32 };
 
   function loadWeatherEffect(){
     var cloud = window.__ftCloudData;
@@ -5254,6 +5260,18 @@ window.__ftStart = function(){
         x:Math.random()*w, y:Math.random()*h, len:15+Math.random()*15,
         vy:15+Math.random()*8, alpha:0.28+Math.random()*0.3
       };
+      case 'thunderstorm': return {
+        x:Math.random()*w, y:Math.random()*h, len:14+Math.random()*16,
+        vy:16+Math.random()*8, alpha:0.3+Math.random()*0.3
+      };
+      case 'windy': return {
+        x:Math.random()*w, y:Math.random()*h, len:50+Math.random()*90,
+        vx:9+Math.random()*9, vy:(Math.random()-0.5)*0.6, alpha:0.08+Math.random()*0.16
+      };
+      case 'sandstorm': return {
+        x:Math.random()*w, y:Math.random()*h, r:0.7+Math.random()*1.7,
+        vx:7+Math.random()*8, vy:(Math.random()-0.3)*1.6, alpha:0.2+Math.random()*0.4
+      };
       case 'spring': return {
         x:Math.random()*w, y:Math.random()*h, size:4+Math.random()*4,
         vy:0.35+Math.random()*0.6, sway:Math.random()*Math.PI*2,
@@ -5264,6 +5282,11 @@ window.__ftStart = function(){
         x:Math.random()*w, y:Math.random()*h, r:0.6+Math.random()*1.6,
         vx:0.15+Math.random()*0.35, vy:(Math.random()-0.5)*0.08,
         alpha:0.12+Math.random()*0.22
+      };
+      case 'summer': return {
+        x:Math.random()*w, y:Math.random()*h, r:1.4+Math.random()*1.8,
+        vx:(Math.random()-0.5)*0.35, vy:(Math.random()-0.5)*0.25,
+        alpha:0.3, twinkle:Math.random()*Math.PI*2, twinkleSpeed:0.02+Math.random()*0.03
       };
       case 'sunny': return {
         x:Math.random()*w, y:h+Math.random()*40, r:1+Math.random()*1.8,
@@ -5289,8 +5312,21 @@ window.__ftStart = function(){
     ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-2,p.y+p.len); ctx.stroke();
   }
 
+  var flashAlpha = 0;
   function step(effect){
     ctx.clearRect(0,0,w,h);
+    // Thunderstorm: a rare, quick lightning flash that fades out.
+    if(effect === 'thunderstorm'){
+      if(flashAlpha < 0.02 && Math.random() < 0.0015) flashAlpha = 0.35 + Math.random()*0.25;
+      if(flashAlpha > 0){
+        ctx.save(); ctx.globalAlpha=flashAlpha; ctx.fillStyle='#EAF0FF'; ctx.fillRect(0,0,w,h); ctx.restore();
+        flashAlpha *= 0.9;
+      }
+    }
+    // Sandstorm: a heavier warm haze than harmattan.
+    if(effect === 'sandstorm'){
+      ctx.save(); ctx.globalAlpha=0.14; ctx.fillStyle='#C99A55'; ctx.fillRect(0,0,w,h); ctx.restore();
+    }
     // Harmattan reads as "dusty air", not just floating specks, with a very
     // soft warm haze wash under the particles.
     if(effect === 'harmattan'){
@@ -5314,6 +5350,23 @@ window.__ftStart = function(){
           if(p.y > h){ p.y=-p.len; p.x=Math.random()*w; }
           drawStreak(p, 'rgba(150,190,220,0.9)');
           break;
+        case 'thunderstorm':
+          p.y += p.vy; p.x -= 2.5;
+          if(p.y > h){ p.y=-p.len; p.x=Math.random()*w+40; }
+          drawStreak(p, 'rgba(140,165,200,0.9)');
+          break;
+        case 'windy':
+          p.x += p.vx; p.y += p.vy;
+          if(p.x > w+p.len){ p.x=-p.len; p.y=Math.random()*h; }
+          ctx.strokeStyle='rgba(170,185,200,0.9)'; ctx.globalAlpha=p.alpha; ctx.lineWidth=1.1;
+          ctx.beginPath(); ctx.moveTo(p.x-p.len,p.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+          break;
+        case 'sandstorm':
+          p.x += p.vx; p.y += p.vy;
+          if(p.x > w+5){ p.x=-5; p.y=Math.random()*h; }
+          if(p.y > h+5) p.y=-5; else if(p.y < -5) p.y=h+5;
+          drawDot(p, '#B98545');
+          break;
         case 'tropicalRain':
           p.y += p.vy;
           if(p.y > h){ p.y=-p.len; p.x=Math.random()*w; }
@@ -5328,6 +5381,13 @@ window.__ftStart = function(){
           p.x += p.vx; p.y += p.vy;
           if(p.x > w+5){ p.x=-5; p.y=Math.random()*h; }
           drawDot(p, '#C9B183');
+          break;
+        case 'summer':
+          p.twinkle += p.twinkleSpeed; p.x += p.vx + Math.sin(p.twinkle*0.7)*0.15; p.y += p.vy;
+          p.alpha = 0.1 + 0.6*Math.max(0, Math.sin(p.twinkle));
+          if(p.x < -5) p.x = w+5; else if(p.x > w+5) p.x = -5;
+          if(p.y < -5) p.y = h+5; else if(p.y > h+5) p.y = -5;
+          drawDot(p, '#FFE27A');
           break;
         case 'sunny':
           p.twinkle += 0.05; p.x += p.vx; p.y += p.vy;
@@ -5344,6 +5404,7 @@ window.__ftStart = function(){
     if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
     if(ctx && canvas) ctx.clearRect(0,0,canvas.width,canvas.height);
     particles = [];
+    flashAlpha = 0;
   }
 
   function updateSwatchActive(id){
