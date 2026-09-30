@@ -325,6 +325,7 @@
       <div class="extra-add">
         <input type="text" id="income-desc" placeholder="Add a source, e.g. Side gig payout">
         <input type="number" id="income-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <select id="income-currency" class="item-currency-select" title="Currency this income is paid in — converted to your primary currency in totals"></select>
         <label class="recurring-toggle" title="Keeps this income source going every month you add, at the same amount, until you stop it"><input type="checkbox" id="income-ongoing"> 🔁 Repeat monthly</label>
         <button id="income-add-btn">Add</button>
       </div>
@@ -358,6 +359,7 @@
         <input type="text" id="debt-desc" placeholder="Add a debt/payment, e.g. New loan installment">
         <input type="number" id="debt-amt" placeholder="Amount {c}" data-ph="Amount {c}">
         <input type="number" id="debt-duration" placeholder="Duration (months)" min="1" style="width:130px;">
+        <select id="debt-currency" class="item-currency-select" title="Currency this debt is denominated in — converted to your primary currency in totals"></select>
         <label class="recurring-toggle" title="Keeps this bill going every month you add, at the same amount, until you stop it — overrides the duration above"><input type="checkbox" id="debt-ongoing"> 🔁 Repeat monthly</label>
         <button id="debt-add-btn">Add</button>
       </div>
@@ -382,6 +384,7 @@
         <input type="number" id="goal-total" placeholder="Total amount {c}" data-ph="Total amount {c}">
         <input type="number" id="goal-months" placeholder="Months to save" min="1" max="13" style="width:110px;">
         <select id="goal-target"></select>
+        <select id="goal-currency" class="item-currency-select" title="Currency this gift is priced in — converted to your primary currency in totals"></select>
         <button id="goal-add-btn">Add goal 🎀</button>
       </div>
 
@@ -677,6 +680,12 @@
         <label class="xl-set">Currency <select id="set-currency"></select></label>
         <label class="xl-set">Month starts on day <select id="set-payday"></select></label>
       </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>🌍 Currency rates</h2></div>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">One rate per foreign currency, shared everywhere it's used — Income, Debts, Gifts and Savings accounts all convert through this same table, so the same currency never disagrees with itself between tabs. Set by you, not fetched live.</p>
+      <div id="currency-rates-list"></div>
     </section>
 
     <section>
