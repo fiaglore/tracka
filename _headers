@@ -1,0 +1,32 @@
+# _headers
+#
+# Cloudflare Pages header rules. Most-specific path wins; a request that
+# matches more than one block gets the union of their headers.
+#
+# The service worker and manifest must never be served stale — the SW file
+# itself is how Trakka's offline shell learns a new version exists at all,
+# so a cached copy of *it* would stall every future update. Everything else
+# (HTML, JS, CSS, icons) is fine to cache normally; app.js/service-worker.js
+# already self-version via CACHE_VERSION and the SW's network-first fetch
+# handling, so this file doesn't need to fight that.
+
+/service-worker.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+# Baseline security headers on every response. No Cross-Origin-Opener-Policy
+# here on purpose — COOP: same-origin breaks Firebase's signInWithPopup by
+# severing the popup's window.opener link back to this page, which is how
+# Firebase Auth hands the signed-in result back. If a Content-Security-Policy
+# is added later, ship it as Content-Security-Policy-Report-Only first and
+# make sure it allows *.googleapis.com, *.gstatic.com, *.firebaseapp.com
+# (Firebase Auth/Firestore) and the CDN ExcelJS/JSZip are loaded from in
+# app.js, or sign-in and Excel import/export will silently break.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
