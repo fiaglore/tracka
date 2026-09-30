@@ -2012,6 +2012,31 @@ window.__ftStart = function(){
       saveCloudField('lastNotifiedLevel', level);
       showAppNotification('🌟 Level up!', 'You reached Level '+level+' in Trakka.');
     }
+
+    // ===== Gamification: birthday shoutout (client-side) =====
+    // Mirrors the same check in scripts/send-notifications.mjs, but this
+    // one fires instantly for anyone who simply opens the app on the day —
+    // it doesn't need push notification permission at all, since
+    // showAppNotification() always logs to the in-app 🔔 bell regardless.
+    // The server-side check still covers getting a push while the app is
+    // fully closed, for whoever has that turned on; it tracks its own
+    // separate `notifyState.lastBirthdayYear` flag (this uses
+    // `cloud.lastBirthdayNotifiedYear` instead), the same way level-up
+    // notifications already have two independent client/server baselines
+    // above — so the two systems can't clobber each other's "already
+    // notified" state, at the cost of possibly both notifying once each on
+    // the actual day if push happens to also be on.
+    if(profile.dob){
+      const todayStr = todayISO();
+      const thisYear = todayStr.slice(0,4);
+      if(profile.dob.slice(5,10)===todayStr.slice(5,10) && cloud.lastBirthdayNotifiedYear!==thisYear){
+        cloud.lastBirthdayNotifiedYear = thisYear;
+        saveCloudField('lastBirthdayNotifiedYear', thisYear);
+        const name = profile.firstName ? ', '+profile.firstName : '';
+        showAppNotification('🎂 Happy Birthday!', 'Happy birthday'+name+'! Wishing you a great year ahead — treat yourself, you\'ve earned it.', '🎂');
+      }
+    }
+
     const xpLevelEl = document.getElementById('xp-level-num');
     if(xpLevelEl) xpLevelEl.textContent = 'Level '+level;
     const xpFillEl = document.getElementById('xp-fill');
@@ -4276,6 +4301,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🎂 Birthday shoutouts now also fire the moment you open the app', body: 'Add a date of birth in Settings → Profile, and Trakka now wishes you a happy birthday instantly the moment you open the app on the day — no need to have push notifications turned on first. The closed-app push version (for when you\'re not in the app) still needs push notifications enabled from the 🔔 button in Settings, same as before; this is in addition to that, not instead of it.' },
     { title: '🔊 Weather sounds and sound effects', body: 'The background music is gone, replaced by ambient sound that matches your weather effect — rain and drips, distant thunder in tropical rain, wind for snow, autumn and harmattan, birdsong in spring, and birds and crickets when it\'s sunny. Turn it on from Settings → "Weather sounds". There are also new sound effects: a soft pop when you untick something, and a celebratory "good job" fanfare whenever you unlock an achievement or clear a debt. Sound effects are on by default and can be switched off in Settings → "Sound effects".' },
     { title: '✨ Older updates tucked away in What\'s New', body: 'This tab now only shows the 10 most recent updates by default, so it stays quick to skim. A "Show older updates" button at the bottom reveals the rest whenever you want them — nothing is ever deleted, and "Hide older updates" tucks them away again.' },
     { title: '🔔 Keep or delete notifications from the bell dropdown', body: 'The 🔔 notification history now automatically keeps just your 6 most recent notifications, clearing older ones out of the way. Want to hold onto one longer? Tap 📍 to pin it — pinned notifications never get auto-cleared, however many new ones arrive. Tap 🗑️ on any notification to delete it outright.' },
