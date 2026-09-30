@@ -819,11 +819,17 @@ window.__ftStart = function(){
     if(el) el.textContent = profileIcon;
   }
   function saveProfileField(){
-    const wasComplete = !!(cloud.profile && cloud.profile.firstName && cloud.profile.lastName && cloud.profile.username && cloud.profile.dob);
     saveCloudField('profile', profile);
+    // `profile` and `cloud.profile` become the same object from here on
+    // (loadProfile() only ever returns a fresh {} the first time cloud.profile
+    // is unset) — so completeness can't be judged by comparing cloud.profile
+    // before vs. after this call, since mutating `profile` above already
+    // mutated cloud.profile too, by reference, before this line even runs.
+    // The one-time `profileCompleteNotified` flag alone is what keeps this
+    // from firing more than once, not a before/after comparison.
     cloud.profile = profile;
     const isComplete = !!(profile.firstName && profile.lastName && profile.username && profile.dob);
-    if(isComplete && !wasComplete && !cloud.profileCompleteNotified){
+    if(isComplete && !cloud.profileCompleteNotified){
       cloud.profileCompleteNotified = true;
       saveCloudField('profileCompleteNotified', true);
       logAppNotification('🎉', 'Profile complete!', "Thanks for filling in your details — Trakka's ready to greet you by name and remember your birthday.");
