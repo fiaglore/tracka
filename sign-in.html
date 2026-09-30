@@ -186,6 +186,10 @@
         <span class="lbl">🐷 Total savings</span>
         <span class="val" id="chip-savings-val">—</span>
       </div>
+      <div class="chip gifts" id="chip-gifts" title="Total set aside for gifts across every month, checked off">
+        <span class="lbl">🎁 Total gifts</span>
+        <span class="val" id="chip-gifts-val">—</span>
+      </div>
     </div>
 
     <div class="overall">
@@ -274,6 +278,7 @@
         <div class="summary-card"><div class="lbl">Expenses paid</div><div class="num coral mono" id="sum-expense">0</div></div>
         <div class="summary-card"><div class="lbl">Surplus / (Shortfall)</div><div class="num gold mono" id="sum-net">0</div></div>
         <div class="summary-card"><div class="lbl">Extra income this month</div><div class="num mono" id="sum-extra">0</div></div>
+        <div class="summary-card"><div class="lbl">Total gifts this month</div><div class="num mono" id="sum-gifts-month" style="color:var(--accent)">0</div></div>
         <div class="summary-card"><div class="lbl">Days left in period</div><div class="num mono" id="sum-days-left" style="color:var(--accent)">—</div><div class="subnote" id="sum-days-left-sub"></div></div>
       </div>
       <div class="summary-row row2">
@@ -341,6 +346,10 @@
       <div class="section-head"><h2>🎁 Gift deductions</h2><div class="head-right"><div class="totals" id="gift-totals"></div><button class="select-btn" id="gift-select-btn" title="Check off all gift deductions for this month">✓ Select all</button><button class="reset-btn" id="gift-reset-btn" title="Uncheck and reset gift deductions for this month">↺ Reset all</button></div></div>
       <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">Money set aside each month toward a future gift. Contributions run for N months leading up to the target month — the goal disappears from the list once its target month arrives, because that's when it's actually bought.</p>
 
+      <div class="goal-list-head">
+        <h3>Gift goals</h3>
+        <button type="button" class="link-btn" id="goal-list-hide-past-toggle" hidden>Hide past</button>
+      </div>
       <div class="goal-list" id="goal-list"></div>
 
       <div class="extra-add">
