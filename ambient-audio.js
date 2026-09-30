@@ -1,7 +1,7 @@
 // ambient-audio.js
 //
 // Weather-matched ambient sound. Whatever weather effect is picked in
-// Settings (rain, snow, autumn, spring, harmattan, tropical rain, sunny)
+// Settings (rain, snow, autumn, spring, summer, thunderstorm, windy, harmattan, tropical rain, sandstorm, sunny)
 // gets a matching soundscape — rain hiss and drips, wind, birdsong,
 // crickets, distant thunder. It replaces the old synthesized music pad.
 //
@@ -172,6 +172,30 @@
       every(s, 0.15, 0.5, function () { drip(s); });
       every(s, 14, 34, function () { thunder(s); });
     },
+    thunderstorm: function (s) {
+      filtered(s, "highpass", 1200, 0.5, false, 0.22);
+      filtered(s, "bandpass", 4200, 0.7, false, 0.12);
+      var low = filtered(s, "lowpass", 450, 0.5, true, 0.18);
+      drift(s, low.gain.gain, 0.18, 0.06, 3, 7);
+      every(s, 0.2, 0.7, function () { drip(s); });
+      every(s, 7, 18, function () { thunder(s); });
+    },
+    windy: function (s) {
+      var wind = filtered(s, "bandpass", 600, 0.7, true, 0.16);
+      drift(s, wind.gain.gain, 0.16, 0.12, 1.5, 4);
+      var high = filtered(s, "bandpass", 1800, 1.0, false, 0.02);
+      drift(s, high.gain.gain, 0.03, 0.025, 1.5, 4);
+      var rustle = filtered(s, "bandpass", 4500, 1.2, false, 0.01);
+      drift(s, rustle.gain.gain, 0.02, 0.018, 1, 3);
+    },
+    sandstorm: function (s) {
+      var wind = filtered(s, "bandpass", 450, 0.6, true, 0.2);
+      drift(s, wind.gain.gain, 0.2, 0.1, 2, 6);
+      var grit = filtered(s, "highpass", 2500, 0.4, false, 0.07);
+      drift(s, grit.gain.gain, 0.07, 0.04, 2, 5);
+      var howl = filtered(s, "bandpass", 900, 4, false, 0.03);
+      drift(s, howl.gain.gain, 0.03, 0.02, 3, 8);
+    },
     snow: function (s) {
       var wind = filtered(s, "lowpass", 380, 0.4, true, 0.07);
       drift(s, wind.gain.gain, 0.07, 0.04, 5, 11);
@@ -194,6 +218,13 @@
       drift(s, wind.gain.gain, 0.15, 0.09, 4, 10);
       var dust = filtered(s, "highpass", 3000, 0.4, false, 0.02);
       drift(s, dust.gain.gain, 0.02, 0.012, 4, 9);
+    },
+    summer: function (s) {
+      var breeze = filtered(s, "lowpass", 500, 0.4, true, 0.03);
+      drift(s, breeze.gain.gain, 0.03, 0.015, 6, 12);
+      chirpCricket(s, 3900, 0.005);
+      chirpCricket(s, 4700, 0.004);
+      every(s, 3, 8, function () { bird(s); });
     },
     sunny: function (s) {
       var breeze = filtered(s, "lowpass", 500, 0.4, true, 0.025);
