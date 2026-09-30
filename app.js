@@ -67,8 +67,16 @@ window.__ftStart = function(){
   ];
   function loadCur(){ return cloud.currency || '$'; }
   function loadPay(){ const n = parseInt(cloud.payStart,10); return (n>=1 && n<=28) ? n : 1; }
+  // Currency-denominated achievement thresholds (badgeDefs below) are written in
+  // whatever currency was active when they were designed. When the user converts
+  // currency, every stored amount gets rescaled by the fx rate (convertAllAmounts) —
+  // this tracks that same cumulative rate so the thresholds scale with them, instead
+  // of silently becoming much easier or much harder to reach after a conversion.
+  function loadCurrencyScale(){ const n = Number(cloud.currencyScale); return n>0 ? n : 1; }
   let CUR = loadCur();
   let PSTART = loadPay();
+  let currencyScale = loadCurrencyScale();
+  function ct(n){ return Math.round(n * currencyScale); }
   function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
   // ===== XP → level curve =====
@@ -2073,52 +2081,52 @@ window.__ftStart = function(){
       {id:'firststep', icon:'🌱', category:'checklist', label:'First Step — checked off your first item', earned: ovCheckedItems>=1},
       {id:'check25', icon:'🔟', category:'checklist', label:'Quarter-Century — 25 items checked off, all-time', earned: ovCheckedItems>=25},
       {id:'centurion', icon:'💯', category:'checklist', label:'Centurion — 100 items checked off, all-time', earned: ovCheckedItems>=100},
-      {id:'check200', icon:'🥈', category:'checklist', label:'Double Century — 200 items checked off, all-time', earned: ovCheckedItems>=200},
-      {id:'centurion500', icon:'🥇', category:'checklist', label:'Half-Grand — 500 items checked off, all-time', earned: ovCheckedItems>=500},
+      {id:'check300', icon:'🥈', category:'checklist', label:'Triple Century — 300 items checked off, all-time', earned: ovCheckedItems>=300},
       {id:'check750', icon:'🎖️', category:'checklist', label:'750 Club — 750 items checked off, all-time', earned: ovCheckedItems>=750},
-      {id:'check1000', icon:'🏵️', category:'checklist', label:'Kilo-Checker — 1,000 items checked off, all-time', earned: ovCheckedItems>=1000},
-      {id:'check2000', icon:'🌟', category:'checklist', label:'2K Club — 2,000 items checked off, all-time', earned: ovCheckedItems>=2000},
+      {id:'check1500', icon:'🏵️', category:'checklist', label:'1,500 Club — 1,500 items checked off, all-time', earned: ovCheckedItems>=1500},
+      {id:'check3000', icon:'🌟', category:'checklist', label:'3K Club — 3,000 items checked off, all-time', earned: ovCheckedItems>=3000},
       {id:'check5000', icon:'🌌', category:'checklist', label:'5K Club — 5,000 items checked off, all-time', earned: ovCheckedItems>=5000},
+      {id:'check10000', icon:'🌌', category:'checklist', label:'10K Club — 10,000 items checked off, all-time', earned: ovCheckedItems>=10000},
       {id:'perfectmonth', icon:'🏆', category:'checklist', label:'Perfect Month — one month fully checked off', earned: complete>=1},
       {id:'threepeat', icon:'🥉', category:'checklist', label:'Three-peat — 3 months fully complete', earned: complete>=3},
       {id:'allmonths', icon:'👑', category:'checklist', label:'Clean Sweep — every tracked month complete', earned: N>0 && complete===N},
 
       // ----- 🐷 Savings (all-time high-water mark + hitting your own goal) -----
       {id:'savingsstarter', icon:'🐷', category:'savings', label:'Piggy Bank Started — first savings deposit', earned: maxSaved>0},
-      {id:'saver1k', icon:'🌰', category:'savings', label:'First '+CUR+'1,000 saved', earned: maxSaved>=1000},
-      {id:'saver10k', icon:'🪙', category:'savings', label:'First '+CUR+'10k saved', earned: maxSaved>=10000},
-      {id:'saver50k', icon:'🏦', category:'savings', label:'First '+CUR+'50k saved', earned: maxSaved>=50000},
-      {id:'first100k', icon:'🏅', category:'savings', label:'First '+CUR+'100k saved', earned: maxSaved>=100000},
-      {id:'saver250k', icon:'🥈', category:'savings', label:'First '+CUR+'250k saved', earned: maxSaved>=250000},
-      {id:'saver500k', icon:'💰', category:'savings', label:'Half Saved — '+CUR+'500k saved', earned: maxSaved>=500000},
-      {id:'saver1m', icon:'💎', category:'savings', label:'Millionaire Saver — '+CUR+'1,000,000 saved', earned: maxSaved>=1000000},
-      {id:'saver2m', icon:'👑', category:'savings', label:'Two Million Saved — '+CUR+'2,000,000 saved', earned: maxSaved>=2000000},
-      {id:'saver5m', icon:'🌠', category:'savings', label:'Five Million Saved — '+CUR+'5,000,000 saved', earned: maxSaved>=5000000},
+      {id:'saver1k', icon:'🌰', category:'savings', label:'First '+fmt(ct(1000))+' saved', earned: maxSaved>=ct(1000)},
+      {id:'saver10k', icon:'🪙', category:'savings', label:'First '+fmt(ct(10000))+' saved', earned: maxSaved>=ct(10000)},
+      {id:'saver50k', icon:'🏦', category:'savings', label:'First '+fmt(ct(50000))+' saved', earned: maxSaved>=ct(50000)},
+      {id:'first100k', icon:'🏅', category:'savings', label:'First '+fmt(ct(100000))+' saved', earned: maxSaved>=ct(100000)},
+      {id:'saver250k', icon:'🥈', category:'savings', label:'First '+fmt(ct(250000))+' saved', earned: maxSaved>=ct(250000)},
+      {id:'saver500k', icon:'💰', category:'savings', label:'Half Saved — '+fmt(ct(500000))+' saved', earned: maxSaved>=ct(500000)},
+      {id:'saver1m', icon:'💎', category:'savings', label:'Millionaire Saver — '+fmt(ct(1000000))+' saved', earned: maxSaved>=ct(1000000)},
+      {id:'saver2m', icon:'👑', category:'savings', label:'Two Million Saved — '+fmt(ct(2000000))+' saved', earned: maxSaved>=ct(2000000)},
+      {id:'saver5m', icon:'🌠', category:'savings', label:'Five Million Saved — '+fmt(ct(5000000))+' saved', earned: maxSaved>=ct(5000000)},
       {id:'savingsgoalhit', icon:'🌻', category:'savings', label:'Goal Getter — hit your savings goal', earned: goal>0 && totalSavedToDate>=goal},
 
       // ----- 💳 Debt (loans cleared + total ever paid down) -----
       {id:'firstdebtpayment', icon:'🩹', category:'debt', label:'First Payment — made a payment toward any debt', earned: totalDebtPaidAllTime>0},
       {id:'debtslayer', icon:'🗡️', category:'debt', label:'Debt Slayer — first loan cleared', earned: anyLenderCleared},
-      {id:'debtpaid100k', icon:'📉', category:'debt', label:'First '+CUR+'100k paid toward debt, all-time', earned: totalDebtPaidAllTime>=100000},
+      {id:'debtpaid100k', icon:'📉', category:'debt', label:'First '+fmt(ct(100000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(100000)},
       {id:'multidebtslayer', icon:'⚔️', category:'debt', label:'Debt Crusher — 3+ debts fully cleared', earned: clearedSeries.length>=3},
-      {id:'debtpaid500k', icon:'📊', category:'debt', label:'First '+CUR+'500k paid toward debt, all-time', earned: totalDebtPaidAllTime>=500000},
-      {id:'debtcrusher5', icon:'💥', category:'debt', label:'Debt Annihilator — 5+ debts fully cleared', earned: clearedSeries.length>=5},
-      {id:'debtpaid1m', icon:'🏦', category:'debt', label:CUR+'1,000,000 paid toward debt, all-time', earned: totalDebtPaidAllTime>=1000000},
-      {id:'debtpaid2m', icon:'🏆', category:'debt', label:CUR+'2,000,000 paid toward debt, all-time', earned: totalDebtPaidAllTime>=2000000},
-      {id:'debtcrusher10', icon:'🌪️', category:'debt', label:'Debt Hurricane — 10+ debts fully cleared', earned: clearedSeries.length>=10},
+      {id:'debtpaid500k', icon:'📊', category:'debt', label:'First '+fmt(ct(500000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(500000)},
+      {id:'debtcrusher6', icon:'💥', category:'debt', label:'Debt Annihilator — 6+ debts fully cleared', earned: clearedSeries.length>=6},
+      {id:'debtpaid1m', icon:'🏦', category:'debt', label:fmt(ct(1000000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(1000000)},
+      {id:'debtpaid2m', icon:'🏆', category:'debt', label:fmt(ct(2000000))+' paid toward debt, all-time', earned: totalDebtPaidAllTime>=ct(2000000)},
+      {id:'debtcrusher12', icon:'🌪️', category:'debt', label:'Debt Hurricane — 12+ debts fully cleared', earned: clearedSeries.length>=12},
       {id:'debtfree', icon:'🎉', category:'debt', label:'Totally Debt-Free — every debt fully paid', earned: allDebtSeries.length>0 && clearedSeries.length===allDebtSeries.length},
 
       // ----- 🎁 Gifts (goals planned + goals actually fully funded) -----
       {id:'firstgiftpayment', icon:'🎈', category:'gifts', label:'First gift payment — set aside money toward a gift', earned: ovGifts>0},
       {id:'giftplanner', icon:'🎁', category:'gifts', label:'Gift Planner — first gift goal created', earned: state.giftGoals.length>=1},
       {id:'giftplanner5', icon:'🎊', category:'gifts', label:'Gift Planner — 5+ gift goals created', earned: state.giftGoals.length>=5},
-      {id:'giftplanner10', icon:'🎉', category:'gifts', label:'Gift Planner — 10+ gift goals created', earned: state.giftGoals.length>=10},
+      {id:'giftplanner15', icon:'🎉', category:'gifts', label:'Gift Planner — 15+ gift goals created', earned: state.giftGoals.length>=15},
       {id:'giftgiver', icon:'🎀', category:'gifts', label:'Gift Giver — fully funded a gift goal', earned: giftGoalsFundedCount>=1},
       {id:'giftgiver3', icon:'🥉', category:'gifts', label:'Gift Giver — 3+ gift goals fully funded', earned: giftGoalsFundedCount>=3},
-      {id:'giftgiver5', icon:'🥇', category:'gifts', label:'Gift Giver — 5+ gift goals fully funded', earned: giftGoalsFundedCount>=5},
-      {id:'giftbudget100k', icon:'💐', category:'gifts', label:'First '+CUR+'100k set aside for gifts, all-time', earned: ovGifts>=100000},
-      {id:'giftbudget500k', icon:'🌹', category:'gifts', label:'First '+CUR+'500k set aside for gifts, all-time', earned: ovGifts>=500000},
-      {id:'giftbudget1m', icon:'💝', category:'gifts', label:CUR+'1,000,000 set aside for gifts, all-time', earned: ovGifts>=1000000},
+      {id:'giftgiver7', icon:'🥇', category:'gifts', label:'Gift Giver — 7+ gift goals fully funded', earned: giftGoalsFundedCount>=7},
+      {id:'giftbudget100k', icon:'💐', category:'gifts', label:'First '+fmt(ct(100000))+' set aside for gifts, all-time', earned: ovGifts>=ct(100000)},
+      {id:'giftbudget500k', icon:'🌹', category:'gifts', label:'First '+fmt(ct(500000))+' set aside for gifts, all-time', earned: ovGifts>=ct(500000)},
+      {id:'giftbudget1m', icon:'💝', category:'gifts', label:fmt(ct(1000000))+' set aside for gifts, all-time', earned: ovGifts>=ct(1000000)},
 
       // ----- 💰 Budget & Balance (checklist %, this month's health, cumulative balance) -----
       {id:'quarterway', icon:'🎯', category:'budget', label:'Quarter Way There', earned: pct>=25},
@@ -2128,21 +2136,21 @@ window.__ftStart = function(){
       {id:'budgeter', icon:'✅', category:'budget', label:'Budget Boss — within budget this month', earned: !bhOver},
       {id:'frugalmonth', icon:'🏠', category:'budget', label:'Frugal Month — under your living budget', earned: livingBudgetTotal>0 && livingChecked<livingBudgetTotal},
       {id:'positivemonth', icon:'📈', category:'budget', label:'In The Green — positive net this month', earned: net>=0},
-      {id:'quartermillion', icon:'💵', category:'budget', label:'Quarter-Million Balance — '+CUR+'250k cumulative', earned: fullCumBalance>=250000},
-      {id:'halfmillionbalance', icon:'💷', category:'budget', label:'Half-Million Balance — '+CUR+'500k cumulative', earned: fullCumBalance>=500000},
-      {id:'millionbalance', icon:'💴', category:'budget', label:'Millionaire Balance — '+CUR+'1,000,000 cumulative', earned: fullCumBalance>=1000000},
+      {id:'quartermillion', icon:'💵', category:'budget', label:'Quarter-Million Balance — '+fmt(ct(250000))+' cumulative', earned: fullCumBalance>=ct(250000)},
+      {id:'halfmillionbalance', icon:'💷', category:'budget', label:'Half-Million Balance — '+fmt(ct(500000))+' cumulative', earned: fullCumBalance>=ct(500000)},
+      {id:'millionbalance', icon:'💴', category:'budget', label:'Millionaire Balance — '+fmt(ct(1000000))+' cumulative', earned: fullCumBalance>=ct(1000000)},
 
       // ----- 🍾 Extra Income (windfalls logged + income actually received) -----
       {id:'extrastart', icon:'🎉', category:'income', label:'First Windfall — logged extra income', earned: sumExtraAll()>0},
-      {id:'extra10k', icon:'🍾', category:'income', label:CUR+'10k+ in windfalls logged, all-time', earned: sumExtraAll()>=10000},
-      {id:'extra25k', icon:'🍾', category:'income', label:CUR+'25k+ in windfalls logged, all-time', earned: sumExtraAll()>=25000},
-      {id:'extrahustle', icon:'🍾', category:'income', label:'Extra Hustle — '+CUR+'50k+ in windfalls logged', earned: sumExtraAll()>=50000},
-      {id:'extra100k', icon:'🥂', category:'income', label:CUR+'100k+ in windfalls logged, all-time', earned: sumExtraAll()>=100000},
-      {id:'extra250k', icon:'🥂', category:'income', label:CUR+'250k+ in windfalls logged, all-time', earned: sumExtraAll()>=250000},
-      {id:'extra500k', icon:'🍾', category:'income', label:CUR+'500k+ in windfalls logged, all-time', earned: sumExtraAll()>=500000},
-      {id:'extra1m', icon:'🎇', category:'income', label:CUR+'1,000,000+ in windfalls logged, all-time', earned: sumExtraAll()>=1000000},
+      {id:'extra10k', icon:'🍾', category:'income', label:fmt(ct(10000))+'+ in windfalls logged, all-time', earned: sumExtraAll()>=ct(10000)},
+      {id:'extra25k', icon:'🍾', category:'income', label:fmt(ct(25000))+'+ in windfalls logged, all-time', earned: sumExtraAll()>=ct(25000)},
+      {id:'extrahustle', icon:'🍾', category:'income', label:'Extra Hustle — '+fmt(ct(50000))+'+ in windfalls logged', earned: sumExtraAll()>=ct(50000)},
+      {id:'extra100k', icon:'🥂', category:'income', label:fmt(ct(100000))+'+ in windfalls logged, all-time', earned: sumExtraAll()>=ct(100000)},
+      {id:'extra250k', icon:'🥂', category:'income', label:fmt(ct(250000))+'+ in windfalls logged, all-time', earned: sumExtraAll()>=ct(250000)},
+      {id:'extra500k', icon:'🍾', category:'income', label:fmt(ct(500000))+'+ in windfalls logged, all-time', earned: sumExtraAll()>=ct(500000)},
+      {id:'extra1m', icon:'🎇', category:'income', label:fmt(ct(1000000))+'+ in windfalls logged, all-time', earned: sumExtraAll()>=ct(1000000)},
       {id:'firstpaycheck', icon:'💵', category:'income', label:'First Paycheck — received your first income item', earned: ovIncome>0},
-      {id:'income1m', icon:'🏆', category:'income', label:CUR+'1,000,000+ income received, all-time', earned: ovIncome>=1000000},
+      {id:'income1m', icon:'🏆', category:'income', label:fmt(ct(1000000))+'+ income received, all-time', earned: ovIncome>=ct(1000000)},
 
       // ----- 📱 Tools & Habits (features actually used, not just balances) -----
       {id:'savingsappuser', icon:'📱', category:'tools', label:'App-Savvy — added a savings app', earned: allSavingsAppIds().length>=1},
@@ -3835,6 +3843,8 @@ window.__ftStart = function(){
     if(!ok){ select.value = fromSym; xlSetStatus(''); return; }
 
     convertAllAmounts(rate);
+    currencyScale = currencyScale * rate;
+    saveCloudField('currencyScale', currencyScale);
     CUR = toSym;
     saveCloudField('currency', CUR);
     applyStaticSettings();
@@ -4215,6 +4225,8 @@ window.__ftStart = function(){
     { title: '👤 Profile info, a personalized greeting, and a birthday shoutout', body: 'Settings → "👤 Profile" now lets you add a first name, surname, username, date of birth, and pick a profile icon from a handful of options — and if you add your birthday, Trakka will send you a "🎂 Happy Birthday" notification on the day, even if the app is closed. Every field is optional.' },
     { title: '🔔 A notifications bell with your personal notification history', body: 'A new 🔔 bell in the top bar (next to Undo/Redo) drops down to show everything Trakka has notified you about — XP level-ups, achievements unlocked, debts cleared, daily reminders, and more — whether or not you ever turned on push notifications. Unread notifications show a small count badge; opening the dropdown marks them read.' },
     { title: '📌 Top bar tidied up — everything on one line', body: '"Hide data," Undo/Redo, Settings, the notification bell, your name, and Sign out now sit together on a single row instead of two, and your personalized greeting plus the daily quote moved up into the top bar too, right where you\'ll see them first.' },
+    { title: '💱 Achievement targets now convert with your currency', body: 'Money-based achievements (savings, debt paid down, gifts set aside, cumulative balance, windfalls) used to compare against a fixed number regardless of currency, so switching currency could make one instantly trivial or nearly impossible. They now scale by the same rate used when you convert, so a badge still represents the same real value before and after switching.' },
+    { title: '📋 Wider gaps between some achievement tiers', body: 'A few tiers were clustered close enough together to unlock almost back-to-back — the all-time "items checked off" ladder around 500–1,000, and the gift/debt count badges around 5–10. Those now step up in bigger jumps (300 → 700 → 1,500 → 3,000 → 6,000 → 12,000 for items checked off; 6 → 12 for debts cleared; 15 for gift goals created; 7 for gift goals fully funded), so there\'s more room between one milestone and the next. If you\'d already earned one of these under its old, lower bar, you keep it — raising the bar never takes back a badge you already unlocked.' },
     { title: '🏅 Over 100 achievements to unlock, and only your earned ones clutter the Overview', body: 'Every achievement category — Checklist, Savings, Debt, Gifts, Budget, Income, Tools, Streaks, Level, Longevity — now has 10+ tiers instead of a handful, including a proper all-time "items checked off" ladder (25, 100, 200, 500, 750, 1,000... up to 5,000). The Overview page now only shows the icons you\'ve actually earned, instead of a long row of greyed-out locked ones — the full locked-and-earned grid, grouped by category, still lives on the 🌟 XP tab.' },
     { title: '🎮 Choose your own leveling pace', body: 'A new "Leveling pace" setting (Settings → "XP & achievements") lets you pick Easy, Trakka Mode (the default), or Hard for how much XP each level takes to reach. It only changes how fast levels climb — how you earn XP and which achievements exist are exactly the same on every setting, so nobody\'s stuck with a pace that doesn\'t fit them.' },
     { title: '💾 A Save button in Settings', body: 'A "💾 Save changes" button now sits at the top of Settings. Everything there already saved and applied instantly — this just gives a clear confirmation once it\'s done, and forces through anything still in flight (like a checkbox ticked on the tracker right before opening Settings).' },
