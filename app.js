@@ -4302,6 +4302,7 @@ window.__ftStart = function(){
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
     { title: '🎂 Birthday shoutouts now also fire the moment you open the app', body: 'Add a date of birth in Settings → Profile, and Trakka now wishes you a happy birthday instantly the moment you open the app on the day — no need to have push notifications turned on first. The closed-app push version (for when you\'re not in the app) still needs push notifications enabled from the 🔔 button in Settings, same as before; this is in addition to that, not instead of it.' },
+    { title: '🌻 Temperate & Tropical weather, plus a Summer effect', body: 'The weather pickers in Settings are now simply "Temperate weather" (snow, autumn leaves, rain, spring blossom, and the new 🌻 Summer fireflies) and "Tropical weather" (harmattan haze, tropical rain, sunny). Summer comes with its own drifting-firefly look and matching weather sounds — cicadas, birdsong, and a warm breeze.' },
     { title: '🔊 Weather sounds and sound effects', body: 'The background music is gone, replaced by ambient sound that matches your weather effect — rain and drips, distant thunder in tropical rain, wind for snow, autumn and harmattan, birdsong in spring, and birds and crickets when it\'s sunny. Turn it on from Settings → "Weather sounds". There are also new sound effects: a soft pop when you untick something, and a celebratory "good job" fanfare whenever you unlock an achievement or clear a debt. Sound effects are on by default and can be switched off in Settings → "Sound effects".' },
     { title: '✨ Older updates tucked away in What\'s New', body: 'This tab now only shows the 10 most recent updates by default, so it stays quick to skim. A "Show older updates" button at the bottom reveals the rest whenever you want them — nothing is ever deleted, and "Hide older updates" tucks them away again.' },
     { title: '🔔 Keep or delete notifications from the bell dropdown', body: 'The 🔔 notification history now automatically keeps just your 6 most recent notifications, clearing older ones out of the way. Want to hold onto one longer? Tap 📍 to pin it — pinned notifications never get auto-cleared, however many new ones arrive. Tap 🗑️ on any notification to delete it outright.' },
@@ -5187,8 +5188,8 @@ window.__ftStart = function(){
 
    Two option groups share one underlying setting (`weatherEffect` on the
    user doc) — only one effect is ever active at a time — split visually
-   into "Weather effect" (snow/autumn/rain/spring) and "Nigerian /
-   Tropical weather" (harmattan/tropical rain/sunny) purely because that's
+   into "Temperate weather" (snow/autumn/rain/spring/summer) and "Tropical
+   weather" (harmattan/tropical rain/sunny) purely because that's
    how the Settings page presents the choice, not because they're two
    separate settings.
    ================================================================ */
@@ -5199,13 +5200,14 @@ window.__ftStart = function(){
     { id:'autumn',       name:'Autumn leaves',    icon:'🍂', group:'season' },
     { id:'rain',         name:'Rain',             icon:'🌧️', group:'season' },
     { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season' },
+    { id:'summer',       name:'Summer fireflies', icon:'🌻', group:'season' },
     { id:'harmattan',    name:'Harmattan haze',   icon:'🌫️', group:'tropical' },
     { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical' },
     { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' }
   ];
   var AUTUMN_COLORS = ['#C1592F', '#D98E2B', '#B8860B', '#8B3A1F', '#C6752F'];
   var SPRING_COLORS = ['#F5C6D6', '#FBEAF0', '#E8A9C0', '#FFFFFF', '#F0D9E4'];
-  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, harmattan:90, sunny:32 };
+  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, summer:45, harmattan:90, sunny:32 };
 
   function loadWeatherEffect(){
     var cloud = window.__ftCloudData;
@@ -5264,6 +5266,11 @@ window.__ftStart = function(){
         x:Math.random()*w, y:Math.random()*h, r:0.6+Math.random()*1.6,
         vx:0.15+Math.random()*0.35, vy:(Math.random()-0.5)*0.08,
         alpha:0.12+Math.random()*0.22
+      };
+      case 'summer': return {
+        x:Math.random()*w, y:Math.random()*h, r:1.4+Math.random()*1.8,
+        vx:(Math.random()-0.5)*0.35, vy:(Math.random()-0.5)*0.25,
+        alpha:0.3, twinkle:Math.random()*Math.PI*2, twinkleSpeed:0.02+Math.random()*0.03
       };
       case 'sunny': return {
         x:Math.random()*w, y:h+Math.random()*40, r:1+Math.random()*1.8,
@@ -5328,6 +5335,13 @@ window.__ftStart = function(){
           p.x += p.vx; p.y += p.vy;
           if(p.x > w+5){ p.x=-5; p.y=Math.random()*h; }
           drawDot(p, '#C9B183');
+          break;
+        case 'summer':
+          p.twinkle += p.twinkleSpeed; p.x += p.vx + Math.sin(p.twinkle*0.7)*0.15; p.y += p.vy;
+          p.alpha = 0.1 + 0.6*Math.max(0, Math.sin(p.twinkle));
+          if(p.x < -5) p.x = w+5; else if(p.x > w+5) p.x = -5;
+          if(p.y < -5) p.y = h+5; else if(p.y > h+5) p.y = -5;
+          drawDot(p, '#FFE27A');
           break;
         case 'sunny':
           p.twinkle += 0.05; p.x += p.vx; p.y += p.vy;

@@ -1,7 +1,7 @@
 // ambient-audio.js
 //
 // Weather-matched ambient sound. Whatever weather effect is picked in
-// Settings (rain, snow, autumn, spring, harmattan, tropical rain, sunny)
+// Settings (rain, snow, autumn, spring, summer, harmattan, tropical rain, sunny)
 // gets a matching soundscape — rain hiss and drips, wind, birdsong,
 // crickets, distant thunder. It replaces the old synthesized music pad.
 //
@@ -194,6 +194,13 @@
       drift(s, wind.gain.gain, 0.15, 0.09, 4, 10);
       var dust = filtered(s, "highpass", 3000, 0.4, false, 0.02);
       drift(s, dust.gain.gain, 0.02, 0.012, 4, 9);
+    },
+    summer: function (s) {
+      var breeze = filtered(s, "lowpass", 500, 0.4, true, 0.03);
+      drift(s, breeze.gain.gain, 0.03, 0.015, 6, 12);
+      chirpCricket(s, 3900, 0.005);
+      chirpCricket(s, 4700, 0.004);
+      every(s, 3, 8, function () { bird(s); });
     },
     sunny: function (s) {
       var breeze = filtered(s, "lowpass", 500, 0.4, true, 0.025);
