@@ -23,5 +23,11 @@
   },
   "assets": {
     "directory": "."
-  }
+  },
+  "routes": [
+    {
+      "pattern": "www.trakka.com.ng",
+      "custom_domain": true
+    }
+  ]
 }
