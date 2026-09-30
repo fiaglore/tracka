@@ -17,7 +17,7 @@
 // spelled. Fill in NEW_ORIGIN once the Cloudflare project/domain exists;
 // leave it blank and this file does nothing at all.
 (function () {
-  var NEW_ORIGIN = ""; // e.g. "https://tracka.pages.dev" or "https://app.trakka.com.ng" — no trailing slash
+  var NEW_ORIGIN = "https://www.trakka.com.ng"; // Cloudflare-connected custom domain
 
   if (!NEW_ORIGIN || location.origin === NEW_ORIGIN) return;
 
