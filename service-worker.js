@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v76";
+const CACHE_VERSION = "tracka-shell-v77";
 
 const SHELL_FILES = [
   "./",
@@ -24,6 +24,7 @@ const SHELL_FILES = [
   "./pwa.js",
   "./app-entry.js",
   "./auto-logout.js",
+  "./transition-banner.js",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
@@ -31,9 +32,37 @@ const SHELL_FILES = [
   "./apple-touch-icon.png"
 ];
 
+// A host that serves *.html at a "pretty" extensionless URL (Cloudflare
+// Pages does this by default: a request for ./sign-in.html gets a 308 to
+// ./sign-in) hands fetch() back a Response with .redirected === true.
+// Chrome refuses to use a redirected Response to satisfy a *navigation*,
+// so a precached or cache.put'd redirected entry silently breaks offline
+// loads and the navigate handler's offline fallback below. Re-wrapping the
+// body in a fresh, non-redirected Response before it ever reaches
+// cache.put fixes this at the one place it needs fixing, rather than at
+// every call site. A response that was never redirected passes through
+// untouched.
+async function cleanResponse(res) {
+  if (!res || !res.redirected) return res;
+  const body = await res.blob();
+  return new Response(body, {
+    headers: res.headers,
+    status: res.status,
+    statusText: res.statusText
+  });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(SHELL_FILES))
+    caches.open(CACHE_VERSION).then((cache) =>
+      Promise.all(
+        SHELL_FILES.map((url) =>
+          fetch(url)
+            .then(cleanResponse)
+            .then((res) => cache.put(url, res))
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -72,8 +101,9 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+          cleanResponse(res.clone()).then((clean) =>
+            caches.open(CACHE_VERSION).then((cache) => cache.put(req, clean))
+          );
           return res;
         })
         .catch(() =>
@@ -95,8 +125,9 @@ self.addEventListener("fetch", (event) => {
       fetch(req)
         .then((res) => {
           if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+            cleanResponse(res.clone()).then((clean) =>
+              caches.open(CACHE_VERSION).then((cache) => cache.put(req, clean))
+            );
           }
           return res;
         })
@@ -114,8 +145,9 @@ self.addEventListener("fetch", (event) => {
       const network = fetch(req)
         .then((res) => {
           if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+            cleanResponse(res.clone()).then((clean) =>
+              caches.open(CACHE_VERSION).then((cache) => cache.put(req, clean))
+            );
           }
           return res;
         })
@@ -130,7 +162,7 @@ self.addEventListener("fetch", (event) => {
 // the one piece of the notification system that genuinely can't run as
 // plain page JS, since nothing is executing to receive it otherwise. The
 // actual decision of WHEN to send lives entirely outside this file, in the
-// scheduled GitHub Actions job (scripts/send-notifications.mjs) that calls
+// scheduled GitHub Actions job (notifications/scripts/send-notifications.mjs) that calls
 // the Web Push protocol directly — this handler just displays whatever
 // payload it's handed. See subscribeToPush() in firebase-init.js for how a
 // device registers to receive these in the first place.

@@ -85,7 +85,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Public half of the VAPID key pair used for Web Push (see
-// scripts/send-notifications.mjs, which holds the matching private half as
+// notifications/scripts/send-notifications.mjs, which holds the matching private half as
 // a GitHub Actions secret — never put the private key anywhere in this
 // repo). Public keys are safe to ship in client code, same trust level as
 // the Firebase apiKey above.
@@ -313,7 +313,7 @@ window.Trakka = {
     try { localStorage.removeItem(PIN_LOCAL_KEY); } catch (e) {}
   },
 
-  // ----- push notifications (see scripts/send-notifications.mjs — the
+  // ----- push notifications (see notifications/scripts/send-notifications.mjs — the
   // GitHub Actions job that actually decides when to send, since a Web Push
   // message received while the app is fully closed has to come from
   // somewhere other than app.js) -----

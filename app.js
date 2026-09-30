@@ -2474,7 +2474,7 @@ window.__ftStart = function(){
     }
 
     // ===== Gamification: birthday shoutout (client-side) =====
-    // Mirrors the same check in scripts/send-notifications.mjs, but this
+    // Mirrors the same check in notifications/scripts/send-notifications.mjs, but this
     // one fires instantly for anyone who simply opens the app on the day —
     // it doesn't need push notification permission at all, since
     // showAppNotification() always logs to the in-app 🔔 bell regardless.
@@ -4983,7 +4983,7 @@ window.__ftStart = function(){
   // notice you've gone quiet on a day you never open the app at all. The
   // same reminder (plus level-up/achievement/debt-cleared) also arrives
   // while the app is fully closed via Web Push, sent by the scheduled
-  // GitHub Actions job in scripts/send-notifications.mjs once this device
+  // GitHub Actions job in notifications/scripts/send-notifications.mjs once this device
   // has subscribed (see subscribeToPush() below and in firebase-init.js).
   // The on/off preference syncs per-account like the rest of Settings;
   // "already reminded today" (this client-side copy only) is device-local
@@ -5059,7 +5059,7 @@ window.__ftStart = function(){
         maybeShowReminder();
         // Also register for push, so the reminder (and level-up/debt-cleared
         // notifications) still arrive once this tab is fully closed — see
-        // scripts/send-notifications.mjs for the scheduled job that sends
+        // notifications/scripts/send-notifications.mjs for the scheduled job that sends
         // them. Same "never block the existing toggle" reasoning as above.
         if(window.Trakka && window.Trakka.subscribeToPush && window.__ftUid){
           window.Trakka.subscribeToPush(window.__ftUid).catch(function(e){ console.warn('Push subscribe failed:', e); });

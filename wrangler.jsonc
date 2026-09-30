@@ -1,0 +1,27 @@
+// wrangler.jsonc
+//
+// Committed on purpose. Without this, `npx wrangler deploy` runs its
+// interactive "no wrangler config found" setup wizard on every single
+// build, non-interactively falling back to auto-answers — including
+// re-scaffolding this same file fresh each time, at whatever wrangler
+// version happens to resolve that day. Committing it once makes the
+// build deterministic and skips that whole step.
+//
+// assets.directory is "." (the repo root) because Trakka is served
+// straight from its own root with no separate dist/public folder —
+// see .assetsignore for what's excluded from that (node_modules,
+// notifications/, etc.), which is what actually matters here: without
+// it, whatever node_modules gets installed during the build (including
+// wrangler's own ~128 MiB workerd binary) gets swept up as a deployable
+// asset and exceeds the 25 MiB per-asset limit.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tracka",
+  "compatibility_date": "2026-09-26",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "."
+  }
+}
