@@ -59,6 +59,20 @@ window.__ftStart = function(){
     window.Trakka.saveUserDoc(window.__ftUid, patch).catch(function(e){ console.error('Save failed:', e); });
   }
 
+  // ===== Feature gating seam =====
+  // Every feature that might one day move behind the Premium subscription (see the Google Play
+  // Billing PR: entitlements/{uid}.premium, read here as cloud.entitlements) is routed through
+  // this one check instead of being wired up directly, even while it's free for everyone. Moving
+  // a feature behind the paywall later is then a one-line change here — add its key to
+  // PREMIUM_FEATURE_KEYS below — rather than hunting down every place it's used. Nothing in
+  // PREMIUM_FEATURE_KEYS today, so isFeatureUnlocked() always returns true; once billing lands,
+  // a key added there starts checking cloud.entitlements.premium instead.
+  const PREMIUM_FEATURE_KEYS = [];
+  function isFeatureUnlocked(key){
+    if(!PREMIUM_FEATURE_KEYS.includes(key)) return true;
+    return !!(cloud.entitlements && cloud.entitlements.premium);
+  }
+
   // ===== Display settings (currency + the day each month starts) =====
   const CURRENCIES = [
     {sym:'$',code:'USD'},{sym:'£',code:'GBP'},{sym:'€',code:'EUR'},{sym:'₦',code:'NGN'},{sym:'GH₵',code:'GHS'},
@@ -368,6 +382,19 @@ window.__ftStart = function(){
     if(day>=1 && day<=28) state.monthStartOverrides[key] = day;
     else delete state.monthStartOverrides[key];
   }
+  // A month you never actually logged (traveled, forgot, nothing to track) shouldn't drag
+  // "this month vs last month" toward a false 100% drop, or sit in the picker looking
+  // identical to a month you just haven't gotten around to yet ("empty"). Keyed the same way
+  // as monthStartOverrides — by label+yearTag, not index — so it stays attached to the right
+  // month even as the tracked range grows.
+  function isMonthSkipped(mi){
+    return !!state.skippedMonths[monthOverrideKey(monthLabels[mi], yearTags[mi])];
+  }
+  function setMonthSkipped(mi, skipped){
+    const key = monthOverrideKey(monthLabels[mi], yearTags[mi]);
+    if(skipped) state.skippedMonths[key] = true;
+    else delete state.skippedMonths[key];
+  }
   function periodBounds(mi){
     const y = fullYear(yearTags[mi]);
     const mNum = monthNumMap[monthLabels[mi]];
@@ -540,24 +567,30 @@ window.__ftStart = function(){
   function renderMonthComparison(){
     const body = document.getElementById('mvl-body');
     if(!body) return;
-    if(activeMonth===0){
-      body.innerHTML = '<div class="mvl-empty">This is your first tracked month — comparisons start next month.</div>';
+    // Compares against the nearest earlier month that wasn't marked "not tracked" — a skipped
+    // month has nothing logged, so comparing against it literally would read as a fake 100% drop.
+    const prevIdx = prevUnskippedMonth(activeMonth);
+    if(prevIdx===-1){
+      body.innerHTML = '<div class="mvl-empty">'+(activeMonth===0
+        ? 'This is your first tracked month — comparisons start next month.'
+        : 'No earlier tracked month to compare against yet.')+'</div>';
       return;
     }
-    const cur = state.months[activeMonth], prev = state.months[activeMonth-1];
+    const cur = state.months[activeMonth], prev = state.months[prevIdx];
     const incomeThis = sumChecked(cur.income) + sumExtraForMonth(activeMonth);
-    const incomeLast = sumChecked(prev.income) + sumExtraForMonth(activeMonth-1);
+    const incomeLast = sumChecked(prev.income) + sumExtraForMonth(prevIdx);
     const debtThis = sumChecked(cur.debts);
     const debtLast = sumChecked(prev.debts);
+    const vsLabel = prevIdx===activeMonth-1 ? 'last month' : (monthLabels[prevIdx]+' '+yearTags[prevIdx]);
     body.innerHTML = `
       <div class="mvl-row">
         <div class="mvl-label">Income</div>
-        <div class="mvl-nums"><b>${fmt(incomeThis)}</b> vs ${fmt(incomeLast)} last month</div>
+        <div class="mvl-nums"><b>${fmt(incomeThis)}</b> vs ${fmt(incomeLast)} ${vsLabel}</div>
         ${pctBadgeHtml(incomeThis, incomeLast)}
       </div>
       <div class="mvl-row">
         <div class="mvl-label">Debt paid</div>
-        <div class="mvl-nums"><b>${fmt(debtThis)}</b> vs ${fmt(debtLast)} last month</div>
+        <div class="mvl-nums"><b>${fmt(debtThis)}</b> vs ${fmt(debtLast)} ${vsLabel}</div>
         ${pctBadgeHtml(debtThis, debtLast)}
       </div>
     `;
@@ -643,7 +676,8 @@ window.__ftStart = function(){
     const months = [];
     for(let i=0;i<N;i++) months.push(buildDefaultMonth(i));
     return {months, extra:[], giftGoals: [], giftProgress: {}, savings: [], savingsGoal: 0,
-      livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {}};
+      livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {},
+      skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {}};
   }
 
   function mergeItems(defaultItems, savedItems){
@@ -704,6 +738,10 @@ window.__ftStart = function(){
         livingEntries: Array.isArray(saved.livingEntries) ? saved.livingEntries : [],
         livingBudgetOverrides: (saved.livingBudgetOverrides && typeof saved.livingBudgetOverrides === 'object') ? saved.livingBudgetOverrides : {},
         monthStartOverrides: (saved.monthStartOverrides && typeof saved.monthStartOverrides === 'object') ? saved.monthStartOverrides : {},
+        skippedMonths: (saved.skippedMonths && typeof saved.skippedMonths === 'object') ? saved.skippedMonths : {},
+        ongoingSeries: (saved.ongoingSeries && typeof saved.ongoingSeries === 'object') ? saved.ongoingSeries : {},
+        assets: Array.isArray(saved.assets) ? saved.assets : [],
+        accountCurrency: (saved.accountCurrency && typeof saved.accountCurrency === 'object') ? saved.accountCurrency : {},
       };
     }catch(e){ return defaults; }
   }
@@ -1266,6 +1304,120 @@ window.__ftStart = function(){
     return allSavingsAppIds().reduce((s,id)=>s+appBalanceUpTo(id, mi), 0);
   }
 
+  // ===== Multi-currency savings accounts (premium) =====
+  // Scoped deliberately small: a savings account can be tagged with a currency other than the
+  // tracker's primary one, plus a manual conversion rate (how many units of the PRIMARY currency
+  // one unit of the account's currency is worth) — set by the user, not fetched live, so it never
+  // depends on network access and never silently drifts. Income, debts and living expenses stay
+  // in the primary currency throughout; only savings-account balances can hold a second currency,
+  // converted at display time for the combined/net-worth totals. Everywhere else in the app
+  // (appBalanceUpTo, totalAppsBalanceUpTo, cumulativeSavingsUpTo) keeps reading the raw, un-
+  // converted amount, so existing math is untouched — conversion only happens in the functions
+  // below that explicitly ask for it.
+  function getAccountCurrency(key){
+    const rec = state.accountCurrency[key];
+    return (rec && rec.code) ? {code:rec.code, rate:Number(rec.rate)>0 ? Number(rec.rate) : 1} : {code: currencyCode(), rate:1};
+  }
+  function setAccountCurrency(key, code, rate){
+    if(!code || code===currencyCode()){ delete state.accountCurrency[key]; return; }
+    state.accountCurrency[key] = {code, rate: Number(rate)>0 ? Number(rate) : 1};
+  }
+  function convertedAppBalanceUpTo(key, mi){
+    const {rate} = getAccountCurrency(key);
+    return appBalanceUpTo(key, mi) * rate;
+  }
+  function totalAppsBalanceUpToConverted(mi){
+    return allSavingsAppIds().reduce((s,id)=>s+convertedAppBalanceUpTo(id, mi), 0);
+  }
+
+  // ===== Net worth (premium) =====
+  // Cumulative balance (income minus debts/living/gifts) plus every savings account (converted to
+  // the primary currency) minus whatever's still outstanding on debts, plus any manually-added
+  // non-cash asset — the one number nothing else in the tracker rolls up to on its own.
+  function outstandingDebtsAsOf(mi){
+    let total = 0;
+    for(let i=0;i<=mi;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      m.debts.forEach(it=>{ if(!it.checked && !it.extraPayment) total += Number(it.amount)||0; });
+    }
+    return total;
+  }
+  function manualAssetsTotal(){
+    return state.assets.reduce((s,a)=>s+(Number(a.amount)||0), 0);
+  }
+  function netWorthForMonth(mi){
+    return cumulativeBalanceUpTo(mi) + totalAppsBalanceUpToConverted(mi) - outstandingDebtsAsOf(mi) + manualAssetsTotal();
+  }
+  function addAsset(label, amount){
+    state.assets.push({id: makeCustomId('asset'), label, amount});
+    save();
+  }
+  function deleteAsset(id){
+    state.assets = state.assets.filter(a=>a.id!==id);
+    save();
+  }
+
+  function renderNetWorth(){
+    const content = document.getElementById('networth-content');
+    const locked = document.getElementById('networth-locked');
+    if(!content) return;
+    if(!isFeatureUnlocked('netWorth')){
+      content.hidden = true;
+      if(locked) locked.hidden = false;
+      return;
+    }
+    if(locked) locked.hidden = true;
+    content.hidden = false;
+
+    const cash = cumulativeBalanceUpTo(activeMonth);
+    const savings = totalAppsBalanceUpToConverted(activeMonth) + state.savings.filter(s=>s.monthIndex<=activeMonth).reduce((s,e)=>s+Number(e.amount||0),0);
+    const debts = outstandingDebtsAsOf(activeMonth);
+    const assets = manualAssetsTotal();
+    const total = cash + savings - debts + assets;
+    const setText = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = fmt(val); };
+    setText('nw-total', total);
+    setText('nw-cash', cash);
+    setText('nw-savings', savings);
+    setText('nw-debts', debts);
+    setText('nw-assets', assets);
+
+    const trendBody = document.getElementById('nw-trend-body');
+    if(trendBody){
+      const rows = [];
+      for(let i=0;i<N;i++){
+        if(isMonthSkipped(i)) continue;
+        rows.push(`<div class="mvl-row"><div class="mvl-label">${monthLabels[i]} ${yearTags[i]}</div><div class="mvl-nums"><b>${fmt(netWorthForMonth(i))}</b></div></div>`);
+      }
+      trendBody.innerHTML = rows.length ? rows.join('') : '<div class="mvl-empty">Nothing tracked yet.</div>';
+    }
+
+    const list = document.getElementById('asset-list');
+    if(list){
+      list.innerHTML = state.assets.length===0 ? '<div class="empty-msg">No other assets added yet.</div>'
+        : state.assets.map(a=>`<div class="item-row">
+            <div class="item-label">${escapeAttr(a.label)}</div>
+            <div class="currency-prefix"><span>${CUR}</span><span class="mono">${fmt(a.amount)}</span></div>
+            <button class="del asset-del-btn" data-id="${a.id}" title="Remove">✕</button>
+          </div>`).join('');
+    }
+  }
+  document.addEventListener('click', function(e){
+    const delBtn = e.target.closest ? e.target.closest('.asset-del-btn') : null;
+    if(delBtn) deleteAsset(delBtn.dataset.id);
+  });
+  { const assetBtn = document.getElementById('asset-add-btn');
+    if(assetBtn) assetBtn.addEventListener('click', function(){
+      const descEl = document.getElementById('asset-desc');
+      const amtEl = document.getElementById('asset-amt');
+      const desc = descEl.value.trim();
+      const amt = Number(amtEl.value)||0;
+      if(!desc || amt<=0) return;
+      addAsset(desc, amt);
+      descEl.value=''; amtEl.value='';
+    });
+  }
+
   // How much of the running savings pot is still within its 3-month lock, as of month mi.
   function cumulativeSavingsLockedAsOf(mi){
     return state.savings.filter(s=>s.monthIndex<=mi && isSavingsLocked(s, mi)).reduce((s,e)=>s+Number(e.amount||0),0);
@@ -1285,12 +1437,20 @@ window.__ftStart = function(){
   }
 
   function monthCompleteness(mi){
+    if(isMonthSkipped(mi)) return 'skipped';
     const items = allItemsForMonth(mi);
     if(items.length===0) return 'empty';
     const checkedCount = items.filter(i=>i.checked).length;
     if(checkedCount===0) return 'empty';
     if(checkedCount===items.length) return 'complete';
     return 'partial';
+  }
+  // Nearest earlier month that wasn't marked skipped — what "last month" should mean for a
+  // comparison once skipping exists, so a month you never tracked doesn't show up as a false
+  // 100% drop in income/debt paid. Returns -1 if there's no such month.
+  function prevUnskippedMonth(mi){
+    for(let i=mi-1;i>=0;i--){ if(!isMonthSkipped(i)) return i; }
+    return -1;
   }
 
   // Replaces the old one-.tab-button-per-month scrolling strip: a fixed-
@@ -1313,8 +1473,8 @@ window.__ftStart = function(){
     if(!dot || !label || !toggle || !menu) return;
 
     const activeSt = monthCompleteness(activeMonth);
-    dot.className = 'dot' + (activeSt==='complete'?' complete':activeSt==='partial'?' partial':'');
-    label.textContent = monthLabels[activeMonth]+' '+yearTags[activeMonth];
+    dot.className = 'dot' + (activeSt==='complete'?' complete':activeSt==='partial'?' partial':activeSt==='skipped'?' skipped':'');
+    label.textContent = monthLabels[activeMonth]+' '+yearTags[activeMonth] + (activeSt==='skipped' ? ' 🔇' : '');
     toggle.title = monthPeriodLabel(activeMonth);
     if(prevBtn) prevBtn.disabled = activeMonth<=0;
     if(nextBtn) nextBtn.disabled = activeMonth>=N-1;
@@ -1325,11 +1485,18 @@ window.__ftStart = function(){
     for(let i=0;i<N;i++){
       const st = monthCompleteness(i);
       const row = document.createElement('div');
-      row.className = 'month-picker-row'+(i===activeMonth?' active':'')+(st==='complete'?' complete':st==='partial'?' partial':'');
+      row.className = 'month-picker-row'+(i===activeMonth?' active':'')+(st==='complete'?' complete':st==='partial'?' partial':st==='skipped'?' skipped':'');
       row.setAttribute('role','option');
-      row.innerHTML = `<span class="dot"></span>${monthLabels[i]} ${yearTags[i]}`;
+      row.innerHTML = `<span class="dot"></span><span class="month-picker-row-label">${monthLabels[i]} ${yearTags[i]}</span>
+        <button type="button" class="month-picker-skip-btn" title="${st==='skipped' ? 'Not tracked — click to include it again' : 'Mark as not tracked (excludes it from comparisons)'}">${st==='skipped' ? '🔇' : '🔊'}</button>`;
       row.title = monthPeriodLabel(i);
       row.addEventListener('click', ()=>{ activeMonth=i; closeMonthPicker(); render(); });
+      row.querySelector('.month-picker-skip-btn').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        setMonthSkipped(i, monthCompleteness(i)!=='skipped');
+        save();
+        renderMonthPicker();
+      });
       menu.appendChild(row);
     }
     const addRow = document.createElement('div');
@@ -1401,12 +1568,37 @@ window.__ftStart = function(){
     });
   })();
 
-  // Appends one more month right after the last tracked one, starting completely blank,
-  // and jumps straight to it so it's ready to fill in.
+  // Latest already-stamped instalment for a series, across every month — used to carry an
+  // ongoing series' current label/amount forward rather than whatever it was first created
+  // with, so a bulk edit (editDebtTotal / editRecurringSeriesAmount) sticks for future months too.
+  function latestSeriesInstalment(kind, seriesId){
+    let found = null, foundMi = -1;
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m[kind]) continue;
+      const it = m[kind].find(x=>x.seriesId===seriesId && !x.extraPayment);
+      if(it){ found = it; foundMi = i; }
+    }
+    return found;
+  }
+  // Appends one more month right after the last tracked one. Blank except for whichever
+  // recurring income/bill series are still marked ongoing (state.ongoingSeries) — those get one
+  // more instalment stamped in automatically, at their current amount, so a real bill (rent, a
+  // subscription) doesn't have to be re-added by hand every single month.
   function addMonth(){
     extendMonthsTo(N+1);
-    state.months.push(buildDefaultMonth(N-1));
-    activeMonth = N-1;
+    const mi = N-1;
+    state.months.push(buildDefaultMonth(mi));
+    Object.keys(state.ongoingSeries).forEach(seriesId=>{
+      const series = state.ongoingSeries[seriesId];
+      const latest = latestSeriesInstalment(series.kind, seriesId);
+      state.months[mi][series.kind].push({
+        id: makeCustomId(series.kind), label: latest ? latest.label : series.label,
+        sub: '🔁 Repeats monthly', amount: latest ? latest.amount : series.amount,
+        checked:false, custom:true, seriesId
+      });
+    });
+    activeMonth = mi;
     populateTargetSelect();
     save();
   }
@@ -1857,6 +2049,7 @@ window.__ftStart = function(){
     const overallMonthCountEl = document.getElementById('overall-month-count');
     if(overallMonthCountEl) overallMonthCountEl.textContent = N;
     const m = state.months[activeMonth];
+    renderRecurringIncome();
     renderList('income-list', m.income, 'income');
     renderList('debt-list', m.debts, 'debts');
     renderDebtOverview();
@@ -1871,6 +2064,8 @@ window.__ftStart = function(){
     renderSavingsList();
     renderSavingsAppsList();
     renderSavingsAccounts();
+    renderNetWorth();
+    { const nwNav = document.querySelector('.page-nav-btn[data-page="networth"]'); if(nwNav) nwNav.hidden = !isFeatureUnlocked('netWorth'); }
     renderExtra();
 
     const incomeChecked = sumChecked(m.income), incomeTotal = sumAll(m.income);
@@ -2640,6 +2835,40 @@ window.__ftStart = function(){
     }
   });
 
+  // A small panel above the Income list surfacing every "🔁 Repeat monthly" income source, so a
+  // raise or a rate change can be applied to every future month at once (editOngoingSeriesAmount)
+  // instead of hunting through each month tab, and so the series can be stopped from one place.
+  function renderRecurringIncome(){
+    const panel = document.getElementById('recurring-income-panel');
+    if(!panel) return;
+    const keys = Object.keys(state.ongoingSeries).filter(k=>state.ongoingSeries[k].kind==='income');
+    if(keys.length===0){ panel.innerHTML = ''; panel.hidden = true; return; }
+    panel.hidden = false;
+    panel.innerHTML = '<div class="section-head"><h3>🔁 Recurring income</h3></div>' + keys.map(key=>{
+      const series = state.ongoingSeries[key];
+      const latest = latestSeriesInstalment('income', key);
+      const amount = latest ? latest.amount : series.amount;
+      return `<div class="ds-row">
+        <div class="ds-top"><span class="ds-name">${escapeAttr(series.label)}</span></div>
+        <div class="ds-pay">
+          <input type="number" min="0.01" step="0.01" class="ri-amt-input" data-series="${key}" value="${amount}" placeholder="Amount ${CUR}">
+          <button class="ds-pay-btn ri-edit-btn" data-series="${key}">Update from here on</button>
+          <button class="ds-pay-btn ri-stop-btn" data-series="${key}">⏹ Stop repeating</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.addEventListener('click', function(e){
+    const editBtn = e.target.closest ? e.target.closest('.ri-edit-btn') : null;
+    if(editBtn){
+      const input = document.querySelector('.ri-amt-input[data-series="'+editBtn.dataset.series+'"]');
+      if(input) editOngoingSeriesAmount('income', editBtn.dataset.series, input.value);
+      return;
+    }
+    const stopBtn = e.target.closest ? e.target.closest('.ri-stop-btn') : null;
+    if(stopBtn){ stopOngoingSeries(stopBtn.dataset.series); return; }
+  });
+
   function addCustomItem(kind, label, amount){
     const id = makeCustomId(kind);
     state.months[activeMonth][kind].push({id, label, sub:'', amount, checked:false, custom:true});
@@ -2715,21 +2944,41 @@ window.__ftStart = function(){
       const growthText = a.movement===0 ? 'no movement this month'
         : (growth===null ? '✨ first money in' : (a.movement>0?'▲ ':'▼ ')+Math.abs(growth).toFixed(1)+'% this month');
       const pending = a.plannedTopup>0 && a.movement<=0 ? ` · ${fmt(a.plannedTopup)} top-up still unticked` : '';
+      const acctCur = getAccountCurrency(a.key);
+      const multiCurrencyOn = isFeatureUnlocked('multiCurrency');
+      const convertedNote = multiCurrencyOn && acctCur.code!==currencyCode()
+        ? ` · ≈ ${fmt(convertedAppBalanceUpTo(a.key, activeMonth))} at your saved rate` : '';
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${escapeAttr(a.label)}</span>
-          <span class="ds-left clear">${fmt(a.closing)}</span>
+          <span class="ds-left clear">${acctCur.code!==currencyCode() ? acctCur.code+' ' : ''}${fmt(a.closing)}</span>
         </div>
         <div class="ds-track"><div class="ds-fill" style="width:${pct}%"></div></div>
-        <div class="ds-meta">${fmt(a.opening)} brought forward ${a.movement<0?'−':'+'} ${fmt(Math.abs(a.movement))} = ${fmt(a.closing)} · ${growthText}${pending}</div>
+        <div class="ds-meta">${fmt(a.opening)} brought forward ${a.movement<0?'−':'+'} ${fmt(Math.abs(a.movement))} = ${fmt(a.closing)} · ${growthText}${pending}${convertedNote}</div>
         <div class="ds-pay">
           <input type="number" min="0" class="acct-wd-input" data-app="${a.key}" placeholder="Withdraw ${CUR}">
           <button class="acct-wd-btn ds-undo" data-app="${a.key}">Withdraw</button>
           <span class="hint">drops the balance from ${currentMonthTag()} onward</span>
         </div>
+        ${multiCurrencyOn ? `<div class="ds-pay acct-currency-row">
+          <label class="hint">Held in
+            <select class="acct-currency-select" data-app="${a.key}">${CURRENCIES.map(c=>`<option value="${c.code}" ${c.code===acctCur.code?'selected':''}>${c.code}</option>`).join('')}</select>
+          </label>
+          <input type="number" min="0.0001" step="0.0001" class="acct-rate-input" data-app="${a.key}" value="${acctCur.rate}" placeholder="Rate to ${currencyCode()}" title="How many ${currencyCode()} one unit of that currency is worth — set by you, not fetched live">
+          <button class="acct-currency-save-btn ds-pay-btn" data-app="${a.key}">Save currency</button>
+        </div>` : ''}
       </div>`;
     }).join('');
   }
+  document.addEventListener('click', function(e){
+    const saveBtn = e.target.closest ? e.target.closest('.acct-currency-save-btn') : null;
+    if(!saveBtn) return;
+    const key = saveBtn.dataset.app;
+    const sel = document.querySelector('.acct-currency-select[data-app="'+key+'"]');
+    const rateInput = document.querySelector('.acct-rate-input[data-app="'+key+'"]');
+    setAccountCurrency(key, sel ? sel.value : currencyCode(), rateInput ? rateInput.value : 1);
+    save();
+  });
 
   document.addEventListener('click', function(e){
     const btn = e.target.closest ? e.target.closest('.acct-wd-btn') : null;
@@ -2742,14 +2991,19 @@ window.__ftStart = function(){
     withdrawFromApp(key, amt);
   });
 
+  // duration is either a fixed number of months, or the string 'ongoing' for a bill/income
+  // source with no end date (rent, subscriptions, salary) — instead of asking upfront how many
+  // months to stamp out, that registers the series in state.ongoingSeries so addMonth() keeps
+  // extending it automatically every time the tracker grows, without having to re-add it by hand.
   function addRecurringItem(kind, label, amount, duration){
     const seriesId = makeCustomId(kind);
+    const ongoing = duration === 'ongoing';
     // This used to clamp silently to whatever was left on the tracker, so asking for a
     // 12-month debt while sitting on the last tracked month gave you 1 month, with no
     // "Month 1 of 12" label (sub only renders when months>1) and no hint that 11 were dropped.
     // Offer to extend the tracker instead, and say so plainly if the user declines.
-    let months = Math.max(1, duration||1);
-    if(activeMonth + months > N){
+    let months = ongoing ? Math.max(1, N - activeMonth) : Math.max(1, duration||1);
+    if(!ongoing && activeMonth + months > N){
       const needed = activeMonth + months;
       if(confirm('This runs for '+months+' months, past the '+N+' months currently tracked.\n\nExtend the tracker to '+needed+' months?')){
         extendMonthsTo(needed);
@@ -2760,8 +3014,34 @@ window.__ftStart = function(){
     }
     for(let k=0;k<months;k++){
       const mi = activeMonth+k;
-      const sub = months>1 ? `Month ${k+1} of ${months}` : '';
+      const sub = ongoing ? '🔁 Repeats monthly' : (months>1 ? `Month ${k+1} of ${months}` : '');
       state.months[mi][kind].push({id:makeCustomId(kind), label, sub, amount, checked:false, custom:true, seriesId});
+    }
+    if(ongoing) state.ongoingSeries[seriesId] = {kind, label, amount};
+    save();
+  }
+  // Stops an ongoing series from being carried into any FUTURE month added after this — existing
+  // instalments already stamped out are left exactly as they are (same as deleting one instalment
+  // never being how you end a subscription; you just stop paying it going forward).
+  function stopOngoingSeries(seriesId){
+    delete state.ongoingSeries[seriesId];
+    save();
+  }
+  // Bulk-edits every not-yet-checked instalment of an ongoing series (income or debts) to a new
+  // amount in one go, e.g. a salary raise or a subscription price change — rather than having to
+  // open every future month individually and retype it. Already-checked (received/paid) months
+  // are left untouched, same as editDebtTotal() below never rewrites paid history.
+  function editOngoingSeriesAmount(kind, seriesId, newAmountRaw){
+    const newAmount = Number(newAmountRaw)||0;
+    if(newAmount<=0){ alert('Enter an amount greater than 0.'); return; }
+    const series = state.ongoingSeries[seriesId];
+    if(!series) return;
+    series.amount = newAmount;
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m[kind]) continue;
+      const it = m[kind].find(x=>x.seriesId===seriesId && !x.checked);
+      if(it) it.amount = newAmount;
     }
     save();
   }
@@ -3086,9 +3366,10 @@ window.__ftStart = function(){
       const lastLabel = d.lastDueMonth===-1 ? 'cleared' : (monthLabels[d.lastDueMonth]+' '+yearTags[d.lastDueMonth]);
       const extraNote = d.extraPaid>0 ? ` · ${fmt(d.extraPaid)} paid early` : '';
       const nextInstalment = done ? null : nextDebtInstalment(d.key);
+      const ongoing = !!state.ongoingSeries[d.key];
       return `<div class="ds-row">
         <div class="ds-top">
-          <span class="ds-name">${escapeAttr(d.label)}</span>
+          <span class="ds-name">${escapeAttr(d.label)}${ongoing ? ' <span class="ds-ongoing-badge" title="Automatically added to every new month until stopped">🔁</span>' : ''}</span>
           <span class="ds-top-right">
             <span class="ds-left ${done?'clear':''}">${done ? '✔ Fully cleared' : fmt(d.remaining)+' left'}</span>
             <button class="del ds-del-btn" data-series="${d.key}" title="Delete this debt entirely">✕</button>
@@ -3101,13 +3382,65 @@ window.__ftStart = function(){
           <button class="ds-pay-btn" data-series="${d.key}">Pay extra</button>
           <button class="ds-pay-btn ds-clear-btn" data-series="${d.key}" data-all="1">Clear it all (${fmt(d.remaining)})</button>
           <span class="hint">knocks months off the end</span>
-          <input type="number" min="0.01" step="0.01" class="ds-total-input" data-series="${d.key}" placeholder="New total ${CUR}" value="${d.total}" title="Change the overall amount owed on this debt">
+          <input type="number" min="0.01" step="0.01" class="ds-total-input" data-series="${d.key}" placeholder="New total ${CUR}" value="${d.total}" title="Change the overall amount owed on this debt — updates every future instalment at once">
           <button class="ds-pay-btn ds-total-btn" data-series="${d.key}">Edit total</button>
           ${nextInstalment ? `<button class="ds-pay-btn ds-skip-btn" data-series="${d.key}" title="Mark ${monthLabels[nextInstalment.mi]} ${yearTags[nextInstalment.mi]}'s payment as already paid, without touching this month">⏭ Skip ${monthLabels[nextInstalment.mi]} — already paid</button>` : ''}
+          ${ongoing ? `<button class="ds-pay-btn ds-stop-ongoing-btn" data-series="${d.key}" title="Stop adding this bill to new months — months already added keep it">⏹ Stop repeating</button>` : ''}
         </div>`}
       </div>`;
     }).join('');
   }
+
+  // ===== Cross-month search =====
+  // Heavy users end up scrolling through a year-plus of month tabs looking for one entry — this
+  // scans every month's income/debts/gifts and every logged living expense at once and jumps
+  // straight to wherever a match lives, instead of paging through months one at a time.
+  function searchAllItems(query){
+    const q = query.trim().toLowerCase();
+    if(!q) return [];
+    const results = [];
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      (m.income||[]).forEach(it=>{ if(String(it.label||'').toLowerCase().includes(q)) results.push({page:'income', mi:i, label:it.label, amount:it.amount, kind:'Income'}); });
+      (m.debts||[]).forEach(it=>{ if(!it.extraPayment && String(it.label||'').toLowerCase().includes(q)) results.push({page:'debts', mi:i, label:it.label, amount:it.amount, kind:'Debt'}); });
+      giftItemsForMonth(i).forEach(it=>{ if(String(it.label||'').toLowerCase().includes(q)) results.push({page:'gifts', mi:i, label:it.label, amount:it.amount, kind:'Gift'}); });
+    }
+    state.livingEntries.forEach(e=>{
+      if(String(e.desc||'').toLowerCase().includes(q)){
+        results.push({page:'expenses', mi:entryMonthIndex(e), label:e.desc, amount:e.amount, kind:'Expense'});
+      }
+    });
+    results.sort((a,b)=>b.mi-a.mi);
+    return results.slice(0,50);
+  }
+  function renderGlobalSearch(query){
+    const box = document.getElementById('global-search-results');
+    if(!box) return;
+    if(!query.trim()){ box.innerHTML=''; box.hidden=true; return; }
+    const results = searchAllItems(query);
+    box.hidden = false;
+    if(results.length===0){ box.innerHTML = '<div class="empty-msg">No matches.</div>'; return; }
+    box.innerHTML = results.map(r=>`<div class="search-result-row" data-mi="${r.mi}" data-page="${r.page}">
+      <span class="sr-kind">${r.kind}</span>
+      <span class="sr-label">${escapeAttr(r.label)}</span>
+      <span class="sr-month">${monthLabels[r.mi]} ${yearTags[r.mi]}</span>
+      <span class="sr-amt mono">${fmt(r.amount)}</span>
+    </div>`).join('');
+  }
+  (function wireGlobalSearch(){
+    const input = document.getElementById('global-search-input');
+    if(!input) return;
+    input.addEventListener('input', function(){ renderGlobalSearch(this.value); });
+    document.addEventListener('click', function(e){
+      const row = e.target.closest ? e.target.closest('.search-result-row') : null;
+      if(!row) return;
+      activeMonth = Number(row.dataset.mi);
+      if(window.showTrackerPage) window.showTrackerPage(row.dataset.page);
+      render();
+      input.value = '';
+      renderGlobalSearch('');
+    });
+  })();
 
   document.addEventListener('click', function(e){
     if(e.target.matches('#xp-hide-earned-toggle')){
@@ -3139,6 +3472,10 @@ window.__ftStart = function(){
       if(input) editDebtTotal(key, input.value);
       return;
     }
+    if(btn.classList.contains('ds-stop-ongoing-btn')){
+      stopOngoingSeries(key);
+      return;
+    }
     if(btn.classList.contains('ds-skip-btn')){
       skipNextDebtPayment(key);
       return;
@@ -3159,23 +3496,26 @@ window.__ftStart = function(){
   document.getElementById('income-add-btn').addEventListener('click', function(){
     const descEl = document.getElementById('income-desc');
     const amtEl = document.getElementById('income-amt');
+    const ongoingEl = document.getElementById('income-ongoing');
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     if(!desc || amt<=0) return;
-    addCustomItem('income', desc, amt);
-    descEl.value=''; amtEl.value='';
+    if(ongoingEl && ongoingEl.checked){ addRecurringItem('income', desc, amt, 'ongoing'); }
+    else{ addCustomItem('income', desc, amt); }
+    descEl.value=''; amtEl.value=''; if(ongoingEl) ongoingEl.checked = false;
   });
 
   document.getElementById('debt-add-btn').addEventListener('click', function(){
     const descEl = document.getElementById('debt-desc');
     const amtEl = document.getElementById('debt-amt');
     const durEl = document.getElementById('debt-duration');
+    const ongoingEl = document.getElementById('debt-ongoing');
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
-    const dur = Math.max(1, Number(durEl.value)||1);
     if(!desc || amt<=0) return;
-    addRecurringItem('debts', desc, amt, dur);
-    descEl.value=''; amtEl.value=''; durEl.value='';
+    if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing'); }
+    else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur); }
+    descEl.value=''; amtEl.value=''; durEl.value=''; if(ongoingEl) ongoingEl.checked = false;
   });
 
   document.getElementById('living-entry-add-btn').addEventListener('click', function(){
@@ -3907,6 +4247,45 @@ window.__ftStart = function(){
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
   }
   function xlStamp(){ const n = new Date(); return n.getFullYear()+'-'+xlPad(n.getMonth()+1)+'-'+xlPad(n.getDate()); }
+
+  // ---------- CSV export ----------
+  // A lighter, scriptable alternative to the .xlsx export above — same data (xlExportData()),
+  // reusing XL's column headers so the two exports never drift apart, but flattened into one
+  // file: every "sheet" becomes its own block, separated by a blank line and a "## Sheet name"
+  // header row, since CSV has no concept of multiple sheets. Export-only (no CSV import) — round-
+  // tripping this shape back in reliably is what the .xlsx path is for.
+  function csvEscape(v){
+    if(v===null || v===undefined) return '';
+    if(v instanceof Date) return v.toISOString().slice(0,10);
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }
+  function csvRow(cells){ return cells.map(csvEscape).join(','); }
+  function csvExportText(){
+    const d = xlExportData();
+    const lines = [];
+    Object.keys(XL).forEach(key=>{
+      const sheet = XL[key];
+      const rows = d[key] || [];
+      lines.push('## ' + sheet.name);
+      lines.push(csvRow(sheet.cols.map(c=>c.h)));
+      rows.forEach(r=> lines.push(csvRow(r)));
+      lines.push('');
+    });
+    return lines.join('\r\n');
+  }
+  function csvDownload(filename, text){
+    const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }
+  function xlDoExportCsv(){
+    csvDownload('Financial_Tracker_'+xlStamp()+'.csv', csvExportText());
+    xlSetStatus('CSV exported.', 'ok');
+  }
   function xlReady(){
     if(typeof ExcelJS === 'undefined'){ xlSetStatus('The Excel library did not load, so import/export is unavailable.', 'err'); return false; }
     return true;
@@ -4175,6 +4554,7 @@ window.__ftStart = function(){
   }
   document.getElementById('xl-template-btn').addEventListener('click', xlDoTemplate);
   document.getElementById('xl-export-btn').addEventListener('click', xlDoExport);
+  { const csvBtn = document.getElementById('xl-export-csv-btn'); if(csvBtn) csvBtn.addEventListener('click', xlDoExportCsv); }
   document.getElementById('xl-import-btn').addEventListener('click', ()=> document.getElementById('xl-file-input').click());
   document.getElementById('xl-file-input').addEventListener('change', function(){
     const f = this.files && this.files[0];
