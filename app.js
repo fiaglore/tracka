@@ -3747,12 +3747,17 @@ window.__ftStart = function(){
 
   // ===== Daily reminder notifications =====
   // A browser Notification, shown once per calendar day when the tracker
-  // is opened and nothing's been logged yet that day — not a background
-  // push (this app has no server to push from), so it only ever fires
-  // while the tracker is actually open, same as every other client-only
-  // feature here. The on/off preference syncs per-account like the rest of
-  // Settings; "already reminded today" is device-local since a browser
-  // notification only ever shows on the device it fires from anyway.
+  // is opened and nothing's been logged yet that day. This client-side
+  // check only ever fires while the tracker is actually open — it can't
+  // notice you've gone quiet on a day you never open the app at all. The
+  // same reminder (plus level-up/achievement/debt-cleared) also arrives
+  // while the app is fully closed via Web Push, sent by the scheduled
+  // GitHub Actions job in scripts/send-notifications.mjs once this device
+  // has subscribed (see subscribeToPush() below and in firebase-init.js).
+  // The on/off preference syncs per-account like the rest of Settings;
+  // "already reminded today" (this client-side copy only) is device-local
+  // since a browser notification only ever shows on the device it fires
+  // from anyway.
   (function(){
     const toggleBtn = document.getElementById('reminder-toggle-btn');
     if(!toggleBtn) return;
@@ -3802,6 +3807,13 @@ window.__ftStart = function(){
         cloud.remindersEnabled = false; // showAppNotification() reads this directly — see its own comment
         saveCloudField('remindersEnabled', false);
         updateButton();
+        // Best-effort: stop this device from receiving pushes too, while
+        // it's closed (see subscribeToPush()'s comment in firebase-init.js).
+        // Never lets a push-specific failure (unsupported browser, no
+        // active subscription, etc.) get in the way of the toggle itself.
+        if(window.Trakka && window.Trakka.unsubscribeFromPush && window.__ftUid){
+          window.Trakka.unsubscribeFromPush(window.__ftUid).catch(function(e){ console.warn('Push unsubscribe failed:', e); });
+        }
         return;
       }
       Notification.requestPermission().then(function(perm){
@@ -3814,10 +3826,25 @@ window.__ftStart = function(){
         saveCloudField('remindersEnabled', true);
         updateButton();
         maybeShowReminder();
+        // Also register for push, so the reminder (and level-up/debt-cleared
+        // notifications) still arrive once this tab is fully closed — see
+        // scripts/send-notifications.mjs for the scheduled job that sends
+        // them. Same "never block the existing toggle" reasoning as above.
+        if(window.Trakka && window.Trakka.subscribeToPush && window.__ftUid){
+          window.Trakka.subscribeToPush(window.__ftUid).catch(function(e){ console.warn('Push subscribe failed:', e); });
+        }
       });
     });
 
     maybeShowReminder();
+
+    // One-time migration for anyone who already had reminders on before
+    // push existed: re-subscribing when permission is already granted
+    // resolves instantly with the existing browser permission (no prompt),
+    // so this is silent and safe to run on every load.
+    if(enabled && supported && Notification.permission==='granted' && window.Trakka && window.Trakka.subscribeToPush && window.__ftUid){
+      window.Trakka.subscribeToPush(window.__ftUid).catch(function(e){ console.warn('Push subscribe failed:', e); });
+    }
   })();
 
   applyStaticSettings();
