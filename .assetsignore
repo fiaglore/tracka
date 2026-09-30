@@ -1,0 +1,22 @@
+# .assetsignore
+#
+# Cloudflare Workers static assets uploads everything under
+# wrangler.jsonc's assets.directory ("." — the repo root, since Trakka
+# has no separate dist/public folder). Without this file, that includes
+# whatever npm installs during the build — wrangler's own devDependency
+# install pulls in workerd, a ~128 MiB binary needed to RUN wrangler, not
+# part of the site — which blows straight past the Workers 25 MiB
+# per-asset limit and fails the whole deploy. node_modules is the one
+# entry that actually matters here; the rest are excluded because they're
+# build/tooling paths, not something a visitor should ever be served.
+#
+# .well-known/ is deliberately NOT listed — it holds the Digital Asset
+# Links file the installed Android app needs to verify against, and has
+# to stay servable.
+node_modules
+.git
+.github
+.wrangler
+notifications
+wrangler.jsonc
+.assetsignore
