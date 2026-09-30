@@ -4289,10 +4289,10 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '✨ Older updates tucked away in What\'s New', body: 'This tab now only shows the 10 most recent updates by default, so it stays quick to skim. A "Show older updates" button at the bottom reveals the rest whenever you want them — nothing is ever deleted, and "Hide older updates" tucks them away again.' },
     { title: '🔔 Keep or delete notifications from the bell dropdown', body: 'The 🔔 notification history now automatically keeps just your 6 most recent notifications, clearing older ones out of the way. Want to hold onto one longer? Tap 📍 to pin it — pinned notifications never get auto-cleared, however many new ones arrive. Tap 🗑️ on any notification to delete it outright.' },
     { title: '👤 Profile info, a personalized greeting, and a birthday shoutout', body: 'Settings → "👤 Profile" now lets you add a first name, surname, username, date of birth, and pick a profile icon from a handful of options — and if you add your birthday, Trakka will send you a "🎂 Happy Birthday" notification on the day, even if the app is closed. Every field is optional.' },
     { title: '🔔 A notifications bell with your personal notification history', body: 'A new 🔔 bell in the top bar (next to Undo/Redo) drops down to show everything Trakka has notified you about — XP level-ups, achievements unlocked, debts cleared, daily reminders, and more — whether or not you ever turned on push notifications. Unread notifications show a small count badge; opening the dropdown marks them read.' },
-    { title: '📌 Top bar tidied up — everything on one line', body: '"Hide data," Undo/Redo, Settings, the notification bell, your name, and Sign out now sit together on a single row instead of two, and your personalized greeting plus the daily quote moved up into the top bar too, right where you\'ll see them first.' },
     { title: '💱 Achievement targets now convert with your currency', body: 'Money-based achievements (savings, debt paid down, gifts set aside, cumulative balance, windfalls) used to compare against a fixed number regardless of currency, so switching currency could make one instantly trivial or nearly impossible. They now scale by the same rate used when you convert, so a badge still represents the same real value before and after switching.' },
     { title: '📋 Wider gaps between some achievement tiers', body: 'A few tiers were clustered close enough together to unlock almost back-to-back — the all-time "items checked off" ladder around 500–1,000, and the gift/debt count badges around 5–10. Those now step up in bigger jumps (300 → 700 → 1,500 → 3,000 → 6,000 → 12,000 for items checked off; 6 → 12 for debts cleared; 15 for gift goals created; 7 for gift goals fully funded), so there\'s more room between one milestone and the next. If you\'d already earned one of these under its old, lower bar, you keep it — raising the bar never takes back a badge you already unlocked.' },
     { title: '🏅 Over 100 achievements to unlock, and only your earned ones clutter the Overview', body: 'Every achievement category — Checklist, Savings, Debt, Gifts, Budget, Income, Tools, Streaks, Level, Longevity — now has 10+ tiers instead of a handful, including a proper all-time "items checked off" ladder (25, 100, 200, 500, 750, 1,000... up to 5,000). The Overview page now only shows the icons you\'ve actually earned, instead of a long row of greyed-out locked ones — the full locked-and-earned grid, grouped by category, still lives on the 🌟 XP tab.' },
@@ -4311,15 +4311,43 @@ window.__ftStart = function(){
     { title: "🗓️ Change one month's start date on its own", body: 'Salary landed early or late one month? A "This month starts on" picker next to the month selector lets you override just that one month, without changing your usual start day everywhere else.' },
     { title: '🙈 Hide everything on screen with one button', body: 'A "Hide data" button in the top bar blurs every number and entry in the tracker — quick to turn on before you hand your phone to someone, or pull up Trakka in public.' }
   ];
+  // Only the 10 most recent What's New entries show by default — older ones
+  // are archived out of view rather than deleted, and "Show older updates"
+  // reveals them again (still in the same newest-first order); "Hide older
+  // updates" re-archives them. WHATSNEW_ITEMS itself is already kept
+  // newest-first, so this is just how much of the front of that array to
+  // render, not a separate copy of the data.
+  const WHATSNEW_VISIBLE_COUNT = 10;
+  let whatsNewShowArchived = false;
   function renderWhatsNew(){
     const container = document.getElementById('whatsnew-list');
     if(!container) return;
-    container.innerHTML = WHATSNEW_ITEMS.map(item => `
+    const items = whatsNewShowArchived ? WHATSNEW_ITEMS : WHATSNEW_ITEMS.slice(0, WHATSNEW_VISIBLE_COUNT);
+    container.innerHTML = items.map(item => `
       <div class="whatsnew-item">
         <div class="whatsnew-title">${escapeAttr(item.title)}</div>
         <div class="whatsnew-body">${escapeAttr(item.body)}</div>
       </div>
     `).join('');
+    const toggleBtn = document.getElementById('whatsnew-toggle-btn');
+    if(toggleBtn){
+      const archivedCount = WHATSNEW_ITEMS.length - WHATSNEW_VISIBLE_COUNT;
+      if(archivedCount<=0){
+        toggleBtn.hidden = true;
+      } else {
+        toggleBtn.hidden = false;
+        toggleBtn.textContent = whatsNewShowArchived
+          ? '🔼 Hide older updates'
+          : `🔽 Show ${archivedCount} older update${archivedCount===1?'':'s'}`;
+      }
+    }
+  }
+  const whatsNewToggleBtn = document.getElementById('whatsnew-toggle-btn');
+  if(whatsNewToggleBtn){
+    whatsNewToggleBtn.addEventListener('click', function(){
+      whatsNewShowArchived = !whatsNewShowArchived;
+      renderWhatsNew();
+    });
   }
   renderWhatsNew();
   applyChipVisibility();
