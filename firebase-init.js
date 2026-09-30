@@ -89,7 +89,7 @@ const db = getFirestore(app);
 // a GitHub Actions secret — never put the private key anywhere in this
 // repo). Public keys are safe to ship in client code, same trust level as
 // the Firebase apiKey above.
-const VAPID_PUBLIC_KEY = "BD1CPoNr6Xst1Igyg_0t-GZXqyjYpIHRghsN1N6D5pplhDwxk3sZI6q6PMMBa1-Bz-ERctIVXYt20s4joFMaxHs";
+const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
 
 // PushManager.subscribe() wants the VAPID key as a raw Uint8Array, not the
 // URL-safe base64 string Firebase/web-push tooling hands you everywhere

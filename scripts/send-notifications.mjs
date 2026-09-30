@@ -33,7 +33,7 @@ import admin from "firebase-admin";
 import webpush from "web-push";
 import { debtSeriesList, hasLoggedToday, computeLevel, localDateParts } from "./lib/notify-logic.mjs";
 
-const VAPID_PUBLIC_KEY = "BD1CPoNr6Xst1Igyg_0t-GZXqyjYpIHRghsN1N6D5pplhDwxk3sZI6q6PMMBa1-Bz-ERctIVXYt20s4joFMaxHs";
+const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
 
 // Local hour (in the USER's own timezone, not the runner's) the daily
 // reminder is allowed to fire from. Uses ">=" rather than "===" below so a
