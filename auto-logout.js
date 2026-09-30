@@ -274,4 +274,50 @@
   } else {
     window.addEventListener("trakka:ready", wireUpAuthTracking);
   }
+
+  // ----- sign out when leaving via a known "exit" link -----
+  // Fires on the specific links that take someone away from sign-in.html or
+  // settings.html to somewhere that isn't the other half of the same
+  // session (see #settings-nav-btn/#back-to-tracker-btn, which explicitly
+  // do NOT do this) — right now that's the 🌱 logo (-> index.html) and the
+  // "❓ Help & FAQ" link (-> faq.html). Signs out immediately on click, then
+  // lets the navigation proceed as normal.
+  //
+  // Deliberately NOT a pagehide/beforeunload catch-all for every possible
+  // exit (closing the tab, typing a new address, browser back/forward to a
+  // different site): browsers give no way to tell a plain page REFRESH
+  // apart from navigating away in those events, so a catch-all would also
+  // sign out on every ordinary reload of sign-in.html/settings.html — a
+  // worse regression than the gap it would close. This covers every exit
+  // this app itself can offer a link for; anything typed into the address
+  // bar or a tab close is outside what a webpage can reliably observe.
+  function wireExitLink(selector) {
+    var el = document.querySelector(selector);
+    if (!el) return;
+    el.addEventListener("click", function (e) {
+      if (!listening || loggingOut) return;
+      loggingOut = true;
+      e.preventDefault();
+      var href = el.href;
+      var out;
+      try {
+        out = (window.Trakka && typeof window.Trakka.signOutUser === "function")
+          ? window.Trakka.signOutUser() : Promise.resolve();
+      } catch (err) {
+        out = Promise.resolve();
+      }
+      // Same reasoning as forceLogout() above: awaited, same short pattern
+      // the manual "🔒 Sign out" button already uses, rather than firing
+      // signOut() and racing it against the click's own default navigation.
+      // A short ceiling stops a dead connection from trapping the click —
+      // the navigation always happens either way.
+      var ceiling = new Promise(function (resolve) { setTimeout(resolve, 3000); });
+      Promise.race([Promise.resolve(out).catch(function () {}), ceiling]).then(function () {
+        try { sessionStorage.removeItem(SESSION_START_KEY); } catch (err) {}
+        location.href = href;
+      });
+    });
+  }
+  wireExitLink(".brand");
+  wireExitLink('a[href="faq.html"]');
 })();
