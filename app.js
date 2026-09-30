@@ -71,6 +71,26 @@ window.__ftStart = function(){
   let PSTART = loadPay();
   function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
+  // ===== XP → level curve =====
+  // Level L costs L*150 XP to clear (150, 300, 450, 600, ...) rather than a
+  // flat 150 every time — cumulative XP needed to REACH level L works out to
+  // 75*L*(L-1). A flat cost made every level equally easy, so a genuinely
+  // active first month (lots of income/debt/gift items ticked, a handful of
+  // badges) could blow past a dozen levels in a few weeks; this keeps early
+  // levels feeling about like they used to (the first level-up still costs
+  // 150, same as before) while making each one after that meaningfully
+  // harder, so leveling stays a reason to keep coming back well past the
+  // first month rather than being mostly spent within it.
+  function xpCostForLevel(level){ return 150 * level; }
+  function levelFromXP(totalXP){
+    let level = 1, remaining = Math.max(0, totalXP);
+    while(remaining >= xpCostForLevel(level)){
+      remaining -= xpCostForLevel(level);
+      level++;
+    }
+    return {level, xpIntoLevel: remaining, xpPerLevel: xpCostForLevel(level)};
+  }
+
   // ===== Which top-bar meta-chips are shown (Settings — "Top bar cards") =====
   // Synced per-account like currency/theme, not per-device, so the same
   // choice follows you across devices. Stored as the list of VISIBLE chip
@@ -1837,8 +1857,13 @@ window.__ftStart = function(){
     // ===== Gamification: XP / Level =====
     const earnedBadgeCount = Object.keys(badgeMemory).filter(k=>k.startsWith('badge_')).length;
     const totalXP = ovCheckedItems*10 + earnedBadgeCount*50;
-    const xpPerLevel = 150;
-    const level = Math.floor(totalXP/xpPerLevel)+1;
+    // Each level costs more than the last (level L needs L*150 XP to clear,
+    // not a flat 150) — a fixed cost meant levels 1-9 were all equally easy,
+    // so a busy first month alone could blow past them. The running total
+    // still grows at the same rate it always did (10 XP/item, 50/badge);
+    // only how far that total goes stretches out, the same way a real RPG's
+    // level curve keeps a year of play meaningful instead of front-loaded.
+    const {level, xpIntoLevel, xpPerLevel} = levelFromXP(totalXP);
     // Notify on a level-up, but never on the first render that ever sees
     // `lastNotifiedLevel` unset — otherwise an existing account picks up
     // this feature and immediately gets told it "leveled up" to whatever
@@ -1856,7 +1881,6 @@ window.__ftStart = function(){
       saveCloudField('lastNotifiedLevel', level);
       showAppNotification('🌟 Level up!', 'You reached Level '+level+' in Trakka.');
     }
-    const xpIntoLevel = totalXP % xpPerLevel;
     const xpLevelEl = document.getElementById('xp-level-num');
     if(xpLevelEl) xpLevelEl.textContent = 'Level '+level;
     const xpFillEl = document.getElementById('xp-fill');
@@ -3925,6 +3949,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '⭐ Leveling up now takes longer, on purpose', body: 'Each level now costs more XP than the last — level 1→2 is still 150 XP, but 2→3 takes 300, 3→4 takes 450, and so on. Levels were flying by in the first few weeks for active users; this spreads them out over months instead, so there\'s still a reason to level up long after you started. Your XP total hasn\'t changed, only how far it has to stretch — so your level number may look lower today than it did yesterday.' },
     { title: '💾 A Save button in Settings', body: 'A "💾 Save changes" button now sits at the top of Settings. Everything there already saved and applied instantly — this just gives a clear confirmation once it\'s done, and forces through anything still in flight (like a checkbox ticked on the tracker right before opening Settings).' },
     { title: '🙈 Data is hidden by default every time you sign in', body: 'Every figure, chip, and log entry now starts blurred the moment you sign in — no setup needed. Click "👁️ Show data" in the top bar to reveal it for this visit; it resets to hidden again next time you sign in, so it can\'t accidentally stay switched off on a shared device.' },
     { title: '🔒 Signed out when you leave for the logo or the FAQ', body: 'Tapping the 🌱 logo or "❓ Help & FAQ" now signs you out before taking you there, for security — sign back in anytime. Going between the tracker and Settings (the gear icon / "Back to tracker") is unaffected.' },
