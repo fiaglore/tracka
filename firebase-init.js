@@ -66,7 +66,9 @@ import {
   setDoc,
   deleteDoc,
   deleteField,
-  serverTimestamp
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -81,6 +83,25 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// Public half of the VAPID key pair used for Web Push (see
+// scripts/send-notifications.mjs, which holds the matching private half as
+// a GitHub Actions secret — never put the private key anywhere in this
+// repo). Public keys are safe to ship in client code, same trust level as
+// the Firebase apiKey above.
+const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
+
+// PushManager.subscribe() wants the VAPID key as a raw Uint8Array, not the
+// URL-safe base64 string Firebase/web-push tooling hands you everywhere
+// else — this is the standard conversion (see the Web Push spec's examples).
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
 
 // Firebase Auth accounts are identified by email, but the tracker's sign-in
 // form only ever asked for a "username". Rather than redesign that UI, each
@@ -290,6 +311,54 @@ window.Trakka = {
       await setDoc(userDocRef(user.uid), { pinAuth: deleteField() }, { merge: true }).catch(function (e) { console.error("Save failed:", e); });
     }
     try { localStorage.removeItem(PIN_LOCAL_KEY); } catch (e) {}
+  },
+
+  // ----- push notifications (see scripts/send-notifications.mjs — the
+  // GitHub Actions job that actually decides when to send, since a Web Push
+  // message received while the app is fully closed has to come from
+  // somewhere other than app.js) -----
+  //
+  // Called once notification permission is already granted (app.js's
+  // existing 🔔 toggle handles that). Registers this device for push and
+  // records the subscription + this device's IANA timezone (e.g.
+  // "Africa/Lagos") on the user doc, so the scheduled job can send the
+  // daily reminder at the right LOCAL hour for whoever's reading it rather
+  // than one fixed UTC hour for everyone. `arrayUnion` means subscribing a
+  // second device (or re-subscribing the same one after its token
+  // rotates) never wipes out any other device already subscribed.
+  async subscribeToPush(uid) {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("Push notifications aren't supported in this browser.");
+    }
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    await setDoc(
+      userDocRef(uid),
+      { pushSubscriptions: arrayUnion(subscription.toJSON()), timezone },
+      { merge: true }
+    );
+    return subscription;
+  },
+
+  // Called when the 🔔 toggle is switched off, so a signed-out/opted-out
+  // device stops receiving pushes rather than just stops showing them (the
+  // scheduled job has no idea a device stopped listening otherwise).
+  async unsubscribeFromPush(uid) {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return;
+    const json = subscription.toJSON();
+    await subscription.unsubscribe();
+    await setDoc(userDocRef(uid), { pushSubscriptions: arrayRemove(json) }, { merge: true }).catch(function (e) {
+      console.error("Save failed:", e);
+    });
   }
 };
 

@@ -1,0 +1,43 @@
+name: Send notifications
+
+# Runs the one part of Trakka's notification system that has to happen
+# outside the browser — see scripts/send-notifications.mjs for why (in
+# short: nothing runs client-side to notice a quiet day once the app/tab is
+# fully closed). Every 15 minutes is close enough to "instant" for a
+# level-up or debt-cleared push without needing a live database trigger.
+#
+# Requires three repository secrets (Settings → Secrets and variables →
+# Actions), none of which should ever be committed to this repo:
+#   FIREBASE_SERVICE_ACCOUNT  — JSON key from Firebase console → Project
+#                               settings → Service accounts → Generate new
+#                               private key.
+#   VAPID_PRIVATE_KEY         — private half of the VAPID key pair (the
+#                               public half is already in firebase-init.js).
+#   VAPID_CONTACT_EMAIL       — a contact address, e.g. you@example.com
+#                               (no "mailto:" prefix — the script adds it).
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --omit=dev
+
+      - name: Send notifications
+        run: npm run notify
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_CONTACT_EMAIL: ${{ secrets.VAPID_CONTACT_EMAIL }}

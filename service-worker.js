@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v48";
+const CACHE_VERSION = "tracka-shell-v49";
 
 const SHELL_FILES = [
   "./",
@@ -119,6 +119,50 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => cached);
       return cached || network;
+    })
+  );
+});
+
+// ----- Web Push -----
+// Fires while Trakka is fully closed (no tab, no open PWA window) — this is
+// the one piece of the notification system that genuinely can't run as
+// plain page JS, since nothing is executing to receive it otherwise. The
+// actual decision of WHEN to send lives entirely outside this file, in the
+// scheduled GitHub Actions job (scripts/send-notifications.mjs) that calls
+// the Web Push protocol directly — this handler just displays whatever
+// payload it's handed. See subscribeToPush() in firebase-init.js for how a
+// device registers to receive these in the first place.
+self.addEventListener("push", (event) => {
+  let payload = { title: "Trakka", body: "" };
+  try {
+    if (event.data) payload = Object.assign(payload, event.data.json());
+  } catch (e) {
+    // Not JSON (shouldn't happen — the sender always sends JSON — but a
+    // malformed payload should still show SOMETHING rather than silently
+    // drop, since some browsers require every push to result in a
+    // notification or they'll warn/penalize the site).
+    if (event.data) payload.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "./icon-192.png",
+      badge: "./icon-192.png"
+    })
+  );
+});
+
+// Clicking the notification focuses an already-open Trakka tab if there is
+// one, or opens a fresh one otherwise — without this, a push notification's
+// click does nothing at all (that's the default).
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("./sign-in.html");
     })
   );
 });

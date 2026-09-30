@@ -1,0 +1,13 @@
+{
+  "name": "trakka-notifications",
+  "private": true,
+  "type": "module",
+  "description": "Server-side piece of Trakka's push notifications — see scripts/send-notifications.mjs and .github/workflows/notify.yml. The tracker itself (index.html, app.js, ...) is a plain static site with no build step; this package.json exists only for the scheduled GitHub Actions job.",
+  "scripts": {
+    "notify": "node scripts/send-notifications.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "web-push": "^3.6.7"
+  }
+}
