@@ -2337,7 +2337,10 @@ window.__ftStart = function(){
 
     // ===== Monthly budget health: full committed obligations vs. max available income =====
     const livingCommitted = livingBudgetTotal>0 ? livingBudgetTotal : livingChecked;
-    const savingsAppsCommitted = m.savingsApps.reduce((s,a)=> s + (a.withdrawal ? -Number(a.amount||0) : Number(a.amount||0)), 0);
+    const savingsAppsCommitted = m.savingsApps.reduce((s,a)=>{
+      const converted = convertToPrimary(a.amount, getAccountCurrencyCode(appKeyOf(a)));
+      return s + (a.withdrawal ? -converted : converted);
+    }, 0);
     const savingsLoggedThisMonth = savingsForMonth(activeMonth).reduce((s,e)=>s+Number(e.amount||0),0);
     const savingsCommitted = savingsAppsCommitted + savingsLoggedThisMonth;
     const maxIncomeThisMonth = incomeTotal + extraMonth;
