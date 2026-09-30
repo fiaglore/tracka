@@ -71,6 +71,34 @@ window.__ftStart = function(){
   let PSTART = loadPay();
   function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
+  // ===== Which top-bar meta-chips are shown (Settings — "Top bar cards") =====
+  // Synced per-account like currency/theme, not per-device, so the same
+  // choice follows you across devices. Stored as the list of VISIBLE chip
+  // ids rather than hidden ones, so a chip added in a later update (like
+  // "Total gifts" was) defaults to shown for existing users instead of
+  // silently inheriting some unrelated old hidden-list state.
+  const ALL_CHIP_IDS = ['chip-clock','chip-countdown','chip-level','chip-streak','chip-outstanding','chip-net','chip-savings','chip-gifts'];
+  function loadVisibleChips(){
+    const saved = cloud.visibleChips;
+    if(!Array.isArray(saved)) return ALL_CHIP_IDS.slice();
+    return ALL_CHIP_IDS.filter(id=> saved.includes(id));
+  }
+  let visibleChipIds = loadVisibleChips();
+  function applyChipVisibility(){
+    ALL_CHIP_IDS.forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.style.display = visibleChipIds.includes(id) ? '' : 'none';
+    });
+    document.querySelectorAll('#chip-picker input[data-chip-id]').forEach(cb=>{
+      cb.checked = visibleChipIds.includes(cb.dataset.chipId);
+    });
+  }
+  function setChipVisible(id, visible){
+    visibleChipIds = visible ? ALL_CHIP_IDS.filter(x=> x===id || visibleChipIds.includes(x)) : visibleChipIds.filter(x=>x!==id);
+    saveCloudField('visibleChips', visibleChipIds);
+    applyChipVisibility();
+  }
+
   // ===== Pet companion species =====
   // Each species defines the emoji shown for every mood, a matching speech-
   // bubble line, and a "blink" variant used for the idle animation (see
@@ -2057,6 +2085,10 @@ window.__ftStart = function(){
   }
 
   document.addEventListener('change', function(e){
+    if(e.target.matches('#chip-picker input[data-chip-id]')){
+      setChipVisible(e.target.dataset.chipId, e.target.checked);
+      return;
+    }
     // Immediate reaction on ticking anything off — save() below triggers a
     // full render() (which recomputes the mood too), but that can land
     // seconds later depending on what else render() does, so give the
@@ -3862,6 +3894,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '📌 Choose which cards show at the top', body: 'A new "Top bar cards" section in Settings lets you pick which cards show in the bar at the top of every page — clock, countdown, level, streak, outstanding debt, this month\'s net, total savings, total gifts. Turning one off just hides it; nothing is deleted, and the choice follows you across devices.' },
     { title: '❓ A Help & FAQ page', body: 'A new "❓ Help & FAQ" link in Settings (under "📲 App") opens an in-depth walkthrough of every part of Trakka — income, debts, gifts, savings, budgets, notifications, and more — in its own tab.' },
     { title: '🔔 Notifications now reach you even with Trakka closed', body: 'Your daily reminder, level-ups, and "debt cleared" alerts can now show up on your device even when the app isn\'t open — turn it on (or re-confirm it) from the 🔔 button in Settings.' },
     { title: '🎁 See your total gifts at a glance', body: 'A "Total gifts this month" card now sits on the Overview page next to "Days left in period," and a running "Total gifts" total across every month is in the top bar. Gift goals you\'ve already bought can be tucked away with a new "Hide past" button on the Gifts tab.' },
@@ -3884,6 +3917,7 @@ window.__ftStart = function(){
     `).join('');
   }
   renderWhatsNew();
+  applyChipVisibility();
 
   applyStaticSettings();
   populateTargetSelect();
