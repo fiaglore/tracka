@@ -624,6 +624,7 @@ button,input,select,textarea{font-family:inherit;}
 .page-nav-btn .ic{font-size:14px;}
 .page-nav-btn:hover{color:var(--ink); background:var(--bg-soft);}
 .page-nav-btn.active{color:var(--accent-ink); background:var(--surface); border:1px solid var(--line); border-bottom-color:var(--surface);}
+.page-nav-btn-right{margin-left:auto;}
 .app-page{display:none; animation:pageIn .18s ease;}
 .app-page.active{display:block;}
 @keyframes pageIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
@@ -818,6 +819,16 @@ body.ft-locked #auth-overlay{display:flex;}
 .goal-card .gamt{font-family:var(--font-mono); font-weight:700; font-size:14px; flex:0 0 auto;}
 .goal-card .del{flex:0 0 auto; width:26px; height:26px; border:none; border-radius:8px; background:transparent; color:var(--muted); cursor:pointer; font-size:13px; line-height:1;}
 .goal-card .del:hover{background:var(--bg-soft); color:var(--bad);}
+
+/* ============================================================
+   WHAT'S NEW — a plain, static changelog list (see #page-whatsnew).
+   No live data, so this is hand-written markup rather than something
+   render() builds, unlike almost every other page in the app.
+   ============================================================ */
+.whatsnew-list{display:flex; flex-direction:column; gap:12px; max-width:640px;}
+.whatsnew-item{padding:14px 16px; border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:var(--radius-md); background:var(--surface);}
+.whatsnew-title{font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--ink); margin-bottom:4px;}
+.whatsnew-body{font-size:12.5px; color:var(--muted); line-height:1.5;}
 
 /* ============================================================
    EXPENSE CATEGORY BREAKDOWN (renderLivingCategoryChart()) and
@@ -1119,6 +1130,7 @@ body.settings-only-view #page-gifts,
 body.settings-only-view #page-savings,
 body.settings-only-view #page-expenses,
 body.settings-only-view #page-xp,
+body.settings-only-view #page-whatsnew,
 body.settings-only-view .app-shell > footer{
   display:none !important;
 }
