@@ -232,14 +232,40 @@
       <details class="faq-item">
         <summary>What do notifications actually alert me about?</summary>
         <div class="faq-body">
-          <p>Four things: a daily reminder if you haven't logged anything yet that day, leveling up, unlocking an achievement, and fully clearing a debt. Turn it on from the 🔔 button in Settings — your browser will ask for notification permission the first time.</p>
+          <p>A daily reminder if you haven't logged anything yet that day, leveling up, unlocking an achievement, fully clearing a debt, and — if you've added a date of birth in Settings → Profile — a "🎂 Happy Birthday" shoutout on the day. Turn on push notifications from the 🔔 button in Settings — your browser will ask for notification permission the first time.</p>
         </div>
       </details>
 
       <details class="faq-item">
         <summary>Do notifications still work if I close the app completely?</summary>
         <div class="faq-body">
-          <p>Yes, for three of the four: the daily reminder, level-ups, and debt-cleared alerts now reach you even with Trakka fully closed. They're checked roughly every 15 minutes behind the scenes, so think of it as "instant-ish" rather than exact to the second, and the daily reminder is timed to your own device's timezone. Achievement-unlock notifications are the one exception — those still only fire while the app is actually open.</p>
+          <p>Yes, for most of them: the daily reminder, level-ups, debt-cleared alerts, and birthday shoutouts now reach you even with Trakka fully closed. They're checked roughly every 15 minutes behind the scenes, so think of it as "instant-ish" rather than exact to the second, and both the daily reminder and the birthday check use your own device's timezone. Achievement-unlock notifications are the one exception — those still only fire while the app is actually open.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where can I see notifications I might have missed?</summary>
+        <div class="faq-body">
+          <p>The 🔔 bell in the top bar, next to Undo/Redo, drops down to show your personal notification history — every level-up, achievement, debt-cleared alert, and reminder Trakka has ever shown you, newest first. This works whether or not you've ever turned on push notifications, since it's a log kept inside the app rather than something that depends on browser permission. A small badge on the bell shows how many are unread; opening the dropdown marks them all as read.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ PROFILE ============ -->
+    <section class="faq-section">
+      <h2>👤 Profile</h2>
+
+      <details class="faq-item">
+        <summary>What can I add to my profile, and do I have to?</summary>
+        <div class="faq-body">
+          <p>Settings → "👤 Profile" has four optional fields — first name, surname, username, and date of birth — plus a profile icon you can pick from a small set of options. None of it is required to use Trakka. Filling in a first name personalizes your greeting to "Hi, [name]!" and shows your name or username in the top bar instead of "you"; adding a date of birth is what lets Trakka send you a birthday notification.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Who can see my profile information?</summary>
+        <div class="faq-body">
+          <p>Just you. It's stored the same way as the rest of your tracker data — in your own private Firestore document — and is never shown to anyone else or used for anything beyond personalizing your own greeting and sending your own birthday notification.</p>
         </div>
       </details>
     </section>

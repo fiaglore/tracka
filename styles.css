@@ -540,17 +540,41 @@ button,input,select,textarea{font-family:inherit;}
 .xl-btn.primary:hover{filter:brightness(.94);}
 .xl-set{font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:5px; font-weight:600;}
 .xl-set select{font-family:inherit; font-size:12px; padding:5px 7px; border-radius:8px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink);}
-/* Two explicit rows — Undo/Redo/Settings on one line, the signed-in
-   email + Sign out on the other — rather than one long wrapping cluster.
-   Each row can still wrap on its own on narrow phones (flex-wrap on the
-   rows below) without the two groups mixing into each other; this is
-   also what keeps the whole page from quietly overflowing past the
-   right edge on narrow phones the way the old single-row cluster did
-   (see the html,body overflow-x:hidden backstop above, added for that). */
+/* Hide/Undo/Redo/Settings/notifications/email/Sign out all in one row —
+   flex-wrap still lets it break onto more than one line on a narrow phone
+   (the html,body overflow-x:hidden backstop above covers that case) without
+   the whole cluster needing a second, separate row on wider screens. */
 .xl-user-wrap{display:flex; flex-direction:column; align-items:flex-end; gap:6px; margin-left:auto;}
-.xl-actions-row,.xl-account-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px;}
+.xl-actions-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px;}
 .xl-user{font-size:12.5px; font-weight:700; color:var(--ink);}
 .xl-status{width:100%; font-size:11.5px; color:var(--muted); margin-top:2px;}
+
+/* notification bell + dropdown */
+.notif-wrap{position:relative; display:inline-flex;}
+.notif-badge{position:absolute; top:-4px; right:-4px; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:var(--bad); color:#fff; font-size:9.5px; font-weight:700; line-height:15px; text-align:center; font-family:var(--font-display);}
+.notif-dropdown{position:absolute; top:calc(100% + 8px); right:0; width:320px; max-width:calc(100vw - 32px); max-height:420px; overflow-y:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,.15)); z-index:50;}
+.notif-dropdown-head{font-family:var(--font-display); font-weight:700; font-size:13px; padding:10px 14px; border-bottom:1px solid var(--line);}
+.notif-list{display:flex; flex-direction:column;}
+.notif-item{display:flex; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line);}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.unread{background:var(--bg-soft);}
+.notif-icon{font-size:16px; line-height:1.4;}
+.notif-title{font-size:12.5px; font-weight:700; color:var(--ink);}
+.notif-text{font-size:12px; color:var(--muted); margin-top:1px;}
+.notif-time{font-size:10.5px; color:var(--muted); margin-top:3px;}
+.notif-empty{padding:16px 14px; font-size:12.5px; color:var(--muted); text-align:center;}
+
+/* personalized greeting + quote banner, moved into the top bar */
+.profile-banner{display:flex; align-items:center; gap:12px; margin-top:14px; padding:10px 14px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); box-shadow:var(--shadow-sm);}
+.profile-avatar{font-size:28px; line-height:1; flex-shrink:0;}
+.profile-banner-text{min-width:0;}
+.profile-banner .time-message{font-size:13px; font-weight:600; color:var(--ink); margin-top:0;}
+.profile-banner .quote-banner{border:none; background:none; padding:0; margin:2px 0 0; text-align:left; font-size:12px; color:var(--muted); font-weight:400;}
+
+/* profile avatar picker (Settings — Profile) */
+.avatar-picker{display:flex; flex-wrap:wrap; gap:8px;}
+.avatar-picker-item{font-size:20px; line-height:1; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid var(--line); background:var(--bg-soft); cursor:pointer;}
+.avatar-picker-item.selected{border-color:var(--accent); background:var(--surface);}
 
 /* top-bar chip picker (Settings — which meta-chips show at the top) */
 .chip-picker{display:flex; flex-wrap:wrap; gap:8px 18px;}
@@ -1150,6 +1174,7 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 body.settings-only-view .brand-row .tag,
 body.settings-only-view .meta-chips,
 body.settings-only-view .overall,
+body.settings-only-view .profile-banner,
 body.settings-only-view .month-bar,
 body.settings-only-view .page-nav,
 body.settings-only-view #page-overview,
