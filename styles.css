@@ -696,6 +696,9 @@ body.ft-locked #auth-overlay{display:flex;}
 .landing-nav{display:flex; align-items:center; justify-content:space-between; padding:20px 0;}
 .landing-brand{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:800; font-size:19px; color:var(--ink);}
 .landing-mark{font-size:22px;}
+.landing-nav-links{display:flex; align-items:center; gap:18px;}
+.landing-nav-link{font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--muted); text-decoration:none;}
+.landing-nav-link:hover{color:var(--ink);}
 .landing-nav-signin{display:inline-block; text-decoration:none; font-family:var(--font-display); font-weight:700; font-size:13px; padding:9px 18px; border-radius:var(--radius-sm); border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; box-shadow:var(--shadow-sm);}
 .landing-nav-signin:hover{background:var(--bg-soft);}
 
