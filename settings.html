@@ -195,6 +195,10 @@ window.__ftSettingsPage = true;
         <span class="lbl">📊 This month's net</span>
         <span class="val" id="chip-net-val">—</span>
       </div>
+      <div class="chip savings" id="chip-savings" title="Total saved across every month — the free-form savings ledger plus every savings app balance combined">
+        <span class="lbl">🐷 Total savings</span>
+        <span class="val" id="chip-savings-val">—</span>
+      </div>
     </div>
 
     <div class="overall">
@@ -286,6 +290,7 @@ window.__ftSettingsPage = true;
         <div class="summary-card"><div class="lbl">Days left in period</div><div class="num mono" id="sum-days-left" style="color:var(--accent)">—</div><div class="subnote" id="sum-days-left-sub"></div></div>
       </div>
       <div class="summary-row row2">
+        <div class="summary-card"><div class="lbl">Total savings this month</div><div class="num mono" id="sum-savings-month" style="color:var(--good)">0</div><div class="subnote">savings ledger + app top-ups ticked this month</div></div>
         <div class="summary-card"><div class="lbl">% of balance saved</div><div class="num mono" id="sum-savings-pct" style="color:var(--accent)">0%</div><div class="subnote">cumulative savings ÷ cumulative balance</div></div>
         <div class="summary-card"><div class="lbl">Cumulative balance</div><div class="num mono" id="sum-cumulative" style="color:var(--good)">0</div><div class="subnote" id="sum-cumulative-sub">through this month</div></div>
       </div>
