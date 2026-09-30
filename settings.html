@@ -267,11 +267,17 @@ window.__ftSettingsPage = true;
     <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
     <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
+    <button type="button" class="page-nav-btn" data-page="networth"><span class="ic">📈</span>Net Worth</button>
     <button type="button" class="page-nav-btn page-nav-btn-right" data-page="whatsnew"><span class="ic">✨</span>What's New</button>
   </nav>
 
   <!-- ============ OVERVIEW ============ -->
   <div class="app-page active" id="page-overview" data-page="overview">
+
+    <div class="global-search-wrap">
+      <input type="search" id="global-search-input" class="global-search-input" placeholder="🔎 Search income, debts, gifts &amp; expenses across every month…">
+      <div class="global-search-results" id="global-search-results" hidden></div>
+    </div>
 
     <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
 
@@ -326,9 +332,11 @@ window.__ftSettingsPage = true;
   <div class="app-page" id="page-income" data-page="income">
     <section>
       <div class="section-head"><h2>💸 Income</h2><div class="head-right"><div class="totals" id="income-totals"></div><button class="select-btn" id="income-select-btn" title="Check off all income items for this month">✓ Select all</button><button class="reset-btn" id="income-reset-btn" title="Uncheck all income items for this month">↺ Reset all</button></div></div>
+      <div class="payoff-panel" id="recurring-income-panel" hidden></div>
       <div class="extra-add">
         <input type="text" id="income-desc" placeholder="Add a source, e.g. Side gig payout">
         <input type="number" id="income-amt" placeholder="Amount {c}" data-ph="Amount {c}">
+        <label class="recurring-toggle" title="Keeps this income source going every month you add, at the same amount, until you stop it"><input type="checkbox" id="income-ongoing"> 🔁 Repeat monthly</label>
         <button id="income-add-btn">Add</button>
       </div>
       <div class="card-list" id="income-list"></div>
@@ -361,6 +369,7 @@ window.__ftSettingsPage = true;
         <input type="text" id="debt-desc" placeholder="Add a debt/payment, e.g. New loan installment">
         <input type="number" id="debt-amt" placeholder="Amount {c}" data-ph="Amount {c}">
         <input type="number" id="debt-duration" placeholder="Duration (months)" min="1" style="width:130px;">
+        <label class="recurring-toggle" title="Keeps this bill going every month you add, at the same amount, until you stop it — overrides the duration above"><input type="checkbox" id="debt-ongoing"> 🔁 Repeat monthly</label>
         <button id="debt-add-btn">Add</button>
       </div>
       <div class="card-list" id="debt-list"></div>
@@ -520,6 +529,37 @@ window.__ftSettingsPage = true;
     </section>
   </div>
 
+  <!-- ============ NET WORTH ============ -->
+  <div class="app-page" id="page-networth" data-page="networth">
+    <section>
+      <div class="section-head"><h2>📈 Net worth</h2></div>
+      <div id="networth-locked" class="empty-msg" hidden>Net worth is a Premium feature. Upgrade in Settings to unlock it.</div>
+      <div id="networth-content">
+        <div class="summary-grid">
+          <div class="summary-row row1">
+            <div class="summary-card"><div class="lbl">Net worth</div><div class="num mono" id="nw-total" style="color:var(--good)">0</div></div>
+            <div class="summary-card"><div class="lbl">Cash balance (cumulative)</div><div class="num mono" id="nw-cash">0</div></div>
+            <div class="summary-card"><div class="lbl">Savings &amp; app balances</div><div class="num mono" id="nw-savings">0</div></div>
+            <div class="summary-card"><div class="lbl">Still outstanding on debts</div><div class="num coral mono" id="nw-debts">0</div></div>
+            <div class="summary-card"><div class="lbl">Other assets</div><div class="num mono" id="nw-assets">0</div></div>
+          </div>
+        </div>
+        <div class="mvl-card" id="nw-trend-card">
+          <h3>Net worth by month</h3>
+          <div id="nw-trend-body"></div>
+        </div>
+        <div class="section-head" style="margin-top:20px;"><h3>🏺 Other assets</h3></div>
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Anything not already tracked elsewhere — property, investments, a vehicle — valued by you, not auto-updated.</p>
+        <div class="extra-add">
+          <input type="text" id="asset-desc" placeholder="What is it? e.g. Investment portfolio">
+          <input type="number" id="asset-amt" placeholder="Value {c}" data-ph="Value {c}">
+          <button id="asset-add-btn">Add</button>
+        </div>
+        <div class="card-list" id="asset-list"></div>
+      </div>
+    </section>
+  </div>
+
   <!-- ============ WHAT'S NEW ============ -->
   <div class="app-page" id="page-whatsnew" data-page="whatsnew">
     <section>
@@ -651,6 +691,7 @@ window.__ftSettingsPage = true;
       <div class="toolbar">
         <button class="xl-btn" id="xl-import-btn" type="button" title="Load a filled-in workbook (replaces what is in the tracker now)">📥 Import</button>
         <button class="xl-btn primary" id="xl-export-btn" type="button" title="Download everything in the tracker as an .xlsx workbook">📤 Export</button>
+        <button class="xl-btn" id="xl-export-csv-btn" type="button" title="Download everything in the tracker as a .csv file">📑 Export CSV</button>
         <button class="xl-btn" id="xl-template-btn" type="button" title="Download an empty workbook with the right sheets and columns">📄 Blank template</button>
         <input type="file" id="xl-file-input" accept=".xlsx,.xlsm" style="display:none">
         <div class="xl-status" id="xl-status"></div>
