@@ -526,6 +526,7 @@ button,input,select,textarea{font-family:inherit;}
 .chip.net .val{color:var(--good);}
 .chip.net.bad .val{color:var(--bad);} /* this month is running a shortfall, not a surplus */
 .chip.savings .val{color:var(--good);}
+.chip.gifts .val{color:var(--accent);}
 .chip .val span{font-size:10.5px; color:var(--muted); font-weight:400; margin-left:4px; font-family:var(--font-body);}
 
 /* toolbar (excel + currency/payday + user + theme) */
@@ -641,7 +642,7 @@ button,input,select,textarea{font-family:inherit;}
 
 .summary-grid{display:flex; flex-direction:column; gap:1px; margin-bottom:20px;}
 .summary-row{display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden;}
-.summary-row.row1{grid-template-columns:repeat(5,1fr);}
+.summary-row.row1{grid-template-columns:repeat(6,1fr);}
 .summary-row.row2{grid-template-columns:repeat(3,1fr);}
 .summary-card{background:var(--surface); padding:13px 15px;}
 .summary-card .lbl{font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);}
@@ -925,6 +926,8 @@ body.ft-locked #auth-overlay{display:flex;}
 .ds-clear-btn{background:var(--surface); color:var(--ink); border:1px solid var(--line);}
 .hint{font-size:10.5px; color:var(--muted);}
 
+.goal-list-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+.goal-list-head h3{margin:0; font-size:12.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em;}
 .goal-list{display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
 .savings-goal{border:1px solid var(--line); border-radius:var(--radius-md); background:var(--bg-soft); padding:14px 16px; margin-bottom:16px;}
 .savings-goal-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;}

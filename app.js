@@ -1453,10 +1453,30 @@ window.__ftStart = function(){
     });
   }
 
+  // Whether gift goals whose target month has already arrived (so they've
+  // already been bought — see giftItemsForMonth()'s "mi <= targetMonthIndex-1"
+  // cutoff) are hidden from the goal list below. A display preference, not
+  // tracker data, so it lives in localStorage like HIDE_CLEARED_DEBTS_KEY
+  // above rather than in `state` — hiding a goal here never deletes it.
+  const HIDE_PAST_GIFTS_KEY = 'trakkaHidePastGiftsV1';
+  let hidePastGifts = false;
+  try{ hidePastGifts = localStorage.getItem(HIDE_PAST_GIFTS_KEY) === '1'; }catch(e){}
+
   function renderGoalCards(){
     const container = document.getElementById('goal-list');
+    const toggleBtn = document.getElementById('goal-list-hide-past-toggle');
     container.innerHTML = '';
-    state.giftGoals.forEach(g=>{
+    const pastCount = state.giftGoals.filter(g=>g.targetMonthIndex<=activeMonth).length;
+    if(toggleBtn){
+      toggleBtn.hidden = pastCount===0;
+      toggleBtn.textContent = hidePastGifts ? 'Show past ('+pastCount+')' : 'Hide past';
+    }
+    const visibleGoals = hidePastGifts ? state.giftGoals.filter(g=>g.targetMonthIndex>activeMonth) : state.giftGoals;
+    if(visibleGoals.length===0 && state.giftGoals.length>0){
+      container.innerHTML = '<div class="empty-msg">Every gift goal is in the past 🎁</div>';
+      return;
+    }
+    visibleGoals.forEach(g=>{
       const card = document.createElement('div');
       card.className = 'goal-card';
       const monthlyAmt = Math.round((g.totalAmount/g.months)*100)/100;
@@ -1736,6 +1756,8 @@ window.__ftStart = function(){
     document.getElementById('sum-net').textContent = (net<0?'-':'') + fmt(Math.abs(net));
     document.getElementById('sum-net').className = 'num mono ' + (net>=0?'gold':'coral');
     document.getElementById('sum-extra').textContent = fmt(extraMonth);
+    const sumGiftsMonthEl = document.getElementById('sum-gifts-month');
+    if(sumGiftsMonthEl) sumGiftsMonthEl.textContent = fmt(giftTotal);
 
     const cumSavings = cumulativeSavingsUpTo(activeMonth);
 
@@ -1755,13 +1777,15 @@ window.__ftStart = function(){
     const sumSavingsMonthEl = document.getElementById('sum-savings-month');
     if(sumSavingsMonthEl) sumSavingsMonthEl.textContent = (savingsThisMonth<0?'-':'') + fmt(Math.abs(savingsThisMonth));
 
-    let ovIncome=0, ovExpense=0, ovTotalItems=0, ovCheckedItems=0, complete=0;
+    let ovIncome=0, ovExpense=0, ovGifts=0, ovTotalItems=0, ovCheckedItems=0, complete=0;
     for(let i=0;i<N;i++){
       const mm = state.months[i];
       ovIncome += sumChecked(mm.income);
       ovExpense += sumChecked(mm.debts)+sumLivingForMonth(i);
       const gItems = giftItemsForMonth(i);
-      ovExpense += gItems.filter(g=>g.checked).reduce((s,g)=>s+Number(g.amount||0),0);
+      const gChecked = gItems.filter(g=>g.checked).reduce((s,g)=>s+Number(g.amount||0),0);
+      ovExpense += gChecked;
+      ovGifts += gChecked;
       const items = allItemsForMonth(i);
       ovTotalItems += items.length;
       ovCheckedItems += items.filter(x=>x.checked).length;
@@ -1771,6 +1795,8 @@ window.__ftStart = function(){
     document.getElementById('ov-income').textContent = fmt(ovIncome+ovExtra);
     document.getElementById('ov-expense').textContent = fmt(ovExpense);
     document.getElementById('ov-extra').textContent = fmt(ovExtra);
+    const chipGiftsEl = document.getElementById('chip-gifts-val');
+    if(chipGiftsEl) chipGiftsEl.textContent = fmt(ovGifts);
     document.getElementById('ov-complete').textContent = complete+' / '+N;
     const pct = ovTotalItems>0 ? Math.round((ovCheckedItems/ovTotalItems)*100) : 0;
     document.getElementById('overall-pct').textContent = pct+'% of all line items checked';
@@ -2689,6 +2715,12 @@ window.__ftStart = function(){
       hideClearedDebts = !hideClearedDebts;
       try{ localStorage.setItem(HIDE_CLEARED_DEBTS_KEY, hideClearedDebts ? '1' : '0'); }catch(err){}
       renderDebtOverview();
+      return;
+    }
+    if(e.target.matches('#goal-list-hide-past-toggle')){
+      hidePastGifts = !hidePastGifts;
+      try{ localStorage.setItem(HIDE_PAST_GIFTS_KEY, hidePastGifts ? '1' : '0'); }catch(err){}
+      renderGoalCards();
       return;
     }
     const delBtn = e.target.closest ? e.target.closest('.ds-del-btn') : null;
