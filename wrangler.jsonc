@@ -18,12 +18,22 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tracka",
   "compatibility_date": "2026-09-26",
+  "main": "worker.js",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS"
   },
+  // avatars/{uid} profile photos — see worker.js's /api/avatar routes.
+  // Firebase Storage would need the paid Blaze plan just to switch on.
+  "r2_buckets": [
+    {
+      "binding": "AVATARS",
+      "bucket_name": "tracka-avatars"
+    }
+  ],
   "routes": [
     {
       "pattern": "www.trakka.com.ng",
