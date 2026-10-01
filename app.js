@@ -1275,8 +1275,8 @@ window.__ftStart = function(){
     return symbolForCode(code) + Math.round(n).toLocaleString('en-NG');
   }
   // Every currency code that's actually tagged on something right now — income, debts, gifts,
-  // savings accounts — so the Settings rate panel only ever shows rates that matter, not the
-  // full ~14-currency list every time.
+  // savings accounts, investments — so the Settings rate panel only ever shows rates that
+  // matter, not the full ~14-currency list every time.
   function currenciesInUse(){
     const codes = new Set();
     state.months.forEach(m=>{
@@ -1285,6 +1285,7 @@ window.__ftStart = function(){
     });
     state.giftGoals.forEach(g=>{ if(g.currency) codes.add(g.currency); });
     Object.values(state.accountCurrency).forEach(code=>{ if(code && code!==currencyCode()) codes.add(typeof code==='string' ? code : code.code); });
+    state.investments.forEach(i=>{ if(i.currency) codes.add(i.currency); });
     codes.delete(currencyCode());
     return Array.from(codes);
   }
@@ -1494,11 +1495,15 @@ window.__ftStart = function(){
     {id:'crypto', label:'Crypto', icon:'🪙'},
   ];
   function investmentTypeInfo(id){ return INVESTMENT_TYPES.find(t=>t.id===id) || {id, label:id, icon:'💼'}; }
-  function addInvestment(type, name, units, costBasis){
+  function addInvestment(type, name, units, costBasis, currency){
     // monthIndex records which month a holding was first added in (for the
     // "Investments this month" overview card below) — it's not a per-month
-    // item the way income/debts are, this is purely a timestamp.
-    state.investments.push({id: makeCustomId('inv'), type, name, units: Math.max(0.000001, Number(units)||1), costBasis: Math.max(0, Number(costBasis)||0), monthIndex: activeMonth});
+    // item the way income/debts are, this is purely a timestamp. currency
+    // follows the same "only stored when not the primary currency" rule as
+    // every other item type (income, debts, gifts, savings accounts).
+    const entry = {id: makeCustomId('inv'), type, name, units: Math.max(0.000001, Number(units)||1), costBasis: Math.max(0, Number(costBasis)||0), monthIndex: activeMonth};
+    if(currency && currency!==currencyCode()) entry.currency = currency;
+    state.investments.push(entry);
     save();
   }
   function deleteInvestment(id){
@@ -1528,19 +1533,23 @@ window.__ftStart = function(){
     return list.length ? list[list.length-1] : null;
   }
   // Falls back to the cost basis (i.e. zero gain) until a price has actually been logged, rather
-  // than pretending the position is worth $0.
+  // than pretending the position is worth $0. Returned in the investment's OWN currency — a
+  // price logged for a USD holding is naturally in USD too, same as its cost basis.
   function currentValueOf(inv){
     const latest = latestPriceEntry(inv.id);
     return latest ? latest.price * inv.units : inv.costBasis;
   }
+  // Gain is computed in the investment's own currency (both sides already match), so this
+  // stays native — only a cross-holding TOTAL needs convertToPrimary, same rule as every other
+  // item type (see the "Multi-currency" comment near convertToPrimary above).
   function gainAmountOf(inv){ return currentValueOf(inv) - inv.costBasis; }
   function gainPctOf(inv){ return inv.costBasis>0 ? (gainAmountOf(inv)/inv.costBasis)*100 : null; }
-  function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+currentValueOf(i), 0); }
-  function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+i.costBasis, 0); }
+  function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+convertToPrimary(currentValueOf(i), i.currency), 0); }
+  function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+convertToPrimary(i.costBasis, i.currency), 0); }
   // Sum of cost basis for holdings first added in month mi — investments added
   // before this field existed have no monthIndex and so never count toward
   // any month's figure (indistinguishable from "added who knows when").
-  function investedThisMonth(mi){ return state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+(Number(i.costBasis)||0), 0); }
+  function investedThisMonth(mi){ return state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0); }
 
   function renderNetWorth(){
     const content = document.getElementById('networth-content');
@@ -1630,8 +1639,10 @@ window.__ftStart = function(){
       const value = currentValueOf(inv);
       const gain = gainAmountOf(inv);
       const gainPct = gainPctOf(inv);
+      const foreign = inv.currency && inv.currency!==currencyCode();
+      const convertedNote = foreign ? ` · ≈ ${fmt(convertToPrimary(value, inv.currency))} at the saved rate` : '';
       const gainHtml = latest
-        ? `<span class="ds-left ${gain<0?'':'clear'}" style="color:${gain<0?'var(--bad)':gain>0?'var(--good)':'var(--muted)'}">${gain===0?'—':(gain<0?'-':'+')+fmt(Math.abs(gain))}${gainPct===null?'':' ('+(gainPct<0?'':'+')+gainPct.toFixed(1)+'%)'}</span>`
+        ? `<span class="ds-left ${gain<0?'':'clear'}" style="color:${gain<0?'var(--bad)':gain>0?'var(--good)':'var(--muted)'}">${gain===0?'—':(gain<0?'-':'+')+fmtIn(Math.abs(gain), inv.currency)}${gainPct===null?'':' ('+(gainPct<0?'':'+')+gainPct.toFixed(1)+'%)'}</span>`
         : '<span class="ds-left" style="color:var(--muted)">No price logged yet</span>';
       const priceHistory = pricesForInvestment(inv.id);
       const historyNote = priceHistory.length>1
@@ -1640,12 +1651,13 @@ window.__ftStart = function(){
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${type.icon} ${escapeAttr(inv.name)} <span class="hint">${type.label}</span></span>
+          ${foreign ? `<span class="item-currency-badge" title="Denominated in ${inv.currency}, converted to ${currencyCode()} at the rate set in Settings → Currency rates">${inv.currency}</span>` : ''}
           ${gainHtml}
           <button class="del inv-del-btn" data-id="${inv.id}" title="Delete this investment">✕</button>
         </div>
-        <div class="ds-meta">${inv.units} unit${inv.units===1?'':'s'} · cost basis ${fmt(inv.costBasis)} · current value ${fmt(value)}${latest ? ' (@ '+fmt(latest.price)+'/unit)' : ''}${historyNote}</div>
+        <div class="ds-meta">${inv.units} unit${inv.units===1?'':'s'} · cost basis ${fmtIn(inv.costBasis, inv.currency)} · current value ${fmtIn(value, inv.currency)}${latest ? ' (@ '+fmtIn(latest.price, inv.currency)+'/unit)' : ''}${historyNote}${convertedNote}</div>
         <div class="ds-pay">
-          <input type="number" min="0" step="0.01" class="inv-price-input" data-id="${inv.id}" placeholder="Today's price/unit ${CUR}" value="${latest ? latest.price : ''}">
+          <input type="number" min="0" step="0.01" class="inv-price-input" data-id="${inv.id}" placeholder="Today's price/unit ${symbolForCode(inv.currency)}" value="${latest ? latest.price : ''}">
           <input type="date" class="inv-price-date" data-id="${inv.id}" value="${todayISO()}">
           <button class="ds-pay-btn inv-log-price-btn" data-id="${inv.id}">Log price</button>
         </div>
@@ -1693,12 +1705,13 @@ window.__ftStart = function(){
       const nameEl = document.getElementById('inv-name');
       const unitsEl = document.getElementById('inv-units');
       const costEl = document.getElementById('inv-cost');
+      const curEl = document.getElementById('inv-currency');
       const name = nameEl.value.trim();
       const units = Number(unitsEl.value)||1;
       const cost = Number(costEl.value)||0;
       if(!name || cost<=0) return;
-      addInvestment(typeEl.value, name, units, cost);
-      nameEl.value=''; unitsEl.value=''; costEl.value='';
+      addInvestment(typeEl.value, name, units, cost, curEl ? curEl.value : null);
+      nameEl.value=''; unitsEl.value=''; costEl.value=''; if(curEl) curEl.value = currencyCode();
     });
   }
 
