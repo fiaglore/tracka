@@ -166,6 +166,44 @@
       </details>
     </section>
 
+    <!-- ============ INVESTMENTS ============ -->
+    <section class="faq-section">
+      <h2>💹 Investments</h2>
+
+      <details class="faq-item">
+        <summary>How do I add an investment, and how are gains calculated?</summary>
+        <div class="faq-body">
+          <p>On the Investments tab, fill in the "Add" box: a type (stock, mutual fund, shares, commercial paper, treasury bill, crypto), a name/ticker, the units you hold (leave it at 1 for a lump-sum instrument like a T-bill), and the total cost basis — what you actually paid. Trakka doesn't pull live prices; instead, whenever you check your holding, log today's price per unit and your gain/(loss) updates off that most-recently-logged price, same philosophy as everything else in the app — no price logged yet just means zero gain shown until you log one.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can a holding be priced in a different currency?</summary>
+        <div class="faq-body">
+          <p>Yes — the "Add" box has its own currency picker, same as Income, Debts, Gifts and Savings accounts. Cost basis, every logged price, and gain/(loss) all show in that holding's own currency on its row, with a small badge if it isn't your primary one. Totals (the Investments tab's own head card, Net worth, the top-bar "Total investments"/"Net worth" chips, and the Overview "Investments this month" card) convert it to your primary currency using the rate set in Settings → "🌍 Currency rates."</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What does "Investments this month" on the Overview page mean?</summary>
+        <div class="faq-body">
+          <p>It's the cost basis of whichever holdings were first added while you had that month open — new money put in, not a value change. Investments don't otherwise have a built-in sense of "month" the way income or debts do (a holding is just one ongoing position), so this card only reflects new holdings, not price movements on ones you already had.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ NET WORTH ============ -->
+    <section class="faq-section">
+      <h2>📈 Net worth</h2>
+
+      <details class="faq-item">
+        <summary>What does the Net Worth tab add up?</summary>
+        <div class="faq-body">
+          <p>Your cumulative cash balance (income received minus debts, living expenses and gifts, across every month), plus everything in savings (the ledger and every savings app, converted to your primary currency), plus the current value of every investment, plus any manually-added asset (a property, a vehicle) — minus whatever's still outstanding on your debts. A month-by-month trend sits underneath so you can see it move over time. It's also mirrored in the "📈 Net worth" chip in the top bar, visible from any tab.</p>
+        </div>
+      </details>
+    </section>
+
     <!-- ============ LIVING EXPENSES ============ -->
     <section class="faq-section">
       <h2>🏠 Living expenses</h2>
@@ -304,6 +342,13 @@
       </details>
 
       <details class="faq-item">
+        <summary>Can a single income source, debt, gift, savings account or investment be in a different currency than everything else?</summary>
+        <div class="faq-body">
+          <p>Yes — an individual Income source, Debt/bill, Gift goal, Savings account, or Investment holding can each be tagged with its own currency, separate from your primary one. This is different from changing your primary currency above: it's for a specific item that's genuinely priced in another currency (a USD side-gig payment, a loan from an overseas lender, a UK gift, a dollar-denominated stock), while everything else stays in your usual currency. Pick it right where you add that item; every currency shares one shared rate, set once in Settings → "🌍 Currency rates" and reused everywhere that currency is tagged. The item's own row always shows its native amount and symbol; any total it feeds into (Overview, debt payoff, gift totals, Net worth, the top-bar chips) shows the converted sum in your primary currency.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
         <summary>What if my payday lands early or late just one month?</summary>
         <div class="faq-body">
           <p>Next to the month picker at the top of the app is a "This month starts on" dropdown. It overrides the start day for whichever month you're currently viewing only, without touching your usual default everywhere else — pick "Default" to go back to your normal start day for that month.</p>
@@ -356,7 +401,14 @@
       <details class="faq-item">
         <summary>Can I choose which cards show in the top bar?</summary>
         <div class="faq-body">
-          <p>Yes — Settings' "📌 Top bar cards" section (right below Appearance) has a checkbox for each card in the bar at the top of every page: the clock, the debt-free countdown, level, streak, still outstanding, this month's net, total savings, and total gifts. Uncheck any you don't want to see; nothing is deleted, and the choice follows you across devices since it's saved to your account, not just this one device.</p>
+          <p>Yes — Settings' "📌 Top bar cards" section (right below Appearance) has a checkbox for each card in the bar at the top of every page: the clock, the debt-free countdown, level, streak, still outstanding, this month's net, total savings, total gifts, total investments, and net worth. Uncheck any you don't want to see; nothing is deleted, and the choice follows you across devices since it's saved to your account, not just this one device.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I choose which tabs show in the nav bar?</summary>
+        <div class="faq-body">
+          <p>Yes — Settings' "📑 Visible tabs" section (just below "Top bar cards") has a checkbox for every tab except Overview and What's New, which always stay on. Turn off anything you don't use — Investments or XP, say — and it disappears from the nav bar; nothing is deleted, and it's back the moment you check it again. If you happen to have a now-hidden tab open when you turn it off, Trakka drops you back to Overview rather than leaving you on a page you can no longer navigate to.</p>
         </div>
       </details>
 
