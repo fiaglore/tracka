@@ -1175,16 +1175,13 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
      a half-empty second line visibly clumps over to the right). Left-
      aligning once wrapped reads as one coherent block instead. */
   .xl-actions-row{justify-content:flex-start;}
-  /* .notif-dropdown normally hangs from the bell button's right edge
-     (right:0), which only stays on-screen because the actions row keeps
-     the bell near the row's own right edge on wider screens. Once that
-     row left-aligns above, the bell can end up much further from the
-     screen's right edge, and a right:0 dropdown extending 320px further
-     left than that would run off the left side of the viewport entirely.
-     Anchoring to the bell's left edge instead keeps it growing rightward,
-     back on-screen (the existing max-width still caps it on very narrow
-     phones). */
-  .notif-dropdown{left:0; right:auto;}
+  /* .notif-dropdown's on-screen position is computed in JS (see the
+     notification bell IIFE in app.js) from the bell button's actual
+     bounding rect, not assumed from this breakpoint — whether the actions
+     row above has actually wrapped (and so where the bell ends up) depends
+     on content width (a long signed-in email, for instance), not just
+     viewport width, so a static left:0/right:0 swap here got it wrong at
+     plenty of real phone widths. No override needed here any more. */
   /* With 8 tabs, the nav bar never fits a narrow phone's width — it was
      scrollable already, but with nothing to hint that "Gifts", "Savings",
      "XP" etc. exist off to the right, past whichever 2-3 tabs fit on

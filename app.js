@@ -4766,10 +4766,32 @@ window.__ftStart = function(){
     function closeDropdown(){
       dropdown.hidden = true;
       bellBtn.setAttribute('aria-expanded', 'false');
+      window.removeEventListener('resize', positionDropdown);
+    }
+    // Positions the dropdown from the bell's actual on-screen location
+    // instead of a CSS breakpoint guess — whether the topbar's actions row
+    // has wrapped (and so where the bell ends up) depends on content width
+    // (e.g. a long signed-in email), not just viewport width, so a static
+    // left:0-below-700px rule put the dropdown off-screen at plenty of
+    // real phone widths where the row hadn't actually wrapped. Right-align
+    // to the bell by default (the normal desktop look), then clamp into
+    // the viewport with a margin on both sides so it's never clipped.
+    function positionDropdown(){
+      const margin = 16;
+      const bellRect = bellBtn.getBoundingClientRect();
+      dropdown.style.position = 'fixed';
+      dropdown.style.top = (bellRect.bottom + 8) + 'px';
+      const width = dropdown.offsetWidth;
+      let left = bellRect.right - width;
+      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+      dropdown.style.left = left + 'px';
+      dropdown.style.right = 'auto';
     }
     function openDropdown(){
       dropdown.hidden = false;
       bellBtn.setAttribute('aria-expanded', 'true');
+      positionDropdown();
+      window.addEventListener('resize', positionDropdown);
       if(notifLog.some(n=>!n.read)){
         notifLog.forEach(n=>{ n.read = true; });
         saveNotifLog();
