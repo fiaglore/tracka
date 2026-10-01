@@ -971,9 +971,17 @@ window.__ftStart = function(){
     return PROFILE_ICONS.includes(cloud.profileIcon) ? cloud.profileIcon : PROFILE_ICONS[0];
   }
   let profileIcon = loadProfileIcon();
+  // An uploaded photo (profile.photoURL) takes priority over the emoji
+  // picker everywhere the avatar shows — the emoji is just the fallback
+  // default, same spot it always rendered in.
   function applyProfileAvatar(){
-    const el = document.getElementById('profile-avatar');
-    if(el) el.textContent = profileIcon;
+    document.querySelectorAll('.profile-avatar').forEach(function(el){
+      if(profile.photoURL){
+        el.innerHTML = '<img src="'+escapeAttr(profile.photoURL)+'" alt="Profile photo">';
+      } else {
+        el.textContent = profileIcon;
+      }
+    });
   }
   function saveProfileField(){
     saveCloudField('profile', profile);
@@ -4836,10 +4844,106 @@ window.__ftStart = function(){
         profileIcon = btn.dataset.icon;
         cloud.profileIcon = profileIcon;
         saveCloudField('profileIcon', profileIcon);
+        // Picking an icon is "use this instead" — an uploaded photo would
+        // otherwise keep taking priority in applyProfileAvatar() and the
+        // click would look like it did nothing.
+        if(profile.photoURL){
+          delete profile.photoURL;
+          saveProfileField();
+          if(window.__ftUid) window.Trakka.deleteAvatarPhoto(window.__ftUid).catch(function(){});
+          updateAvatarRemoveBtn();
+        }
         renderAvatarPicker();
         applyProfileAvatar();
       });
     });
+  }
+
+  // ===== Profile photo upload =====
+  // Square-crops and downscales client-side before it ever leaves the
+  // browser — nobody needs a multi-megapixel original for a ~40px avatar,
+  // and a small file uploads faster and costs less Storage/bandwidth.
+  // storage.rules enforces a size/type cap server-side too, independent of
+  // this — this is about not wasting the user's upload bandwidth, not the
+  // only line of defense.
+  function resizeImageToSquareBlob(file, maxSide){
+    return new Promise(function(resolve, reject){
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        if(!(side > 0)){ reject(new Error('Could not read that image.')); return; }
+        const sx = (img.naturalWidth - side) / 2;
+        const sy = (img.naturalHeight - side) / 2;
+        const out = Math.min(maxSide, side);
+        const canvas = document.createElement('canvas');
+        canvas.width = out; canvas.height = out;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, out, out);
+        canvas.toBlob(function(blob){
+          if(blob) resolve(blob); else reject(new Error('Could not process that image.'));
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('Could not read that image file.')); };
+      img.src = url;
+    });
+  }
+  function avatarUploadStatus(msg, isError){
+    const el = document.getElementById('avatar-upload-status');
+    if(!el) return;
+    el.textContent = msg || '';
+    el.style.color = isError ? 'var(--bad)' : 'var(--muted)';
+  }
+  function updateAvatarRemoveBtn(){
+    const btn = document.getElementById('avatar-remove-btn');
+    if(btn) btn.hidden = !profile.photoURL;
+  }
+  updateAvatarRemoveBtn();
+  { const uploadBtn = document.getElementById('avatar-upload-btn');
+    const fileInput = document.getElementById('avatar-upload-input');
+    const removeBtn = document.getElementById('avatar-remove-btn');
+    if(uploadBtn && fileInput){
+      uploadBtn.addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', function(){
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = ''; // lets the same file be re-picked later if needed
+        if(!file) return;
+        if(!file.type.startsWith('image/')){ avatarUploadStatus('Please choose an image file.', true); return; }
+        if(file.size > 8*1024*1024){ avatarUploadStatus('That image is too large (max 8MB).', true); return; }
+        if(!window.__ftUid){ avatarUploadStatus('Sign in again to upload a photo.', true); return; }
+        uploadBtn.disabled = true;
+        avatarUploadStatus('Uploading…');
+        resizeImageToSquareBlob(file, 256)
+          .then(function(blob){ return window.Trakka.uploadAvatarPhoto(window.__ftUid, blob); })
+          .then(function(url){
+            profile.photoURL = url;
+            saveProfileField();
+            applyProfileAvatar();
+            updateAvatarRemoveBtn();
+            avatarUploadStatus('Photo updated.');
+          })
+          .catch(function(e){ avatarUploadStatus((e && e.message) || 'Could not upload that photo.', true); })
+          .finally(function(){ uploadBtn.disabled = false; });
+      });
+    }
+    if(removeBtn){
+      removeBtn.addEventListener('click', function(){
+        if(!window.__ftUid) return;
+        removeBtn.disabled = true;
+        avatarUploadStatus('Removing…');
+        window.Trakka.deleteAvatarPhoto(window.__ftUid)
+          .then(function(){
+            delete profile.photoURL;
+            saveProfileField();
+            applyProfileAvatar();
+            updateAvatarRemoveBtn();
+            avatarUploadStatus('Photo removed.');
+          })
+          .catch(function(e){ avatarUploadStatus((e && e.message) || 'Could not remove that photo.', true); })
+          .finally(function(){ removeBtn.disabled = false; });
+      });
+    }
   }
   renderAvatarPicker();
   applyProfileAvatar();

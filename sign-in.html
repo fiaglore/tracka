@@ -33,7 +33,7 @@
        revealSignInGate()) only swaps to this form once it's confirmed
        there's genuinely no session to resume. -->
   <div class="auth-card" id="auth-form-card" hidden>
-    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;">🌱</a>
+    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;"><img src="icon-192.png" alt="Trakka"></a>
     <h2 id="auth-title">Welcome back</h2>
     <p class="auth-sub" id="auth-sub">Sign in to open your tracker.</p>
     <div class="auth-tabs">
@@ -60,7 +60,7 @@
        looking frozen in between. Starts visible on THIS page (see #auth-form-card above)
        with copy that already matches what begin() sets once it runs. -->
   <div class="auth-card auth-loading-box" id="auth-loading-box" role="status" aria-live="polite">
-    <span class="auth-loading-spin" aria-hidden="true">🌱</span>
+    <span class="auth-loading-spin" aria-hidden="true"><img src="icon-192.png" alt=""></span>
     <p id="auth-loading-text">Loading your tracker…</p>
   </div>
   <!-- Shown instead of #auth-form-card right after an auto sign-out (idle
@@ -68,7 +68,7 @@
        quick-unlock PIN is cached on this device. See auto-logout.js and
        app.js's auth IIFE for how that's decided and this card gets swapped in. -->
   <div class="auth-card" id="pin-unlock-card" hidden>
-    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;">🌱</a>
+    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;"><img src="icon-192.png" alt="Trakka"></a>
     <h2>Welcome back</h2>
     <p class="auth-sub" id="pin-unlock-sub">You were signed out. Enter your quick-unlock PIN to continue.</p>
     <form id="pin-unlock-form" autocomplete="off" novalidate>
@@ -138,7 +138,7 @@
   <div class="topbar">
     <div class="brand-row">
       <a class="brand" href="index.html" title="Back to Trakka home">
-        <div class="brand-mark">🌱</div>
+        <div class="brand-mark"><img src="icon-192.png" alt="Trakka"></div>
         <div class="brand-text">
           <h1>Trakka - Your Money Tracker</h1>
           <div class="tag">One continuous log — switch months, nothing resets. <span id="period-desc"></span></div>
@@ -611,7 +611,16 @@
         <label class="xl-set">Date of birth <input type="date" id="profile-dob" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
       </div>
       <div class="theme-picker" style="margin-top:10px;">
-        <span class="theme-picker-label">Profile icon</span>
+        <span class="theme-picker-label">Profile photo</span>
+        <div class="avatar-upload-row">
+          <input type="file" id="avatar-upload-input" accept="image/*" hidden>
+          <button type="button" class="xl-btn" id="avatar-upload-btn">📷 Upload photo</button>
+          <button type="button" class="xl-btn" id="avatar-remove-btn" hidden>🗑️ Remove photo</button>
+          <span class="avatar-upload-status" id="avatar-upload-status"></span>
+        </div>
+      </div>
+      <div class="theme-picker" style="margin-top:10px;">
+        <span class="theme-picker-label">...or pick an icon</span>
         <div class="avatar-picker" id="avatar-picker"></div>
       </div>
     </section>
