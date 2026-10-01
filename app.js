@@ -2712,7 +2712,7 @@ window.__ftStart = function(){
     // reused below for both the single- and multi-debt achievements.
     const allDebtSeries = debtSeriesList();
     const clearedSeries = allDebtSeries.filter(d=>d.total>0 && d.remaining<=0);
-    const totalDebtPaidAllTime = allDebtSeries.reduce((s,d)=>s+d.paid,0);
+    const totalDebtPaidAllTime = allDebtSeries.reduce((s,d)=>s+convertToPrimary(d.paid, d.currency),0);
     // Count of gift goals actually fully funded (not just whether at least
     // one is) — reused for both the single "Gift Giver" badge and the
     // higher-tier "funded 3+/5+ goals" ladder below.
