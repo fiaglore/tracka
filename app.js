@@ -6234,6 +6234,19 @@ window.__ftStart = function(){
     if(!window.__ftUid) return;
     window.Trakka.saveUserDoc(window.__ftUid, { themePreset: id }).catch(function(e){ console.error('Save failed:', e); });
   }
+  function themeNameById(id){
+    var match = THEMES.filter(function(t){ return t.id===id; })[0];
+    return match ? match.name : '';
+  }
+  // Swatches are tiny color circles with no label of their own — this is
+  // the one place that actually names whichever theme is hovered/focused,
+  // falling back to the applied theme once the pointer leaves since a
+  // title-attribute tooltip (the only other place a name showed up) never
+  // appears on a touch device at all.
+  function setThemeCurrentLabel(id){
+    var el = document.getElementById('theme-picker-current');
+    if(el) el.textContent = themeNameById(id);
+  }
   function applyThemePreset(id){
     document.body.setAttribute('data-theme-preset', id);
     applyThemeIcons(id);
@@ -6243,6 +6256,7 @@ window.__ftStart = function(){
         btn.classList.toggle('active', btn.getAttribute('data-theme-id') === id);
       });
     }
+    setThemeCurrentLabel(id);
   }
   window.setThemePreset = function(id){
     applyThemePreset(id);
@@ -6258,9 +6272,14 @@ window.__ftStart = function(){
       b.className = 'theme-swatch';
       b.setAttribute('data-theme-id', t.id);
       b.title = t.name;
+      b.setAttribute('aria-label', t.name);
       b.style.background = SWATCH_BG[t.id];
       if(t.id==='orchard'){ b.style.backgroundSize = '6px 6px, auto'; }
       b.addEventListener('click', function(){ window.setThemePreset(t.id); });
+      b.addEventListener('mouseenter', function(){ setThemeCurrentLabel(t.id); });
+      b.addEventListener('focus', function(){ setThemeCurrentLabel(t.id); });
+      b.addEventListener('mouseleave', function(){ setThemeCurrentLabel(document.body.getAttribute('data-theme-preset')); });
+      b.addEventListener('blur', function(){ setThemeCurrentLabel(document.body.getAttribute('data-theme-preset')); });
       wrap.appendChild(b);
     });
   }
