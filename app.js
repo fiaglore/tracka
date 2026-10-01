@@ -5466,6 +5466,7 @@ window.__ftStart = function(){
       <div class="whatsnew-item">
         <div class="whatsnew-title">${escapeAttr(item.title)}</div>
         <div class="whatsnew-body">${escapeAttr(item.body)}</div>
+        <button type="button" class="whatsnew-readmore-btn">🔽 Read more</button>
       </div>
     `).join('');
     const toggleBtn = document.getElementById('whatsnew-toggle-btn');
@@ -5486,6 +5487,21 @@ window.__ftStart = function(){
     whatsNewToggleBtn.addEventListener('click', function(){
       whatsNewShowArchived = !whatsNewShowArchived;
       renderWhatsNew();
+    });
+  }
+  // Each entry's body starts collapsed (see the .whatsnew-item:not(.expanded)
+  // rule in styles.css) — one delegated listener handles every item's
+  // "Read more"/"Read less" button, including ones added by a later
+  // renderWhatsNew() re-render, instead of rewiring per item each time.
+  const whatsNewList = document.getElementById('whatsnew-list');
+  if(whatsNewList){
+    whatsNewList.addEventListener('click', function(e){
+      const btn = e.target.closest('.whatsnew-readmore-btn');
+      if(!btn) return;
+      const item = btn.closest('.whatsnew-item');
+      if(!item) return;
+      const expanded = item.classList.toggle('expanded');
+      btn.textContent = expanded ? '🔼 Read less' : '🔽 Read more';
     });
   }
   const whatsNewMarkReadBtn = document.getElementById('whatsnew-mark-read-btn');
