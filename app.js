@@ -3111,10 +3111,11 @@ window.__ftStart = function(){
       const series = state.ongoingSeries[key];
       const latest = latestSeriesInstalment('income', key);
       const amount = latest ? latest.amount : series.amount;
+      const code = (latest && latest.currency) || series.currency || currencyCode();
       return `<div class="ds-row">
         <div class="ds-top"><span class="ds-name">${escapeAttr(series.label)}</span></div>
         <div class="ds-pay">
-          <input type="number" min="0.01" step="0.01" class="ri-amt-input" data-series="${key}" value="${amount}" placeholder="Amount ${CUR}">
+          <input type="number" min="0.01" step="0.01" class="ri-amt-input" data-series="${key}" value="${amount}" placeholder="Amount ${symbolForCode(code)}">
           <button class="ds-pay-btn ri-edit-btn" data-series="${key}">Update from here on</button>
           <button class="ds-pay-btn ri-stop-btn" data-series="${key}">⏹ Stop repeating</button>
         </div>
