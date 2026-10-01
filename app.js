@@ -161,12 +161,28 @@ window.__ftStart = function(){
   // New are never in this list — always on, since Overview is the landing
   // page every fallback needs and What's New is how changes get announced.
   const ALL_TAB_IDS = ['networth','income','debts','gifts','savings','expenses','xp','investments'];
+  const TAB_LABELS = {
+    networth: '📈 Net Worth', income: '💸 Income', debts: '💳 Debts', gifts: '🎁 Gifts',
+    savings: '🐷 Savings', expenses: '🏠 Expenses', xp: '🌟 XP', investments: '💹 Investments'
+  };
   function loadVisibleTabs(){
     const saved = cloud.visibleTabs;
     if(!Array.isArray(saved)) return ALL_TAB_IDS.slice();
     return ALL_TAB_IDS.filter(id=> saved.includes(id));
   }
   let visibleTabIds = loadVisibleTabs();
+  // Custom tab order (Settings — the ▲▼ arrows next to "Visible tabs").
+  // Stored as the full sequence of ALL_TAB_IDS rather than just the moved
+  // ones, same reasoning as visibleTabIds: a tab added later (new default
+  // position) just appends at the end of whatever order is saved, instead
+  // of needing a migration.
+  function loadTabOrder(){
+    const saved = cloud.tabOrder;
+    const order = Array.isArray(saved) ? saved.filter(id=>ALL_TAB_IDS.includes(id)) : [];
+    ALL_TAB_IDS.forEach(id=>{ if(!order.includes(id)) order.push(id); });
+    return order;
+  }
+  let tabOrder = loadTabOrder();
   function applyTabVisibility(){
     ALL_TAB_IDS.forEach(id=>{
       const btn = document.querySelector('.page-nav-btn[data-page="'+id+'"]');
@@ -175,9 +191,8 @@ window.__ftStart = function(){
       const premiumLocked = id==='networth' && !isFeatureUnlocked('netWorth');
       if(btn) btn.hidden = premiumLocked || !visibleTabIds.includes(id);
     });
-    document.querySelectorAll('#tab-picker input[data-tab-id]').forEach(cb=>{
-      cb.checked = visibleTabIds.includes(cb.dataset.tabId);
-    });
+    applyTabOrder();
+    renderTabPicker();
     // If the tab currently open just got hidden, fall back to Overview
     // rather than leaving a hidden page showing with no way back to it.
     const activeBtn = document.querySelector('.page-nav-btn.active');
@@ -187,6 +202,53 @@ window.__ftStart = function(){
     visibleTabIds = visible ? ALL_TAB_IDS.filter(x=> x===id || visibleTabIds.includes(x)) : visibleTabIds.filter(x=>x!==id);
     saveCloudField('visibleTabs', visibleTabIds);
     applyTabVisibility();
+  }
+  // Puts the real <nav> buttons in tabOrder's sequence, right after
+  // Overview. What's New needs no repositioning — .page-nav-btn-right pins
+  // it to the far right with CSS regardless of DOM order.
+  function applyTabOrder(){
+    const nav = document.getElementById('page-nav');
+    let anchor = nav && nav.querySelector('.page-nav-btn[data-page="overview"]');
+    if(!anchor) return;
+    tabOrder.forEach(id=>{
+      const btn = nav.querySelector('.page-nav-btn[data-page="'+id+'"]');
+      if(!btn) return;
+      anchor.after(btn);
+      anchor = btn;
+    });
+  }
+  // XP never moves, and nothing can move past it — treated as a wall
+  // splitting the reorderable tabs into two independent groups either side
+  // of its fixed slot, per the Settings copy ("XP stays fixed in place").
+  function moveTab(id, dir){
+    if(id==='xp') return;
+    const idx = tabOrder.indexOf(id);
+    if(idx<0) return;
+    const swapIdx = idx + dir;
+    if(swapIdx<0 || swapIdx>=tabOrder.length || tabOrder[swapIdx]==='xp') return;
+    const next = tabOrder.slice();
+    const tmp = next[idx]; next[idx] = next[swapIdx]; next[swapIdx] = tmp;
+    tabOrder = next;
+    saveCloudField('tabOrder', tabOrder);
+    applyTabOrder();
+    renderTabPicker();
+  }
+  function renderTabPicker(){
+    const container = document.getElementById('tab-picker');
+    if(!container) return;
+    container.innerHTML = tabOrder.map((id, i)=>{
+      const fixed = id==='xp';
+      const atTop = i===0 || tabOrder[i-1]==='xp';
+      const atBottom = i===tabOrder.length-1 || tabOrder[i+1]==='xp';
+      const arrows = fixed
+        ? `<span class="tab-order-fixed-note" title="XP always stays in this position">🔒</span>`
+        : `<button type="button" class="tab-order-btn" data-tab-move="up" data-tab-id="${id}" ${atTop?'disabled':''} title="Move up">▲</button>`
+          + `<button type="button" class="tab-order-btn" data-tab-move="down" data-tab-id="${id}" ${atBottom?'disabled':''} title="Move down">▼</button>`;
+      return `<div class="tab-order-row">
+        <span class="tab-order-arrows">${arrows}</span>
+        <label class="chip-picker-item"><input type="checkbox" data-tab-id="${id}" ${visibleTabIds.includes(id)?'checked':''}> ${TAB_LABELS[id]||id}</label>
+      </div>`;
+    }).join('');
   }
 
   // ===== Pet companion species =====
@@ -3093,6 +3155,8 @@ window.__ftStart = function(){
   });
 
   document.addEventListener('click', function(e){
+    const tabMoveBtn = e.target.closest ? e.target.closest('.tab-order-btn[data-tab-move]') : null;
+    if(tabMoveBtn){ moveTab(tabMoveBtn.dataset.tabId, tabMoveBtn.dataset.tabMove==='up' ? -1 : 1); return; }
     if(e.target.matches('.del[data-kind]')){
       const kind = e.target.dataset.kind, idx = +e.target.dataset.delIdx;
       const item = state.months[activeMonth][kind][idx];
@@ -5186,6 +5250,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: "✨ A dot for unread updates, a reorder for your tabs, and a nudge when something new ships", body: 'The ✨ What\'s New tab now shows a small dot whenever there\'s an update you haven\'t seen yet, and a "✅ Mark all as read" button clears it. Trakka also now sends a one-time notification ("check the What\'s New tab") the first time it notices a new update, the same way a level-up or achievement does — through the 🔔 bell and push if you\'ve turned that on. Separately, Settings → "📑 Visible tabs" now has ▲▼ arrows so tabs can be put in whatever order you like — Overview and What\'s New stay fixed first/last, and XP stays fixed in place too, but everything else can move freely around it.' },
     { title: '💱 Investments can be priced in a different currency too', body: 'Adding a holding on the Investments tab now has the same currency picker Income, Debts, Gifts and Savings accounts already had — log a USD stock or a GBP fund while your primary currency is ₦, for instance. Cost basis, logged prices and gain/(loss) all show in that holding\'s own currency, and the converted total is still counted correctly everywhere investments are totaled (the Investments tab, Net worth, and the top-bar chips below).' },
     { title: '📈 Net Worth moves up front, new top-bar totals, and choose which tabs you see', body: 'The "📈 Net Worth" tab now sits right after Overview instead of near the end. Two new top-bar chips — "Total investments" and "Net worth" — are visible from any tab (and hideable from Settings → "Top bar cards" like any other chip), and the Overview page gained an "Investments this month" card showing the cost basis of holdings first added in the month you\'re viewing. A new Settings → "📑 Visible tabs" section also lets you turn off any tab you don\'t use — Investments, XP, whichever — Overview and What\'s New always stay on, and nothing hidden is ever deleted.' },
     { title: '🐛 Fixed a few spots where multi-currency totals and symbols were wrong', body: 'The combined "App balances" total on the Savings tab (and its share of the top-bar/Overview savings figures) was adding different currencies\' raw numbers together instead of converting them first. The monthly top-up row for a savings app, and the "Recurring income" panel\'s amount field, could also show the wrong currency symbol next to an amount even when the account was correctly set to a foreign currency. All three now compute and label correctly.' },
@@ -5233,6 +5298,49 @@ window.__ftStart = function(){
   // render, not a separate copy of the data.
   const WHATSNEW_VISIBLE_COUNT = 10;
   let whatsNewShowArchived = false;
+
+  // ===== Unread What's New tracking =====
+  // Titles are already unique and never rewritten once published (the array
+  // comment above says so), so the newest entry's own title doubles as a
+  // stable id — no separate id field to add to 30+ existing entries. Two
+  // watermarks, not one: whatsNewLastSeenId (moved only by "Mark all as
+  // read") drives the nav-tab dot, while whatsNewNotifiedId (moved the
+  // first time a new entry is noticed) drives the one-time push/bell
+  // notification — reading the tab clears the dot but shouldn't somehow
+  // "un-send" a notification already delivered, and vice versa.
+  const latestWhatsNewId = WHATSNEW_ITEMS.length ? WHATSNEW_ITEMS[0].title : null;
+  let whatsNewLastSeenId = cloud.whatsNewLastSeenId || null;
+  let whatsNewNotifiedId = cloud.whatsNewNotifiedId || null;
+  // First time this code has ever run for this account — old or new, no way
+  // to tell apart from here — baseline both watermarks to "already caught
+  // up" instead of flooding everyone with a dot + notification for every
+  // entry that shipped before today. Only entries added AFTER this point
+  // will ever trip the dot or the notification.
+  if(latestWhatsNewId && whatsNewLastSeenId===null && whatsNewNotifiedId===null){
+    whatsNewLastSeenId = latestWhatsNewId;
+    whatsNewNotifiedId = latestWhatsNewId;
+    saveCloudField('whatsNewLastSeenId', whatsNewLastSeenId);
+    saveCloudField('whatsNewNotifiedId', whatsNewNotifiedId);
+  }
+  function hasUnreadWhatsNew(){ return !!latestWhatsNewId && whatsNewLastSeenId !== latestWhatsNewId; }
+  function applyWhatsNewDot(){
+    document.querySelectorAll('.whatsnew-tab-dot').forEach(d=>{ d.hidden = !hasUnreadWhatsNew(); });
+  }
+  function markWhatsNewRead(){
+    if(!latestWhatsNewId || whatsNewLastSeenId===latestWhatsNewId) return;
+    whatsNewLastSeenId = latestWhatsNewId;
+    saveCloudField('whatsNewLastSeenId', whatsNewLastSeenId);
+    applyWhatsNewDot();
+  }
+  // Called once at startup (after the baseline-init above, so it never
+  // fires on the very first run) — a little nudge so someone doesn't have
+  // to go looking for the tab to notice something changed.
+  function maybeNotifyNewWhatsNew(){
+    if(!latestWhatsNewId || whatsNewNotifiedId===latestWhatsNewId) return;
+    whatsNewNotifiedId = latestWhatsNewId;
+    saveCloudField('whatsNewNotifiedId', whatsNewNotifiedId);
+    showAppNotification('Trakka', "There's a new update to the app — check the ✨ What's New tab to see what changed.", '✨');
+  }
   function renderWhatsNew(){
     const container = document.getElementById('whatsnew-list');
     if(!container) return;
@@ -5263,9 +5371,13 @@ window.__ftStart = function(){
       renderWhatsNew();
     });
   }
+  const whatsNewMarkReadBtn = document.getElementById('whatsnew-mark-read-btn');
+  if(whatsNewMarkReadBtn) whatsNewMarkReadBtn.addEventListener('click', markWhatsNewRead);
   renderWhatsNew();
   applyChipVisibility();
   applyTabVisibility();
+  applyWhatsNewDot();
+  maybeNotifyNewWhatsNew();
 
   applyStaticSettings();
   populateTargetSelect();

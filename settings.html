@@ -278,7 +278,7 @@ window.__ftSettingsPage = true;
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
     <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
     <button type="button" class="page-nav-btn" data-page="investments"><span class="ic">💹</span>Investments</button>
-    <button type="button" class="page-nav-btn page-nav-btn-right" data-page="whatsnew"><span class="ic">✨</span>What's New</button>
+    <button type="button" class="page-nav-btn page-nav-btn-right" data-page="whatsnew"><span class="ic">✨</span>What's New<span class="whatsnew-tab-dot" hidden></span></button>
   </nav>
 
   <!-- ============ OVERVIEW ============ -->
@@ -599,7 +599,7 @@ window.__ftSettingsPage = true;
   <!-- ============ WHAT'S NEW ============ -->
   <div class="app-page" id="page-whatsnew" data-page="whatsnew">
     <section>
-      <div class="section-head"><h2>✨ What's New</h2></div>
+      <div class="section-head"><h2>✨ What's New</h2><div class="head-right"><button type="button" class="select-btn" id="whatsnew-mark-read-btn">✅ Mark all as read</button></div></div>
       <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">A look at what's changed recently — newest first.</p>
       <div class="whatsnew-list" id="whatsnew-list"></div>
       <button type="button" class="xl-btn" id="whatsnew-toggle-btn" hidden></button>
@@ -689,18 +689,9 @@ window.__ftSettingsPage = true;
 
     <section>
       <div class="section-head"><h2>📑 Visible tabs</h2></div>
-      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which tabs show in the nav bar — e.g. turn off Investments if you don't use it. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again. Overview and What's New always show.</p>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which tabs show in the nav bar — e.g. turn off Investments if you don't use it. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again. Use the ▲▼ arrows to put them in whatever order you like. Overview and What's New always show first/last and can't be reordered; XP stays fixed in place too, but everything around it can still move.</p>
       <div class="toolbar">
-        <div class="chip-picker" id="tab-picker">
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="networth" checked> 📈 Net Worth</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="income" checked> 💸 Income</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="debts" checked> 💳 Debts</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="gifts" checked> 🎁 Gifts</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="savings" checked> 🐷 Savings</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="expenses" checked> 🏠 Expenses</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="xp" checked> 🌟 XP</label>
-          <label class="chip-picker-item"><input type="checkbox" data-tab-id="investments" checked> 💹 Investments</label>
-        </div>
+        <div class="tab-order-list" id="tab-picker"></div>
       </div>
     </section>
 

@@ -601,6 +601,15 @@ button,input,select,textarea{font-family:inherit;}
 .chip-picker{display:flex; flex-wrap:wrap; gap:8px 18px;}
 .chip-picker-item{display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink); cursor:pointer;}
 
+/* visible-tabs picker (Settings — which tabs show, and in what order) */
+.tab-order-list{display:flex; flex-direction:column; gap:4px;}
+.tab-order-row{display:flex; align-items:center; gap:10px; padding:4px 0;}
+.tab-order-arrows{display:inline-flex; gap:2px; width:40px; flex:0 0 auto;}
+.tab-order-btn{font-family:inherit; font-size:11px; line-height:1; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:var(--ink); cursor:pointer;}
+.tab-order-btn:hover:not(:disabled){background:var(--bg-soft);}
+.tab-order-btn:disabled{opacity:.3; cursor:default;}
+.tab-order-fixed-note{display:inline-flex; align-items:center; justify-content:center; width:100%; font-size:12px; color:var(--muted);}
+
 /* theme picker */
 .theme-picker{display:inline-flex; align-items:center; gap:6px; margin-left:6px; position:relative;}
 .theme-picker-label{font-size:11px; color:var(--muted); font-weight:600;}
@@ -681,6 +690,7 @@ button,input,select,textarea{font-family:inherit;}
 .page-nav-btn:hover{color:var(--ink); background:var(--bg-soft);}
 .page-nav-btn.active{color:var(--accent-ink); background:var(--surface); border:1px solid var(--line); border-bottom-color:var(--surface);}
 .page-nav-btn-right{margin-left:auto;}
+.whatsnew-tab-dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--bad);}
 .app-page{display:none; animation:pageIn .18s ease;}
 .app-page.active{display:block;}
 @keyframes pageIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
