@@ -22,7 +22,6 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body class="ft-locked">
-<script src="transition-banner.js"></script>
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
   <!-- Starts hidden: whether this device already has a session to resume
        (Firebase's "keep me signed in") takes a moment to resolve, and
@@ -247,10 +246,12 @@
       </div>
       <button type="button" class="month-nav-btn" id="month-next-btn" title="Next month" aria-label="Next month">›</button>
     </div>
-    <div class="month-period" id="month-period"></div>
-    <div class="month-start-override">
-      <label for="month-start-override-select">This month starts on</label>
-      <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
+    <div class="month-meta">
+      <div class="month-period" id="month-period"></div>
+      <div class="month-start-override">
+        <label for="month-start-override-select">This month starts on</label>
+        <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
+      </div>
     </div>
   </div>
 

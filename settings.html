@@ -22,7 +22,6 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body class="ft-locked settings-only-view">
-<script src="transition-banner.js"></script>
 <script>
 // Read by begin() in app.js (a script shared with sign-in.html) so the
 // "Loading your tracker…" message shown while signing in reads "Loading
@@ -260,10 +259,12 @@ window.__ftSettingsPage = true;
       </div>
       <button type="button" class="month-nav-btn" id="month-next-btn" title="Next month" aria-label="Next month">›</button>
     </div>
-    <div class="month-period" id="month-period"></div>
-    <div class="month-start-override">
-      <label for="month-start-override-select">This month starts on</label>
-      <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
+    <div class="month-meta">
+      <div class="month-period" id="month-period"></div>
+      <div class="month-start-override">
+        <label for="month-start-override-select">This month starts on</label>
+        <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
+      </div>
     </div>
     <div class="time-message" id="time-message">🌅 Loading...</div>
   </div>
