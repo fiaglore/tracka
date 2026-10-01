@@ -827,7 +827,7 @@ body.ft-locked #auth-overlay{display:flex;}
 
 .landing-hero-art{flex:1 1 280px; min-width:240px; display:flex; justify-content:center;}
 .landing-hero-photo-wrap{position:relative; width:100%; max-width:320px;}
-.landing-hero-photo{display:block; width:100%; aspect-ratio:3/2; object-fit:cover; border-radius:var(--radius-lg); box-shadow:var(--shadow-md); border:1px solid var(--line);}
+.landing-hero-photo{display:block; width:100%; height:auto; aspect-ratio:2/3; object-fit:cover; border-radius:var(--radius-lg); box-shadow:var(--shadow-md); border:1px solid var(--line);}
 .landing-card-mock{width:100%; max-width:300px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:22px; box-shadow:var(--shadow-md); font-family:var(--font-display);}
 .landing-card-mock.landing-card-mock-float{position:absolute; left:-14px; bottom:-20px; width:200px; max-width:70%; padding:16px;}
 .lm-row{display:flex; align-items:center; justify-content:space-between; font-weight:700; font-size:14px; color:var(--ink); margin-bottom:10px;}
