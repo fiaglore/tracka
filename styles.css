@@ -541,6 +541,8 @@ button,input,select,textarea{font-family:inherit;}
 .chip.net.bad .val{color:var(--bad);} /* this month is running a shortfall, not a surplus */
 .chip.savings .val{color:var(--good);}
 .chip.gifts .val{color:var(--accent);}
+.chip.investments .val{color:var(--good);}
+.chip.networth .val{color:var(--good);}
 .chip .val span{font-size:10.5px; color:var(--muted); font-weight:400; margin-left:4px; font-family:var(--font-body);}
 
 /* toolbar (excel + currency/payday + user + theme) */

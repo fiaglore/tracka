@@ -204,6 +204,14 @@
         <span class="lbl">🎁 Total gifts</span>
         <span class="val" id="chip-gifts-val">—</span>
       </div>
+      <div class="chip investments" id="chip-investments" title="Current value of every investment holding, at the last price you logged">
+        <span class="lbl">💹 Total investments</span>
+        <span class="val" id="chip-investments-val">—</span>
+      </div>
+      <div class="chip networth" id="chip-networth" title="Cash + savings + investments + other assets, minus what's still owed on debts">
+        <span class="lbl">📈 Net worth</span>
+        <span class="val" id="chip-networth-val">—</span>
+      </div>
     </div>
 
     <div class="overall">
@@ -248,6 +256,7 @@
 
   <nav class="page-nav" id="page-nav">
     <button type="button" class="page-nav-btn active" data-page="overview"><span class="ic">🏡</span>Overview</button>
+    <button type="button" class="page-nav-btn" data-page="networth"><span class="ic">📈</span>Net Worth</button>
     <button type="button" class="page-nav-btn" data-page="income"><span class="ic">💸</span>Income</button>
     <button type="button" class="page-nav-btn" data-page="debts"><span class="ic">💳</span>Debts</button>
     <button type="button" class="page-nav-btn" data-page="gifts"><span class="ic">🎁</span>Gifts</button>
@@ -255,7 +264,6 @@
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
     <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
     <button type="button" class="page-nav-btn" data-page="investments"><span class="ic">💹</span>Investments</button>
-    <button type="button" class="page-nav-btn" data-page="networth"><span class="ic">📈</span>Net Worth</button>
     <button type="button" class="page-nav-btn page-nav-btn-right" data-page="whatsnew"><span class="ic">✨</span>What's New</button>
   </nav>
 
@@ -308,6 +316,7 @@
         <div class="summary-card"><div class="lbl">Total savings this month</div><div class="num mono" id="sum-savings-month" style="color:var(--good)">0</div><div class="subnote">savings ledger + app top-ups ticked this month</div></div>
         <div class="summary-card"><div class="lbl">% of balance saved</div><div class="num mono" id="sum-savings-pct" style="color:var(--accent)">0%</div><div class="subnote">cumulative savings ÷ cumulative balance</div></div>
         <div class="summary-card"><div class="lbl">Cumulative balance</div><div class="num mono" id="sum-cumulative" style="color:var(--good)">0</div><div class="subnote" id="sum-cumulative-sub">through this month</div></div>
+        <div class="summary-card"><div class="lbl">Investments this month</div><div class="num mono" id="sum-invested-month" style="color:var(--accent)">0</div><div class="subnote">new investment holdings added this month, at cost</div></div>
       </div>
     </div>
 
@@ -659,6 +668,25 @@
           <label class="chip-picker-item"><input type="checkbox" data-chip-id="chip-net" checked> 📊 This month's net</label>
           <label class="chip-picker-item"><input type="checkbox" data-chip-id="chip-savings" checked> 🐷 Total savings</label>
           <label class="chip-picker-item"><input type="checkbox" data-chip-id="chip-gifts" checked> 🎁 Total gifts</label>
+          <label class="chip-picker-item"><input type="checkbox" data-chip-id="chip-investments" checked> 💹 Total investments</label>
+          <label class="chip-picker-item"><input type="checkbox" data-chip-id="chip-networth" checked> 📈 Net worth</label>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head"><h2>📑 Visible tabs</h2></div>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which tabs show in the nav bar — e.g. turn off Investments if you don't use it. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again. Overview and What's New always show.</p>
+      <div class="toolbar">
+        <div class="chip-picker" id="tab-picker">
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="networth" checked> 📈 Net Worth</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="income" checked> 💸 Income</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="debts" checked> 💳 Debts</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="gifts" checked> 🎁 Gifts</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="savings" checked> 🐷 Savings</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="expenses" checked> 🏠 Expenses</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="xp" checked> 🌟 XP</label>
+          <label class="chip-picker-item"><input type="checkbox" data-tab-id="investments" checked> 💹 Investments</label>
         </div>
       </div>
     </section>

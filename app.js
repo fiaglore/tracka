@@ -133,7 +133,7 @@ window.__ftStart = function(){
   // ids rather than hidden ones, so a chip added in a later update (like
   // "Total gifts" was) defaults to shown for existing users instead of
   // silently inheriting some unrelated old hidden-list state.
-  const ALL_CHIP_IDS = ['chip-clock','chip-countdown','chip-level','chip-streak','chip-outstanding','chip-net','chip-savings','chip-gifts'];
+  const ALL_CHIP_IDS = ['chip-clock','chip-countdown','chip-level','chip-streak','chip-outstanding','chip-net','chip-savings','chip-gifts','chip-investments','chip-networth'];
   function loadVisibleChips(){
     const saved = cloud.visibleChips;
     if(!Array.isArray(saved)) return ALL_CHIP_IDS.slice();
@@ -153,6 +153,40 @@ window.__ftStart = function(){
     visibleChipIds = visible ? ALL_CHIP_IDS.filter(x=> x===id || visibleChipIds.includes(x)) : visibleChipIds.filter(x=>x!==id);
     saveCloudField('visibleChips', visibleChipIds);
     applyChipVisibility();
+  }
+
+  // ===== Which tabs show in the page nav (Settings — "Visible tabs") =====
+  // Same shown-ids-not-hidden-ids pattern as the top-bar chips above, for the
+  // same reason (a tab added later defaults to shown). Overview and What's
+  // New are never in this list — always on, since Overview is the landing
+  // page every fallback needs and What's New is how changes get announced.
+  const ALL_TAB_IDS = ['networth','income','debts','gifts','savings','expenses','xp','investments'];
+  function loadVisibleTabs(){
+    const saved = cloud.visibleTabs;
+    if(!Array.isArray(saved)) return ALL_TAB_IDS.slice();
+    return ALL_TAB_IDS.filter(id=> saved.includes(id));
+  }
+  let visibleTabIds = loadVisibleTabs();
+  function applyTabVisibility(){
+    ALL_TAB_IDS.forEach(id=>{
+      const btn = document.querySelector('.page-nav-btn[data-page="'+id+'"]');
+      // Net Worth stays behind its own premium gate (see isFeatureUnlocked)
+      // on top of this per-user show/hide choice — either one hides it.
+      const premiumLocked = id==='networth' && !isFeatureUnlocked('netWorth');
+      if(btn) btn.hidden = premiumLocked || !visibleTabIds.includes(id);
+    });
+    document.querySelectorAll('#tab-picker input[data-tab-id]').forEach(cb=>{
+      cb.checked = visibleTabIds.includes(cb.dataset.tabId);
+    });
+    // If the tab currently open just got hidden, fall back to Overview
+    // rather than leaving a hidden page showing with no way back to it.
+    const activeBtn = document.querySelector('.page-nav-btn.active');
+    if(activeBtn && activeBtn.hidden && typeof showPage==='function') showPage('overview');
+  }
+  function setTabVisible(id, visible){
+    visibleTabIds = visible ? ALL_TAB_IDS.filter(x=> x===id || visibleTabIds.includes(x)) : visibleTabIds.filter(x=>x!==id);
+    saveCloudField('visibleTabs', visibleTabIds);
+    applyTabVisibility();
   }
 
   // ===== Pet companion species =====
@@ -1461,7 +1495,10 @@ window.__ftStart = function(){
   ];
   function investmentTypeInfo(id){ return INVESTMENT_TYPES.find(t=>t.id===id) || {id, label:id, icon:'💼'}; }
   function addInvestment(type, name, units, costBasis){
-    state.investments.push({id: makeCustomId('inv'), type, name, units: Math.max(0.000001, Number(units)||1), costBasis: Math.max(0, Number(costBasis)||0)});
+    // monthIndex records which month a holding was first added in (for the
+    // "Investments this month" overview card below) — it's not a per-month
+    // item the way income/debts are, this is purely a timestamp.
+    state.investments.push({id: makeCustomId('inv'), type, name, units: Math.max(0.000001, Number(units)||1), costBasis: Math.max(0, Number(costBasis)||0), monthIndex: activeMonth});
     save();
   }
   function deleteInvestment(id){
@@ -1500,6 +1537,10 @@ window.__ftStart = function(){
   function gainPctOf(inv){ return inv.costBasis>0 ? (gainAmountOf(inv)/inv.costBasis)*100 : null; }
   function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+currentValueOf(i), 0); }
   function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+i.costBasis, 0); }
+  // Sum of cost basis for holdings first added in month mi — investments added
+  // before this field existed have no monthIndex and so never count toward
+  // any month's figure (indistinguishable from "added who knows when").
+  function investedThisMonth(mi){ return state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+(Number(i.costBasis)||0), 0); }
 
   function renderNetWorth(){
     const content = document.getElementById('networth-content');
@@ -2325,7 +2366,7 @@ window.__ftStart = function(){
     renderInvestments();
     renderNetWorth();
     renderCurrencyRates();
-    { const nwNav = document.querySelector('.page-nav-btn[data-page="networth"]'); if(nwNav) nwNav.hidden = !isFeatureUnlocked('netWorth'); }
+    applyTabVisibility();
     renderExtra();
 
     const incomeChecked = sumChecked(m.income), incomeTotal = sumAll(m.income);
@@ -2402,6 +2443,8 @@ window.__ftStart = function(){
     document.getElementById('sum-extra').textContent = fmt(extraMonth);
     const sumGiftsMonthEl = document.getElementById('sum-gifts-month');
     if(sumGiftsMonthEl) sumGiftsMonthEl.textContent = fmt(giftTotal);
+    const sumInvestedMonthEl = document.getElementById('sum-invested-month');
+    if(sumInvestedMonthEl) sumInvestedMonthEl.textContent = fmt(investedThisMonth(activeMonth));
 
     const cumSavings = cumulativeSavingsUpTo(activeMonth);
 
@@ -2552,6 +2595,13 @@ window.__ftStart = function(){
     // "Still outstanding" chip above, same "visible from any tab" reasoning.
     const chipSavingsEl = document.getElementById('chip-savings-val');
     if(chipSavingsEl) chipSavingsEl.textContent = fmt(cumulativeSavingsUpTo(N-1));
+    // Current value of every investment holding, and the same net-worth
+    // total the Net Worth tab shows — both visible from any tab, same
+    // "visible from any tab" reasoning as the chips above.
+    const chipInvestmentsEl = document.getElementById('chip-investments-val');
+    if(chipInvestmentsEl) chipInvestmentsEl.textContent = fmt(totalInvestmentsValue());
+    const chipNetworthEl = document.getElementById('chip-networth-val');
+    if(chipNetworthEl) chipNetworthEl.textContent = fmt(netWorthForMonth(activeMonth));
 
     // ===== Gamification: achievement badges =====
     let maxSaved = 0;
@@ -2904,6 +2954,10 @@ window.__ftStart = function(){
   document.addEventListener('change', function(e){
     if(e.target.matches('#chip-picker input[data-chip-id]')){
       setChipVisible(e.target.dataset.chipId, e.target.checked);
+      return;
+    }
+    if(e.target.matches('#tab-picker input[data-tab-id]')){
+      setTabVisible(e.target.dataset.tabId, e.target.checked);
       return;
     }
     // Immediate reaction on ticking anything off — save() below triggers a
@@ -5195,6 +5249,7 @@ window.__ftStart = function(){
   }
   renderWhatsNew();
   applyChipVisibility();
+  applyTabVisibility();
 
   applyStaticSettings();
   populateTargetSelect();
@@ -5968,6 +6023,11 @@ window.__ftStart = function(){
 
   /* ---------------- Page navigation ---------------- */
   function showPage(name){
+    // A page restored from sessionStorage (below) could have been hidden
+    // in Settings since the tab was last open — never land on a page whose
+    // nav button is hidden, fall back to Overview instead.
+    var targetBtn = document.querySelector('.page-nav-btn[data-page="'+name+'"]');
+    if(targetBtn && targetBtn.hidden && name!=='overview') name = 'overview';
     var pages = document.querySelectorAll('.app-page');
     Array.prototype.forEach.call(pages, function(p){
       p.classList.toggle('active', p.getAttribute('data-page') === name);
