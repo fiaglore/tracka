@@ -521,8 +521,14 @@ button,input,select,textarea{font-family:inherit;}
 .brand-text h1{font-size:clamp(19px,2.6vw,24px); font-weight:700;}
 .brand-text .tag{font-size:12px; color:var(--muted); margin-top:1px;}
 
-.meta-chips{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;}
-.chip{font-family:var(--font-mono); border:1px solid var(--line); background:var(--surface); border-radius:var(--radius-sm); padding:8px 14px; display:flex; flex-direction:column; gap:2px; min-width:132px; box-shadow:var(--shadow-sm);}
+/* grid, not flex-wrap: flex-wrap packed however many chips fit per row
+   by each chip's own content width, so rows ended up with uneven chip
+   counts (a long label like "Days until debt-free" alone on its row,
+   shorter ones 2-up) and no two chips ever matched width. auto-fit +
+   minmax gives every chip in a row the same width and reflows the
+   column count to the viewport on its own, no breakpoints needed. */
+.meta-chips{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:14px;}
+.chip{font-family:var(--font-mono); border:1px solid var(--line); background:var(--surface); border-radius:var(--radius-sm); padding:8px 14px; display:flex; flex-direction:column; gap:2px; box-shadow:var(--shadow-sm);}
 .chip .lbl{font-size:9.5px; letter-spacing:.04em; color:var(--muted); font-family:var(--font-display); font-weight:600;}
 .chip .val{font-size:16px; font-weight:700; color:var(--ink);}
 .chip.countdown .val{color:var(--accent);}
