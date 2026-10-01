@@ -3190,8 +3190,11 @@ window.__ftStart = function(){
       body.innerHTML = '<div class="empty-msg">No savings apps yet — add one below and its balance will follow you month to month.</div>';
       return;
     }
-    const opening = accts.reduce((s,a)=>s+a.opening,0);
-    const closing = accts.reduce((s,a)=>s+a.closing,0);
+    // a.opening/a.closing are each account's own balance in its own held currency (see
+    // savingsAccounts() above) — summing those raw numbers across accounts mixes currencies
+    // (e.g. ₦200,000 + $50 became "₦200,050"). Convert each to the primary currency first.
+    const opening = accts.reduce((s,a)=>s+convertedAppBalanceUpTo(a.key, activeMonth-1),0);
+    const closing = accts.reduce((s,a)=>s+convertedAppBalanceUpTo(a.key, activeMonth),0);
     const movement = closing - opening;
     const prevTag = activeMonth>0 ? (monthLabels[activeMonth-1]+' '+yearTags[activeMonth-1]) : 'the start';
     head.innerHTML = `
@@ -3200,9 +3203,11 @@ window.__ftStart = function(){
       <div class="n"><div class="lbl">Balance at end of ${currentMonthTag()}</div><div class="val" style="color:var(--accent)">${fmt(closing)}</div></div>
       <div class="n"><div class="lbl">Accounts</div><div class="val">${accts.length}</div></div>
     `;
-    const maxBal = Math.max(...accts.map(a=>a.closing), 1);
+    // Same cross-currency problem as above: comparing raw a.closing values to size each bar
+    // would put e.g. a $50 account's bar ahead of a ₦200,000 one. Compare converted balances.
+    const maxBal = Math.max(...accts.map(a=>convertedAppBalanceUpTo(a.key, activeMonth)), 1);
     body.innerHTML = accts.map(a=>{
-      const pct = Math.max(0, Math.min(100,(a.closing/maxBal)*100));
+      const pct = Math.max(0, Math.min(100,(convertedAppBalanceUpTo(a.key, activeMonth)/maxBal)*100));
       const growth = a.opening>0 ? ((a.movement/a.opening)*100) : null;
       const growthText = a.movement===0 ? 'no movement this month'
         : (growth===null ? '✨ first money in' : (a.movement>0?'▲ ':'▼ ')+Math.abs(growth).toFixed(1)+'% this month');
