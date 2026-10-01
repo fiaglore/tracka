@@ -172,17 +172,32 @@ window.__ftStart = function(){
   }
   let visibleTabIds = loadVisibleTabs();
   // Custom tab order (Settings — the ▲▼ arrows next to "Visible tabs").
-  // Stored as the full sequence of ALL_TAB_IDS rather than just the moved
-  // ones, same reasoning as visibleTabIds: a tab added later (new default
-  // position) just appends at the end of whatever order is saved, instead
-  // of needing a migration.
+  // tabOrder holds only the REORDERABLE tabs (everything but xp) — xp's
+  // fixed POSITION (not a fixed neighbor) is spliced back in at render time
+  // by fullTabOrder() below. Earlier this stored all 8 ids with moves
+  // blocked from crossing xp's slot, which treated xp as a wall splitting
+  // the list into two independent groups — fine for the 6 tabs before it,
+  // but investments (the only tab after it) then had nothing to swap with
+  // on either side and could never move at all. Tracking just the
+  // reorderable ids sidesteps that: every one of them, investments
+  // included, can move freely top-to-bottom among each other, and xp
+  // simply always renders at the same rank relative to wherever they land.
+  const REORDERABLE_TAB_IDS = ALL_TAB_IDS.filter(id=>id!=='xp');
+  const XP_FIXED_INDEX = ALL_TAB_IDS.indexOf('xp');
   function loadTabOrder(){
     const saved = cloud.tabOrder;
-    const order = Array.isArray(saved) ? saved.filter(id=>ALL_TAB_IDS.includes(id)) : [];
-    ALL_TAB_IDS.forEach(id=>{ if(!order.includes(id)) order.push(id); });
+    const order = Array.isArray(saved) ? saved.filter(id=>REORDERABLE_TAB_IDS.includes(id)) : [];
+    REORDERABLE_TAB_IDS.forEach(id=>{ if(!order.includes(id)) order.push(id); });
     return order;
   }
   let tabOrder = loadTabOrder();
+  // The actual display sequence: tabOrder's 7 tabs with 'xp' inserted at
+  // its fixed index.
+  function fullTabOrder(){
+    const full = tabOrder.slice();
+    full.splice(Math.min(XP_FIXED_INDEX, full.length), 0, 'xp');
+    return full;
+  }
   function applyTabVisibility(){
     ALL_TAB_IDS.forEach(id=>{
       const btn = document.querySelector('.page-nav-btn[data-page="'+id+'"]');
@@ -210,22 +225,22 @@ window.__ftStart = function(){
     const nav = document.getElementById('page-nav');
     let anchor = nav && nav.querySelector('.page-nav-btn[data-page="overview"]');
     if(!anchor) return;
-    tabOrder.forEach(id=>{
+    fullTabOrder().forEach(id=>{
       const btn = nav.querySelector('.page-nav-btn[data-page="'+id+'"]');
       if(!btn) return;
       anchor.after(btn);
       anchor = btn;
     });
   }
-  // XP never moves, and nothing can move past it — treated as a wall
-  // splitting the reorderable tabs into two independent groups either side
-  // of its fixed slot, per the Settings copy ("XP stays fixed in place").
+  // xp is never in tabOrder at all (see above), so there's nothing to skip
+  // here — every reorderable tab, investments included, can move freely to
+  // either end of the list.
   function moveTab(id, dir){
     if(id==='xp') return;
     const idx = tabOrder.indexOf(id);
     if(idx<0) return;
     const swapIdx = idx + dir;
-    if(swapIdx<0 || swapIdx>=tabOrder.length || tabOrder[swapIdx]==='xp') return;
+    if(swapIdx<0 || swapIdx>=tabOrder.length) return;
     const next = tabOrder.slice();
     const tmp = next[idx]; next[idx] = next[swapIdx]; next[swapIdx] = tmp;
     tabOrder = next;
@@ -236,14 +251,13 @@ window.__ftStart = function(){
   function renderTabPicker(){
     const container = document.getElementById('tab-picker');
     if(!container) return;
-    container.innerHTML = tabOrder.map((id, i)=>{
+    container.innerHTML = fullTabOrder().map(id=>{
       const fixed = id==='xp';
-      const atTop = i===0 || tabOrder[i-1]==='xp';
-      const atBottom = i===tabOrder.length-1 || tabOrder[i+1]==='xp';
+      const reorderIdx = tabOrder.indexOf(id);
       const arrows = fixed
         ? `<span class="tab-order-fixed-note" title="XP always stays in this position">🔒</span>`
-        : `<button type="button" class="tab-order-btn" data-tab-move="up" data-tab-id="${id}" ${atTop?'disabled':''} title="Move up">▲</button>`
-          + `<button type="button" class="tab-order-btn" data-tab-move="down" data-tab-id="${id}" ${atBottom?'disabled':''} title="Move down">▼</button>`;
+        : `<button type="button" class="tab-order-btn" data-tab-move="up" data-tab-id="${id}" ${reorderIdx===0?'disabled':''} title="Move up">▲</button>`
+          + `<button type="button" class="tab-order-btn" data-tab-move="down" data-tab-id="${id}" ${reorderIdx===tabOrder.length-1?'disabled':''} title="Move down">▼</button>`;
       return `<div class="tab-order-row">
         <span class="tab-order-arrows">${arrows}</span>
         <label class="chip-picker-item"><input type="checkbox" data-tab-id="${id}" ${visibleTabIds.includes(id)?'checked':''}> ${TAB_LABELS[id]||id}</label>
