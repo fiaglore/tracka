@@ -5394,6 +5394,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🎨 9 new themes, and a bigger pet companion', body: 'Settings → "🎨 Appearance" now has 9 new themes to pick from — Biker, Fire, Barbie, Studio Ghibli, Cyberpunk, Galaxy, Matcha, Vaporwave, and Cozy Cabin — in place of 8 of the more similar-looking plain colors (Dusk, Slate, Citrus, Sage, Coral, Sky, Wine, Copper), which have been retired. The theme picker also now spans the full width of the card instead of being squeezed into a narrow column. Separately, your pet companion in the bottom-right corner is now three times the size, and the page-tab bar (Overview, Income, Debts... What\'s New) no longer wraps "✨ What\'s New" onto its own line on a wide screen — it scrolls with the rest of the tabs instead, the same way it already did on a phone.' },
     { title: '📷 Upload a profile photo', body: 'Settings → "👤 Profile" now has an "📷 Upload photo" button, so your own picture can show up everywhere your profile icon used to — the top-bar avatar and anywhere else your profile appears. It replaces the emoji icon when set; a "🗑️ Remove photo" button switches back to picking an emoji instead. Square-crops and shrinks it automatically before uploading, so there\'s no need to pre-resize anything yourself.' },
     { title: '🌱 One consistent Trakka logo everywhere', body: "The leaf emoji standing in for Trakka's logo (which could render differently depending on your device) has been replaced with the app's actual icon — the same one on your home screen — in the sign-in screen, Settings, and every page's top nav." },
     { title: '📜 A Terms & Conditions and Privacy Policy page', body: 'A new "Terms & Privacy" link (in the footer of the sign-in and landing pages) lays out, in plain language, what Trakka is for, what data is collected, how it\'s stored, and how to request it or have it deleted. Nothing in the app requires reading it or signing anything first.' },
@@ -6132,15 +6133,12 @@ window.__ftStart = function(){
 (function(){
   var THEMES = [
     { id:'meadow',      name:'Meadow (default)' },
-    { id:'dusk',        name:'Dusk' },
     { id:'harbor',      name:'Harbor' },
     { id:'midnight',    name:'Midnight' },
     { id:'bloom',       name:'Bloom' },
     { id:'fern',        name:'Fern' },
     { id:'plum',        name:'Plum' },
     { id:'terracotta',  name:'Terracotta' },
-    { id:'slate',       name:'Slate' },
-    { id:'citrus',      name:'Citrus' },
     { id:'sunrise',     name:'Sunrise (gradient)' },
     { id:'lagoon',      name:'Lagoon (gradient)' },
     { id:'orchard',     name:'Orchard (dot pattern)' },
@@ -6151,15 +6149,19 @@ window.__ftStart = function(){
     { id:'navy',        name:'Navy' },
     { id:'mustard',     name:'Mustard' },
     { id:'charcoal',    name:'Charcoal' },
-    { id:'sage',        name:'Sage' },
-    { id:'coral',       name:'Coral' },
-    { id:'sky',         name:'Sky' },
-    { id:'wine',        name:'Wine' },
     { id:'forest',      name:'Forest' },
-    { id:'copper',      name:'Copper' },
     { id:'aurora',      name:'Aurora (gradient)' },
     { id:'sunset',      name:'Sunset (gradient)' },
-    { id:'honeycomb',   name:'Honeycomb (pattern)' }
+    { id:'honeycomb',   name:'Honeycomb (pattern)' },
+    { id:'biker',       name:'Biker' },
+    { id:'fire',        name:'Fire (gradient)' },
+    { id:'barbie',      name:'Barbie' },
+    { id:'ghibli',      name:'Studio Ghibli (gradient)' },
+    { id:'cyberpunk',   name:'Cyberpunk (gradient)' },
+    { id:'galaxy',      name:'Galaxy (gradient)' },
+    { id:'matcha',      name:'Matcha' },
+    { id:'vaporwave',   name:'Vaporwave (gradient)' },
+    { id:'cozycabin',   name:'Cozy Cabin' }
   ];
   // A flat hex works as a swatch's background for the 10 plain-color
   // presets, but says nothing about "this one has a gradient/pattern" —
@@ -6167,19 +6169,26 @@ window.__ftStart = function(){
   // instead: the same gradients/patterns styles.css uses, just scaled
   // down, giving the swatch itself a visual hint of what it looks like.
   var SWATCH_BG = {
-    meadow:'#D98E2B', dusk:'#F0B457', harbor:'#1E8C99', midnight:'#6E8CF0',
+    meadow:'#D98E2B', harbor:'#1E8C99', midnight:'#6E8CF0',
     bloom:'#D9587B', fern:'#4B7F3C', plum:'#B984E8', terracotta:'#C1592F',
-    slate:'#3E6BD1', citrus:'#E0A014',
     sunrise: 'linear-gradient(135deg, #F6D9A8 0%, #F0A97E 100%)',
     lagoon:  'linear-gradient(135deg, #9FD8E8 0%, #7C8FE0 100%)',
     orchard: 'radial-gradient(circle, rgba(40,55,27,.5) 1px, transparent 1.6px) #B7DE8F',
     contour: 'repeating-linear-gradient(120deg, rgba(27,35,55,.35) 0px, rgba(27,35,55,.35) 1px, transparent 1px, transparent 4px) #AFC2EC',
     raspberry:'#C6294B', mint:'#1FA383', lavender:'#8067D6', navy:'#1D4E89', mustard:'#B8860B',
-    charcoal:'#52565E', sage:'#7A9471', coral:'#F0725A', sky:'#4FA7D9', wine:'#7A2138',
-    forest:'#2C5F3C', copper:'#B5651D',
+    charcoal:'#52565E', forest:'#2C5F3C',
     aurora:  'linear-gradient(135deg, #7BE8B4 0%, #B4A0EE 100%)',
     sunset:  'linear-gradient(135deg, #F0A0A8 0%, #F0C89E 100%)',
-    honeycomb: 'repeating-linear-gradient(60deg, rgba(51,43,24,.4) 0px, rgba(51,43,24,.4) 1px, transparent 1px, transparent 5px), repeating-linear-gradient(-60deg, rgba(51,43,24,.4) 0px, rgba(51,43,24,.4) 1px, transparent 1px, transparent 5px) #EFE4C0'
+    honeycomb: 'repeating-linear-gradient(60deg, rgba(51,43,24,.4) 0px, rgba(51,43,24,.4) 1px, transparent 1px, transparent 5px), repeating-linear-gradient(-60deg, rgba(51,43,24,.4) 0px, rgba(51,43,24,.4) 1px, transparent 1px, transparent 5px) #EFE4C0',
+    biker:     'linear-gradient(135deg, #0C0C0D 0%, #C8102E 100%)',
+    fire:      'linear-gradient(135deg, #FFD200 0%, #FF5A1F 50%, #B3160C 100%)',
+    barbie:    'linear-gradient(135deg, #FF69B4 0%, #FF1493 100%)',
+    ghibli:    'linear-gradient(135deg, #A8D5BA 0%, #6FA8DC 100%)',
+    cyberpunk: 'linear-gradient(135deg, #00F0FF 0%, #E619B3 100%)',
+    galaxy:    'linear-gradient(135deg, #2A1458 0%, #6E4FE8 50%, #0A0618 100%)',
+    matcha:    'linear-gradient(135deg, #B5C99A 0%, #6B8E4E 100%)',
+    vaporwave: 'linear-gradient(135deg, #FF9DE2 0%, #8A7FFB 50%, #7FD8FF 100%)',
+    cozycabin: 'linear-gradient(135deg, #D9A066 0%, #8B5A2B 100%)'
   };
   function loadThemePreset(){
     var cloud = window.__ftCloudData;

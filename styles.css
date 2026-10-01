@@ -1,7 +1,7 @@
 /* Debt-Free & Budget Tracker — stylesheet v2
-   Modern, paginated layout with 29 selectable theme presets, each
-   available in a light and a dark variant (23 flat-color presets +
-   4 gradient-sweep presets + 3 subtle-pattern presets).
+   Modern, paginated layout with 30 selectable theme presets, each
+   available in a light and a dark variant (17 flat-color presets +
+   9 gradient-sweep presets + 4 subtle-pattern presets).
    Keep this file in the same folder as the tracker .html file. */
 
 /* ============================================================
@@ -81,20 +81,7 @@ body[data-theme-preset="meadow"][data-mode="dark"]{
   --accent:#E8B673; --accent-ink:#E0CAAE;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 2. Dusk ---- */
-body[data-theme-preset="dusk"][data-mode="light"]{
-  --bg:#F6F3EF; --bg-soft:#EDE7DE; --surface:#FFFFFF; --surface-2:#F9F8F6;
-  --ink:#372C1B; --muted:#8D7A5E; --line:#E5DDD1;
-  --accent:#C68B2F; --accent-ink:#3F2E12;
-  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
-}
-body[data-theme-preset="dusk"][data-mode="dark"]{
-  --bg:#1B1712; --bg-soft:#221C15; --surface:#262019; --surface-2:#2C251C;
-  --ink:#F1E7D3; --muted:#B2A181; --line:#463A29;
-  --accent:#F0B457; --accent-ink:#E0CCAE;
-  --good:#7FCB86; --bad:#EF8768; --info:#7CA9E0;
-}
-/* ---- 3. Harbor ---- */
+/* ---- 2. Harbor ---- */
 body[data-theme-preset="harbor"][data-mode="light"]{
   --bg:#EFF5F6; --bg-soft:#E3EEF0; --surface:#FFFFFF; --surface-2:#F5FAFB;
   --ink:#173238; --muted:#5E7C82; --line:#CFE2E5;
@@ -107,7 +94,7 @@ body[data-theme-preset="harbor"][data-mode="dark"]{
   --accent:#73DCE8; --accent-ink:#AEDBE0;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 4. Midnight ---- */
+/* ---- 3. Midnight ---- */
 body[data-theme-preset="midnight"][data-mode="light"]{
   --bg:#EFF0F6; --bg-soft:#DEE1ED; --surface:#FFFFFF; --surface-2:#F6F6F9;
   --ink:#1B2137; --muted:#5E698D; --line:#D1D6E5;
@@ -120,7 +107,7 @@ body[data-theme-preset="midnight"][data-mode="dark"]{
   --accent:#6E8CF0; --accent-ink:#AEB9E0;
   --good:#63C98A; --bad:#EA7B72; --info:#7FA6F2;
 }
-/* ---- 5. Bloom ---- */
+/* ---- 4. Bloom ---- */
 body[data-theme-preset="bloom"][data-mode="light"]{
   --bg:#FBF0F1; --bg-soft:#F6E4E6; --surface:#FFFFFF; --surface-2:#FDF3F4;
   --ink:#4A2027; --muted:#9C6E76; --line:#F0D2D6;
@@ -133,7 +120,7 @@ body[data-theme-preset="bloom"][data-mode="dark"]{
   --accent:#E87393; --accent-ink:#E0AEBB;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 6. Fern ---- */
+/* ---- 5. Fern ---- */
 body[data-theme-preset="fern"][data-mode="light"]{
   --bg:#EEF3EA; --bg-soft:#E3EBDC; --surface:#FFFFFF; --surface-2:#F5F8F1;
   --ink:#1F2E1A; --muted:#6C7C5E; --line:#D3E0C6;
@@ -146,7 +133,7 @@ body[data-theme-preset="fern"][data-mode="dark"]{
   --accent:#8DE873; --accent-ink:#B9E0AE;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 7. Plum ---- */
+/* ---- 6. Plum ---- */
 body[data-theme-preset="plum"][data-mode="light"]{
   --bg:#F2EFF6; --bg-soft:#E6DEED; --surface:#FFFFFF; --surface-2:#F7F6F9;
   --ink:#2A1B37; --muted:#775E8D; --line:#DCD1E5;
@@ -159,7 +146,7 @@ body[data-theme-preset="plum"][data-mode="dark"]{
   --accent:#B984E8; --accent-ink:#C8AEE0;
   --good:#7BCB93; --bad:#EA8478; --info:#8AA6EE;
 }
-/* ---- 8. Terracotta ---- */
+/* ---- 7. Terracotta ---- */
 body[data-theme-preset="terracotta"][data-mode="light"]{
   --bg:#F7EEE6; --bg-soft:#F0E0D2; --surface:#FFFFFF; --surface-2:#FBF3EC;
   --ink:#3E2417; --muted:#93715A; --line:#E9D2BC;
@@ -172,34 +159,7 @@ body[data-theme-preset="terracotta"][data-mode="dark"]{
   --accent:#E89473; --accent-ink:#E0BCAE;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 9. Slate ---- */
-body[data-theme-preset="slate"][data-mode="light"]{
-  --bg:#F1F2F3; --bg-soft:#E6E8EA; --surface:#FFFFFF; --surface-2:#F7F8F9;
-  --ink:#23272C; --muted:#6C737B; --line:#DBDEE2;
-  --accent:#3E6BD1; --accent-ink:#0E1F45;
-  --good:#3E9457; --bad:#C74C3B; --info:#3E6BD1;
-}
-body[data-theme-preset="slate"][data-mode="dark"]{
-  --bg:#11151C; --bg-soft:#181C25; --surface:#20242D; --surface-2:#262B36;
-  --ink:#E4E8F1; --muted:#949FB8; --line:#30384B;
-  --accent:#7397E8; --accent-ink:#AEBDE0;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-/* ---- 10. Citrus ---- */
-body[data-theme-preset="citrus"][data-mode="light"]{
-  --bg:#FBF6E4; --bg-soft:#F4EBC6; --surface:#FFFFFF; --surface-2:#FCF9EA;
-  --ink:#33280A; --muted:#8C7C3E; --line:#EBDD9C;
-  --accent:#E0A014; --accent-ink:#402A02;
-  --good:#4C8F3E; --bad:#D2552F; --info:#3F82AE;
-}
-body[data-theme-preset="citrus"][data-mode="dark"]{
-  --bg:#1C1911; --bg-soft:#252118; --surface:#2D2920; --surface-2:#363126;
-  --ink:#F1EDE4; --muted:#B8AC94; --line:#4B4230;
-  --accent:#E8C373; --accent-ink:#E0D0AE;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-
-/* ---- 11. Sunrise (warm gradient sweep) ---- */
+/* ---- 8. Sunrise (warm gradient sweep) ---- */
 body[data-theme-preset="sunrise"][data-mode="light"]{
   --bg:#F6F2EF; --bg-soft:#EDE5DE; --surface:#FFFFFF; --surface-2:#F9F7F6;
   --ink:#37281B; --muted:#8D745E; --line:#E5DBD1;
@@ -214,7 +174,7 @@ body[data-theme-preset="sunrise"][data-mode="dark"]{
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
   --bg-image:linear-gradient(135deg, #1C1712 0%, #202216 100%);
 }
-/* ---- 12. Lagoon (cool gradient sweep) ---- */
+/* ---- 9. Lagoon (cool gradient sweep) ---- */
 body[data-theme-preset="lagoon"][data-mode="light"]{
   --bg:#EFF4F6; --bg-soft:#DEE9ED; --surface:#FFFFFF; --surface-2:#F6F8F9;
   --ink:#1B3037; --muted:#5E818D; --line:#D1E0E5;
@@ -229,7 +189,7 @@ body[data-theme-preset="lagoon"][data-mode="dark"]{
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
   --bg-image:linear-gradient(135deg, #12191C 0%, #161722 100%);
 }
-/* ---- 13. Orchard (dot-grid texture) ---- */
+/* ---- 10. Orchard (dot-grid texture) ---- */
 body[data-theme-preset="orchard"][data-mode="light"]{
   --bg:#F2F6EF; --bg-soft:#E5EDDE; --surface:#FFFFFF; --surface-2:#F7F9F6;
   --ink:#28371B; --muted:#748D5E; --line:#DBE5D1;
@@ -246,7 +206,7 @@ body[data-theme-preset="orchard"][data-mode="dark"]{
   --bg-image:radial-gradient(circle, rgba(234,241,228,.06) 1px, transparent 1.6px);
   --bg-size:18px 18px;
 }
-/* ---- 14. Contour (topographic-line texture) ---- */
+/* ---- 11. Contour (topographic-line texture) ---- */
 body[data-theme-preset="contour"][data-mode="light"]{
   --bg:#EFF1F6; --bg-soft:#DEE2ED; --surface:#FFFFFF; --surface-2:#F6F7F9;
   --ink:#1B2337; --muted:#5E6C8D; --line:#D1D7E5;
@@ -262,7 +222,7 @@ body[data-theme-preset="contour"][data-mode="dark"]{
   --bg-image:repeating-linear-gradient(120deg, rgba(228,232,241,.045) 0px, rgba(228,232,241,.045) 1px, transparent 1px, transparent 15px);
 }
 
-/* ---- 15. Raspberry ---- */
+/* ---- 12. Raspberry ---- */
 body[data-theme-preset="raspberry"][data-mode="light"]{
   --bg:#FBF0F2; --bg-soft:#F5E1E5; --surface:#FFFFFF; --surface-2:#FDF4F5;
   --ink:#4A1420; --muted:#9C5E6E; --line:#F0D0D6;
@@ -275,7 +235,7 @@ body[data-theme-preset="raspberry"][data-mode="dark"]{
   --accent:#E85C81; --accent-ink:#E0A4B4;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 16. Mint ---- */
+/* ---- 13. Mint ---- */
 body[data-theme-preset="mint"][data-mode="light"]{
   --bg:#EEF7F3; --bg-soft:#DFEEE7; --surface:#FFFFFF; --surface-2:#F5FAF8;
   --ink:#123328; --muted:#5E8C7A; --line:#CFE7DC;
@@ -288,7 +248,7 @@ body[data-theme-preset="mint"][data-mode="dark"]{
   --accent:#5EDCBA; --accent-ink:#AEE0D2;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 17. Lavender ---- */
+/* ---- 14. Lavender ---- */
 body[data-theme-preset="lavender"][data-mode="light"]{
   --bg:#F4F1FA; --bg-soft:#E8E2F3; --surface:#FFFFFF; --surface-2:#F8F6FC;
   --ink:#2B2140; --muted:#7C6E96; --line:#DDD3EC;
@@ -301,7 +261,7 @@ body[data-theme-preset="lavender"][data-mode="dark"]{
   --accent:#A594EE; --accent-ink:#C8BEE0;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 18. Navy ---- */
+/* ---- 15. Navy ---- */
 body[data-theme-preset="navy"][data-mode="light"]{
   --bg:#EEF2F7; --bg-soft:#DEE6F0; --surface:#FFFFFF; --surface-2:#F5F8FB;
   --ink:#101E33; --muted:#556A8D; --line:#CFDBEC;
@@ -314,7 +274,7 @@ body[data-theme-preset="navy"][data-mode="dark"]{
   --accent:#5C8CE0; --accent-ink:#AEC3E0;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 19. Mustard ---- */
+/* ---- 16. Mustard ---- */
 body[data-theme-preset="mustard"][data-mode="light"]{
   --bg:#F8F4E2; --bg-soft:#EFE6C2; --surface:#FFFFFF; --surface-2:#FBF8EA;
   --ink:#332B0A; --muted:#8C7E3E; --line:#E7DC9C;
@@ -327,7 +287,7 @@ body[data-theme-preset="mustard"][data-mode="dark"]{
   --accent:#E0B84D; --accent-ink:#E0D0A0;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 20. Charcoal ---- */
+/* ---- 17. Charcoal ---- */
 body[data-theme-preset="charcoal"][data-mode="light"]{
   --bg:#F1F1F2; --bg-soft:#E4E4E6; --surface:#FFFFFF; --surface-2:#F8F8F8;
   --ink:#202124; --muted:#6C6D72; --line:#D7D7DA;
@@ -340,59 +300,7 @@ body[data-theme-preset="charcoal"][data-mode="dark"]{
   --accent:#9598A3; --accent-ink:#C8C9CE;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 21. Sage ---- */
-body[data-theme-preset="sage"][data-mode="light"]{
-  --bg:#F1F4EE; --bg-soft:#E5EBDE; --surface:#FFFFFF; --surface-2:#F7F9F5;
-  --ink:#242E1F; --muted:#71805E; --line:#DAE3CE;
-  --accent:#7A9471; --accent-ink:#28331F;
-  --good:#3F8F52; --bad:#C15C3E; --info:#3F7A8C;
-}
-body[data-theme-preset="sage"][data-mode="dark"]{
-  --bg:#131912; --bg-soft:#192018; --surface:#20271E; --surface-2:#262E23;
-  --ink:#E6EDE1; --muted:#A0B393; --line:#374332;
-  --accent:#A3C494; --accent-ink:#C6DCB9;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-/* ---- 22. Coral ---- */
-body[data-theme-preset="coral"][data-mode="light"]{
-  --bg:#FBF1EE; --bg-soft:#F5E3DC; --surface:#FFFFFF; --surface-2:#FDF5F2;
-  --ink:#4A2418; --muted:#9C6E5E; --line:#F0D8CE;
-  --accent:#F0725A; --accent-ink:#5C2013;
-  --good:#4E9166; --bad:#C64A3F; --info:#5E7CB0;
-}
-body[data-theme-preset="coral"][data-mode="dark"]{
-  --bg:#1C1310; --bg-soft:#251A16; --surface:#2D211C; --surface-2:#362822;
-  --ink:#F1E3DC; --muted:#B89A8C; --line:#4B342C;
-  --accent:#F58A73; --accent-ink:#E0B4A8;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-/* ---- 23. Sky ---- */
-body[data-theme-preset="sky"][data-mode="light"]{
-  --bg:#EEF6FA; --bg-soft:#DDEBF2; --surface:#FFFFFF; --surface-2:#F5FAFC;
-  --ink:#122A38; --muted:#57798D; --line:#CFE2EC;
-  --accent:#4FA7D9; --accent-ink:#123048;
-  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
-}
-body[data-theme-preset="sky"][data-mode="dark"]{
-  --bg:#0E171D; --bg-soft:#151F26; --surface:#1B262E; --surface-2:#202D36;
-  --ink:#DFEDF5; --muted:#89A9B8; --line:#2C4150;
-  --accent:#7EC9EE; --accent-ink:#AED8E0;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-/* ---- 24. Wine ---- */
-body[data-theme-preset="wine"][data-mode="light"]{
-  --bg:#F7EEF0; --bg-soft:#EFDCE0; --surface:#FFFFFF; --surface-2:#FBF3F4;
-  --ink:#3E1420; --muted:#8F5A67; --line:#E9CCD2;
-  --accent:#7A2138; --accent-ink:#2E0913;
-  --good:#4C8F5E; --bad:#B7412A; --info:#4E6E9A;
-}
-body[data-theme-preset="wine"][data-mode="dark"]{
-  --bg:#1C1013; --bg-soft:#251519; --surface:#2D191F; --surface-2:#361E25;
-  --ink:#F1DEE2; --muted:#B88894; --line:#4B2530;
-  --accent:#C25772; --accent-ink:#E0A8B4;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-/* ---- 25. Forest ---- */
+/* ---- 18. Forest ---- */
 body[data-theme-preset="forest"][data-mode="light"]{
   --bg:#EEF3EE; --bg-soft:#DDE9DD; --surface:#FFFFFF; --surface-2:#F5F9F5;
   --ink:#12271A; --muted:#57795E; --line:#CFE0CF;
@@ -405,20 +313,7 @@ body[data-theme-preset="forest"][data-mode="dark"]{
   --accent:#5C9E6E; --accent-ink:#AED4B4;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
-/* ---- 26. Copper ---- */
-body[data-theme-preset="copper"][data-mode="light"]{
-  --bg:#F8F0E6; --bg-soft:#F0E0CB; --surface:#FFFFFF; --surface-2:#FBF6EC;
-  --ink:#3E2810; --muted:#93765A; --line:#E9D6BB;
-  --accent:#B5651D; --accent-ink:#4E2508;
-  --good:#4C8F5E; --bad:#B7412A; --info:#4E6E9A;
-}
-body[data-theme-preset="copper"][data-mode="dark"]{
-  --bg:#1C160F; --bg-soft:#251D14; --surface:#2D241A; --surface-2:#362B1F;
-  --ink:#F1E7DC; --muted:#B8A38C; --line:#4B3B2A;
-  --accent:#E09455; --accent-ink:#E0BFA0;
-  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
-}
-/* ---- 27. Aurora (green-violet gradient sweep) ---- */
+/* ---- 19. Aurora (green-violet gradient sweep) ---- */
 body[data-theme-preset="aurora"][data-mode="light"]{
   --bg:#F1F4F0; --bg-soft:#E2ECE4; --surface:#FFFFFF; --surface-2:#F7FAF7;
   --ink:#1B2E22; --muted:#5E8D71; --line:#D1E5D6;
@@ -433,7 +328,7 @@ body[data-theme-preset="aurora"][data-mode="dark"]{
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
   --bg-image:linear-gradient(135deg, #101A15 0%, #151A22 100%);
 }
-/* ---- 28. Sunset (pink-orange gradient sweep) ---- */
+/* ---- 20. Sunset (pink-orange gradient sweep) ---- */
 body[data-theme-preset="sunset"][data-mode="light"]{
   --bg:#FBF1EE; --bg-soft:#F6E2DA; --surface:#FFFFFF; --surface-2:#FDF6F3;
   --ink:#3E1E17; --muted:#9C6E5E; --line:#F0D6CC;
@@ -448,7 +343,7 @@ body[data-theme-preset="sunset"][data-mode="dark"]{
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
   --bg-image:linear-gradient(135deg, #1C1310 0%, #201820 100%);
 }
-/* ---- 29. Honeycomb (crosshatch texture) ---- */
+/* ---- 21. Honeycomb (crosshatch texture) ---- */
 body[data-theme-preset="honeycomb"][data-mode="light"]{
   --bg:#F6F3EA; --bg-soft:#ECE4CD; --surface:#FFFFFF; --surface-2:#FAF7EF;
   --ink:#332B18; --muted:#8C7F5E; --line:#E5D9B6;
@@ -462,6 +357,135 @@ body[data-theme-preset="honeycomb"][data-mode="dark"]{
   --accent:#E8C373; --accent-ink:#E0D0AE;
   --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
   --bg-image:repeating-linear-gradient(60deg, rgba(240,234,216,.04) 0px, rgba(240,234,216,.04) 1px, transparent 1px, transparent 14px), repeating-linear-gradient(-60deg, rgba(240,234,216,.04) 0px, rgba(240,234,216,.04) 1px, transparent 1px, transparent 14px);
+}
+
+/* ---- 22. Biker (brushed-metal texture) ---- */
+body[data-theme-preset="biker"][data-mode="light"]{
+  --bg:#ECEBE9; --bg-soft:#DFDCD8; --surface:#FFFFFF; --surface-2:#F5F4F2;
+  --ink:#1C1C1C; --muted:#6E6A64; --line:#D3CFC9;
+  --accent:#C8102E; --accent-ink:#4A0510;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:repeating-linear-gradient(45deg, rgba(0,0,0,.025) 0px, rgba(0,0,0,.025) 1px, transparent 1px, transparent 10px);
+}
+body[data-theme-preset="biker"][data-mode="dark"]{
+  --bg:#0C0C0D; --bg-soft:#151516; --surface:#1C1C1E; --surface-2:#232325;
+  --ink:#F0EDEA; --muted:#A39D96; --line:#303032;
+  --accent:#FF3B3B; --accent-ink:#FFC2C2;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:repeating-linear-gradient(45deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 1px, transparent 1px, transparent 10px);
+}
+/* ---- 23. Fire (warm gradient sweep) ---- */
+body[data-theme-preset="fire"][data-mode="light"]{
+  --bg:#FFF2E6; --bg-soft:#FFE1C7; --surface:#FFFFFF; --surface-2:#FFF8F0;
+  --ink:#4A1A05; --muted:#A06A3E; --line:#F5CFA8;
+  --accent:#FF5A1F; --accent-ink:#5C1A00;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:linear-gradient(135deg, #FFF0DF 0%, #FFE0CC 50%, #FFD6D0 100%);
+}
+body[data-theme-preset="fire"][data-mode="dark"]{
+  --bg:#190803; --bg-soft:#230D05; --surface:#2B1208; --surface-2:#34160A;
+  --ink:#FFE9DA; --muted:#D9906B; --line:#4A2412;
+  --accent:#FF7A3D; --accent-ink:#FFC9A8;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #190803 0%, #2B0A02 50%, #230512 100%);
+}
+/* ---- 24. Barbie ---- */
+body[data-theme-preset="barbie"][data-mode="light"]{
+  --bg:#FFF0F7; --bg-soft:#FFDCEC; --surface:#FFFFFF; --surface-2:#FFF6FA;
+  --ink:#4A0030; --muted:#B4588F; --line:#FAC7E0;
+  --accent:#FF1493; --accent-ink:#5C0030;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+}
+body[data-theme-preset="barbie"][data-mode="dark"]{
+  --bg:#1F0414; --bg-soft:#2B0A1E; --surface:#330E26; --surface-2:#3B122D;
+  --ink:#FFE1F2; --muted:#E08AC0; --line:#4D1A38;
+  --accent:#FF5CAD; --accent-ink:#FFC2E2;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 25. Studio Ghibli (gradient sweep) ---- */
+body[data-theme-preset="ghibli"][data-mode="light"]{
+  --bg:#F2F7E9; --bg-soft:#E3EFD2; --surface:#FFFFFF; --surface-2:#F8FBF2;
+  --ink:#1F3326; --muted:#6E8C6E; --line:#D3E5C2;
+  --accent:#6FA8DC; --accent-ink:#163049;
+  --good:#4B8F5E; --bad:#C1603E; --info:#4F8FBE;
+  --bg-image:linear-gradient(135deg, #EAF6E8 0%, #E6F0F6 100%);
+}
+body[data-theme-preset="ghibli"][data-mode="dark"]{
+  --bg:#0F1A14; --bg-soft:#16241B; --surface:#1D2C22; --surface-2:#233327;
+  --ink:#E2F0E4; --muted:#8FB89E; --line:#2E4A37;
+  --accent:#8FC6EE; --accent-ink:#C2E0F0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #0F1A14 0%, #101822 100%);
+}
+/* ---- 26. Cyberpunk (neon gradient sweep) ---- */
+body[data-theme-preset="cyberpunk"][data-mode="light"]{
+  --bg:#F3EAF8; --bg-soft:#E8D4F2; --surface:#FFFFFF; --surface-2:#F8F1FB;
+  --ink:#2A0A3D; --muted:#8E5EA8; --line:#DFC2EC;
+  --accent:#E619B3; --accent-ink:#4D0540;
+  --good:#3F8D53; --bad:#BE4E37; --info:#1FA3C4;
+}
+body[data-theme-preset="cyberpunk"][data-mode="dark"]{
+  --bg:#07040F; --bg-soft:#0F0A1C; --surface:#150F24; --surface-2:#1A122C;
+  --ink:#E8F6FF; --muted:#8E9DC8; --line:#2A2048;
+  --accent:#00F0FF; --accent-ink:#AEF6FF;
+  --good:#6EE88A; --bad:#FF5C7A; --info:#00F0FF;
+  --bg-image:linear-gradient(135deg, rgba(0,240,255,.07) 0%, rgba(230,25,179,.07) 100%);
+}
+/* ---- 27. Galaxy (cosmic gradient sweep) ---- */
+body[data-theme-preset="galaxy"][data-mode="light"]{
+  --bg:#EFEEFA; --bg-soft:#DEDCF2; --surface:#FFFFFF; --surface-2:#F6F5FC;
+  --ink:#211B45; --muted:#6E67A0; --line:#D1CCEC;
+  --accent:#6E4FE8; --accent-ink:#241552;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4375B1;
+  --bg-image:linear-gradient(135deg, #EDEBFA 0%, #E5F0FA 100%);
+}
+body[data-theme-preset="galaxy"][data-mode="dark"]{
+  --bg:#0A0618; --bg-soft:#120B26; --surface:#191031; --surface-2:#20153C;
+  --ink:#E8E4FF; --muted:#9A8FD4; --line:#302258;
+  --accent:#A685FF; --accent-ink:#D8C8FF;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+  --bg-image:linear-gradient(135deg, #0A0618 0%, #150A2A 50%, #1F0A2E 100%);
+}
+/* ---- 28. Matcha ---- */
+body[data-theme-preset="matcha"][data-mode="light"]{
+  --bg:#F3F6EA; --bg-soft:#E6ECD2; --surface:#FFFFFF; --surface-2:#F8FAF2;
+  --ink:#263318; --muted:#7A8C5E; --line:#D9E3C2;
+  --accent:#6B8E4E; --accent-ink:#223314;
+  --good:#4C8F3E; --bad:#C1603E; --info:#4F8FA0;
+}
+body[data-theme-preset="matcha"][data-mode="dark"]{
+  --bg:#121810; --bg-soft:#192015; --surface:#1F281A; --surface-2:#263120;
+  --ink:#E6EEDA; --muted:#9FB386; --line:#324028;
+  --accent:#9BC46E; --accent-ink:#D0E6B4;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
+}
+/* ---- 29. Vaporwave (gradient sweep) ---- */
+body[data-theme-preset="vaporwave"][data-mode="light"]{
+  --bg:#FDEFFA; --bg-soft:#F8DCF2; --surface:#FFFFFF; --surface-2:#FEF5FC;
+  --ink:#3A1050; --muted:#9A6EB8; --line:#F0CCEA;
+  --accent:#8A7FFB; --accent-ink:#2E2066;
+  --good:#3F8D53; --bad:#BE4E37; --info:#4FA8D9;
+  --bg-image:linear-gradient(135deg, #FFD6F0 0%, #D6C8FF 50%, #C2EEFF 100%);
+}
+body[data-theme-preset="vaporwave"][data-mode="dark"]{
+  --bg:#160A24; --bg-soft:#1F0E32; --surface:#27123E; --surface-2:#2E1648;
+  --ink:#F6E4FF; --muted:#C495E0; --line:#3E2358;
+  --accent:#FF9DE2; --accent-ink:#FFD4F2;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#7FD8FF;
+  --bg-image:linear-gradient(135deg, #160A24 0%, #231035 50%, #0E1F30 100%);
+}
+/* ---- 30. Cozy Cabin ---- */
+body[data-theme-preset="cozycabin"][data-mode="light"]{
+  --bg:#F7EFE2; --bg-soft:#EEDFC6; --surface:#FFFFFF; --surface-2:#FBF6EC;
+  --ink:#3A2514; --muted:#8C7152; --line:#E5D3B2;
+  --accent:#8B5A2B; --accent-ink:#3A2410;
+  --good:#4C8F3E; --bad:#B7412A; --info:#4E6E9A;
+}
+body[data-theme-preset="cozycabin"][data-mode="dark"]{
+  --bg:#1A120A; --bg-soft:#231A10; --surface:#2B2015; --surface-2:#33261A;
+  --ink:#F1E4D2; --muted:#BFA183; --line:#4A3824;
+  --accent:#D9A066; --accent-ink:#E8C9A0;
+  --good:#7ECE92; --bad:#DE8D7C; --info:#81A9DA;
 }
 
 
@@ -618,6 +642,14 @@ button,input,select,textarea{font-family:inherit;}
 .theme-picker{display:inline-flex; align-items:center; gap:6px; margin-left:6px; position:relative;}
 .theme-picker-label{font-size:11px; color:var(--muted); font-weight:600;}
 .theme-swatches{display:flex; gap:5px; flex-wrap:wrap;}
+/* The Theme row alone (30 swatches and counting) needs the full width of
+   its .toolbar row to wrap sensibly — left inline-flex like every other
+   .theme-picker row here (Pet, weather, etc, which stay compact on
+   purpose), it was squeezed into whatever leftover width the toolbar's
+   own flex-wrap happened to give it, wrapping into a narrow, cut-off-
+   looking column instead of spanning the available width. */
+.theme-picker-full{display:flex; flex-basis:100%; width:100%; align-items:flex-start; margin-left:0;}
+.theme-picker-full .theme-swatches{flex:1;}
 .theme-swatch{width:22px; height:22px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
 .theme-swatch.active{box-shadow:0 0 0 2px var(--accent);}
 /* Icon-only variant of .xl-btn — the light/dark mode toggle sits with the
@@ -688,8 +720,14 @@ button,input,select,textarea{font-family:inherit;}
 /* ============================================================
    PAGE NAV — the 6 sections, in place of one long scroll
    ============================================================ */
-.page-nav{display:flex; flex-wrap:wrap; gap:6px; margin:16px 0 20px; border-bottom:1px solid var(--line); padding-bottom:0;}
-.page-nav-btn{font-family:var(--font-display); font-weight:700; font-size:13px; padding:9px 16px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:10px 10px 0 0; position:relative; top:1px; display:inline-flex; align-items:center; gap:6px;}
+/* Scrolls horizontally instead of wrapping — at desktop widths 9 tabs plus
+   the right-pushed What's New (.page-nav-btn-right's margin-left:auto)
+   used to run out of row space and wrap What's New onto its own line
+   alone, looking cut off rather than just "more tabs than fit." Scrolling
+   was already how this was handled under 700px; it works just as well
+   above that width, so it's no longer gated behind that breakpoint. */
+.page-nav{display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; margin:16px 0 20px; border-bottom:1px solid var(--line); padding-bottom:2px; box-shadow:inset -18px 0 12px -12px rgba(0,0,0,.18);}
+.page-nav-btn{flex:0 0 auto; font-family:var(--font-display); font-weight:700; font-size:13px; padding:9px 16px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:10px 10px 0 0; position:relative; top:1px; display:inline-flex; align-items:center; gap:6px;}
 .page-nav-btn .ic{font-size:14px;}
 .page-nav-btn:hover{color:var(--ink); background:var(--bg-soft);}
 .page-nav-btn.active{color:var(--accent-ink); background:var(--surface); border:1px solid var(--line); border-bottom-color:var(--surface);}
@@ -1168,7 +1206,7 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 .cat-companion{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); right:16px; z-index:25; display:flex; align-items:flex-end; gap:8px;}
 .cat-speech{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:11.5px; max-width:165px; box-shadow:var(--shadow-md); display:none; color:var(--ink);}
 .cat-companion:hover .cat-speech,.cat-companion.show-speech .cat-speech{display:block;}
-.cat-face{width:50px; height:50px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:var(--shadow-md); cursor:pointer; animation:catBob 3s ease-in-out infinite;}
+.cat-face{width:150px; height:150px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:78px; box-shadow:var(--shadow-md); cursor:pointer; animation:catBob 3s ease-in-out infinite;}
 @keyframes catBob{0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);}}
 /* .petted replaces the idle catBob loop with a one-shot bounce (higher
    specificity than .cat-face alone, so it wins for the animation's
@@ -1176,7 +1214,7 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
    separate from the ambient float. */
 .cat-face.petted{animation:catPet .5s ease;}
 @keyframes catPet{0%{transform:scale(1);} 35%{transform:scale(1.22);} 65%{transform:scale(.92);} 100%{transform:scale(1);}}
-.cat-pop{position:absolute; right:6px; bottom:58px; font-size:17px; opacity:0; pointer-events:none;}
+.cat-pop{position:absolute; right:6px; bottom:174px; font-size:51px; opacity:0; pointer-events:none;}
 .cat-pop.pop{animation:catPop .9s ease forwards;}
 @keyframes catPop{0%{opacity:0; transform:translateY(0) scale(.6);} 25%{opacity:1; transform:translateY(-8px) scale(1.1);} 100%{opacity:0; transform:translateY(-32px) scale(.9);}}
 
@@ -1210,14 +1248,6 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
      on content width (a long signed-in email, for instance), not just
      viewport width, so a static left:0/right:0 swap here got it wrong at
      plenty of real phone widths. No override needed here any more. */
-  /* With 8 tabs, the nav bar never fits a narrow phone's width — it was
-     scrollable already, but with nothing to hint that "Gifts", "Savings",
-     "XP" etc. exist off to the right, past whichever 2-3 tabs fit on
-     screen. An inset shadow along the scrolling element's own edge (not
-     scrolled away with its content, unlike a child element would be)
-     gives a permanent "there's more this way" cue with no extra markup. */
-  .page-nav{overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; box-shadow:inset -18px 0 12px -12px rgba(0,0,0,.18);}
-  .page-nav-btn{flex:0 0 auto;}
 }
 @media (min-width:701px) and (max-width:920px){
   .summary-row.row1{grid-template-columns:repeat(3,1fr);}
@@ -1225,7 +1255,7 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 }
 @media (max-width:600px){
   .cat-companion{bottom:10px; right:10px;}
-  .cat-face{width:44px; height:44px; font-size:20px;}
+  .cat-face{width:132px; height:132px; font-size:60px;}
 }
 
 @media (prefers-reduced-motion:reduce){
