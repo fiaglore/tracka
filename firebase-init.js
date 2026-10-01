@@ -70,19 +70,10 @@ import {
   arrayUnion,
   arrayRemove
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyCTwklrfnEsMat8WhkwWPHLHV-YfFl_ono",
   authDomain: "tracka-app-f97e1.firebaseapp.com",
   projectId: "tracka-app-f97e1",
-  storageBucket: "tracka-app-f97e1.firebasestorage.app",
   messagingSenderId: "30214999850",
   appId: "1:30214999850:web:b870293743245110a41853"
 };
@@ -90,7 +81,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 // Public half of the VAPID key pair used for Web Push (see
 // notifications/scripts/send-notifications.mjs, which holds the matching private half as
@@ -369,25 +359,41 @@ window.Trakka = {
     });
   },
 
-  // ----- profile photo (Firebase Storage) -----
-  // One object per user at avatars/{uid}, overwritten on every re-upload
-  // rather than versioned — keeps it simple and never leaves an orphaned
-  // old photo behind in Storage. app.js resizes/crops client-side before
-  // calling this, so the blob arriving here is already small; storage.rules
-  // enforces the same size/type limits server-side too, not just trusting
-  // the client.
+  // ----- profile photo (Cloudflare R2, via the /api/avatar Worker route) -----
+  // Firebase Storage now requires the paid Blaze plan to enable at all, so
+  // photos live in this Worker's own R2 bucket instead (see worker.js) —
+  // one object per user at avatars/{uid}, overwritten on every re-upload.
+  // R2 has no per-user security-rules engine like Storage did, so the
+  // Worker itself verifies this ID token before touching the bucket; that's
+  // also why this needs a fresh token on every call rather than reusing one.
   async uploadAvatarPhoto(uid, blob) {
-    const photoRef = ref(storage, `avatars/${uid}`);
-    await uploadBytes(photoRef, blob, { contentType: blob.type || "image/jpeg" });
-    return await getDownloadURL(photoRef);
+    const user = auth.currentUser;
+    if (!user) throw new Error("Sign in again to upload a photo.");
+    const token = await user.getIdToken();
+    const res = await fetch("/api/avatar", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": blob.type || "image/jpeg"
+      },
+      body: blob
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || "Could not upload that photo.");
+    return data.url;
   },
   async deleteAvatarPhoto(uid) {
-    const photoRef = ref(storage, `avatars/${uid}`);
-    await deleteObject(photoRef).catch(function (e) {
-      // Already gone (never uploaded, or deleted already) isn't an error
-      // worth surfacing — the end state the caller wants is the same either way.
-      if (e && e.code !== "storage/object-not-found") throw e;
+    const user = auth.currentUser;
+    if (!user) throw new Error("Sign in again to remove your photo.");
+    const token = await user.getIdToken();
+    const res = await fetch("/api/avatar", {
+      method: "DELETE",
+      headers: { Authorization: "Bearer " + token }
     });
+    if (!res.ok) {
+      const data = await res.json().catch(function () { return {}; });
+      throw new Error(data.error || "Could not remove that photo.");
+    }
   }
 };
 

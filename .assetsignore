@@ -20,3 +20,4 @@ node_modules
 notifications
 wrangler.jsonc
 .assetsignore
+worker.js
