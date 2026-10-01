@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Terms &amp; Privacy - Trakka</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#D98E2B">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="icon-512.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<script src="transition-banner.js"></script>
+
+<div id="landing-page">
+  <div class="landing-inner faq-page">
+
+    <header class="landing-nav">
+      <a class="landing-brand" href="index.html"><span class="landing-mark">🌱</span> Trakka</a>
+      <a class="landing-nav-signin" href="sign-in.html">Back to tracker</a>
+    </header>
+
+    <section class="faq-hero">
+      <h1>📜 Terms &amp; Conditions and Privacy Policy</h1>
+      <p>Last updated: 1 October 2026. Plain-language, not a wall of legalese — read it in full below, nothing requires you to be signed in.</p>
+    </section>
+
+    <!-- ============ TERMS ============ -->
+    <section class="faq-section">
+      <h2>📋 Terms &amp; Conditions</h2>
+
+      <details class="faq-item">
+        <summary>What is Trakka?</summary>
+        <div class="faq-body">
+          <p>Trakka ("the app", "we", "us") is a personal money-tracking tool at www.trakka.com.ng. It lets you log income, debts, gifts, savings, living expenses, and investments in one continuous record, and compute totals, budgets, and a net worth figure from what you enter. By creating an account or using the app, you agree to these terms.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Not financial advice</summary>
+        <div class="faq-body">
+          <p>Trakka is a record-keeping and budgeting tool, not a financial advisor. Every figure in it — budgets, "days until debt-free," net worth, achievement thresholds — is computed from numbers you typed in yourself, using straightforward arithmetic (no live market data, no professional judgment). Nothing in the app is investment, tax, or financial advice, and you're responsible for decisions you make based on what you track here.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Your account</summary>
+        <div class="faq-body">
+          <p>You're responsible for keeping your sign-in credentials (and any quick-unlock PIN you set) confidential, and for whatever happens under your account as a result of not doing so. You must provide accurate information when creating an account. Trakka is not directed at children, and you must be old enough in your jurisdiction to agree to these terms on your own behalf to use it.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Your data belongs to you</summary>
+        <div class="faq-body">
+          <p>Everything you enter — your income, debts, gifts, savings, investments, profile info — is yours. We don't claim ownership over it, and you can export a full copy at any time from Settings → "📁 Data" (as an Excel workbook or CSV). See the Privacy Policy below for how it's stored, who can access it, and how to have it deleted.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Acceptable use</summary>
+        <div class="faq-body">
+          <p>Use Trakka for its intended purpose: tracking your own personal finances. Don't try to break into another user's account or data, interfere with the service (including the scheduled jobs that send notifications), reverse-engineer it to abuse it, or use it for anything illegal. We can suspend or terminate an account that violates this.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>The service is provided "as is"</summary>
+        <div class="faq-body">
+          <p>Trakka is offered free of charge, as-is and as-available, with no uptime guarantee. We try to keep your data safe and the app working, but we can't promise it'll be error-free or uninterrupted, and we're not liable for financial decisions you make, data loss, or damages arising from using (or being unable to use) the app, to the fullest extent the law allows. Back up your data (via Export) if it matters to you.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Changes to the app or these terms</summary>
+        <div class="faq-body">
+          <p>We can change, add to, or remove features at any time (see the ✨ What's New tab for a running log of what's changed). We can also update these terms; the "Last updated" date at the top will change, and continuing to use Trakka after an update means you accept the revised terms. If a future change introduces a paid tier, it'll be clearly presented as optional before anything is charged — nothing in the app today requires payment.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ PRIVACY ============ -->
+    <section class="faq-section">
+      <h2>🔒 Privacy Policy</h2>
+
+      <details class="faq-item">
+        <summary>What data do we collect?</summary>
+        <div class="faq-body">
+          <p>Two kinds:</p>
+          <ul>
+            <li><b>Account info</b> — your email address and authentication identifier (via Firebase Authentication), used to sign you in and keep your data private to your account.</li>
+            <li><b>What you choose to enter</b> — your income, debts, gifts, savings, living expenses, investments, profile fields (first name, surname, username, date of birth — all optional), currency and display preferences, and, if you turn on push notifications, a notification subscription endpoint for your device. If you link a Spotify playlist, only the playlist's ID is stored — not anything about your Spotify account.</li>
+          </ul>
+          <p>We don't collect anything beyond what the app's own features need to function, and we don't run third-party analytics or ad tracking.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How is my data stored?</summary>
+        <div class="faq-body">
+          <p>In Google Firebase (Authentication for sign-in, Cloud Firestore for your tracker data), under one document per account, readable and writable only by that account's own sign-in — enforced by Firestore's security rules, not just app-level checks. The app itself (the pages and code you load) is served from Cloudflare Workers. Static preferences not worth syncing across devices (like a "dismissed" banner) may also sit in your browser's own local storage, which never leaves your device.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Who can actually see my data?</summary>
+        <div class="faq-body">
+          <p>We believe in being direct about this rather than making a blanket "it's private" claim that doesn't hold up to the obvious follow-up question:</p>
+          <ul>
+            <li><b>Other users</b> — never. Firestore's security rules mean one account's request literally cannot read or write another account's document.</li>
+            <li><b>The Trakka operator (us)</b> — yes, technically possible. As the Firebase project's owner, we can view any account's stored data via the Firebase Console, and a scheduled background job (which sends reminder/level-up/achievement/birthday notifications) runs with elevated backend access that also bypasses the per-user security rules by necessity. We don't browse user data as a matter of course, and we never sell it or share it with third parties for marketing — but technically, admin-level access to the underlying database exists, the same way it would for any app's backend operator. If that matters to how you use the app, keep that in mind for anything especially sensitive you log.</li>
+            <li><b>Service providers</b> — Google (Firebase, for authentication and data storage) and Cloudflare (for hosting). They process data on our behalf under their own standard terms and don't use it for their own purposes.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Do you sell or share my data?</summary>
+        <div class="faq-body">
+          <p>No. We don't sell your data, rent it, or share it with advertisers or data brokers. The only "sharing" that happens is the infrastructure providers above (Firebase/Google, Cloudflare) processing it to run the app, and, if you link one, the Spotify playlist ID passed to Spotify's own public embed player when it loads on your Overview page.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I get my data, or delete it?</summary>
+        <div class="faq-body">
+          <p>Export anytime from Settings → "📁 Data" as an Excel workbook or CSV — that's a complete copy of everything you've entered. There's currently no self-service "delete my account" button in the app; to request deletion of your account and all associated data, email <a href="mailto:support@trakka.com.ng">support@trakka.com.ng</a> from the address your account uses, and we'll remove it.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What about push notifications?</summary>
+        <div class="faq-body">
+          <p>If you turn on push notifications (the 🔔 button in Settings), your browser gives us a subscription endpoint, stored on your account, used only to deliver your own daily reminder, level-up, achievement, debt-cleared, and birthday notifications. It's never used for anything else, and turning notifications off (or deleting your account) removes it.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Children's privacy</summary>
+        <div class="faq-body">
+          <p>Trakka isn't directed at children and we don't knowingly collect data from anyone under the age of digital consent in their jurisdiction (13 in many places). If you believe a child has created an account, contact us at <a href="mailto:support@trakka.com.ng">support@trakka.com.ng</a> and we'll remove it.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Changes to this policy</summary>
+        <div class="faq-body">
+          <p>If we materially change how data is collected or used, we'll update the "Last updated" date at the top of this page and note it in the ✨ What's New tab. Continuing to use Trakka after a change means you accept the updated policy.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Contact</summary>
+        <div class="faq-body">
+          <p>Questions about these terms, the privacy policy, or your data: <a href="mailto:support@trakka.com.ng">support@trakka.com.ng</a>.</p>
+        </div>
+      </details>
+    </section>
+
+    <footer class="landing-footer">🌱 Trakka — one continuous log, nothing resets. <a href="sign-in.html">Back to your tracker →</a></footer>
+  </div>
+</div>
+
+</body>
+</html>
