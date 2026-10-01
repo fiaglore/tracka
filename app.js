@@ -1506,11 +1506,6 @@ window.__ftStart = function(){
     });
   }
 
-  // Combined balance across every savings app, up through month mi.
-  function totalAppsBalanceUpTo(mi){
-    return allSavingsAppIds().reduce((s,id)=>s+appBalanceUpTo(id, mi), 0);
-  }
-
   // ===== Multi-currency savings accounts =====
   // A savings account can be tagged with a currency other than the tracker's primary one — just
   // the code, no rate of its own; the rate comes from the shared state.currencyRates table above,
@@ -2511,9 +2506,12 @@ window.__ftStart = function(){
     document.getElementById('savings-totals').innerHTML = `<b>${fmt(totalSavedToDate)}</b> saved to date · ${fmt(lockedToDate)} still locked`;
 
     const appItems = m.savingsApps;
-    const appTopupChecked = appItems.filter(a=>a.checked).reduce((s,a)=>s+(a.withdrawal?-1:1)*Number(a.amount||0),0);
-    const appBalanceTotal = totalAppsBalanceUpTo(activeMonth);
-    const appOpening = totalAppsBalanceUpTo(activeMonth-1);
+    const appTopupChecked = appItems.filter(a=>a.checked).reduce((s,a)=>{
+      const converted = convertToPrimary(a.amount, getAccountCurrencyCode(appKeyOf(a)));
+      return s + (a.withdrawal ? -converted : converted);
+    }, 0);
+    const appBalanceTotal = totalAppsBalanceUpToConverted(activeMonth);
+    const appOpening = totalAppsBalanceUpToConverted(activeMonth-1);
     document.getElementById('savingsapps-totals').innerHTML = `${fmt(appOpening)} brought forward · <b>${(appTopupChecked<0?'-':'+')+fmt(Math.abs(appTopupChecked))}</b> this month · ${fmt(appBalanceTotal)} across apps → counted in goal below`;
 
     const goal = Number(state.savingsGoal)||0;
