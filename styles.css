@@ -685,8 +685,9 @@ button,input,select,textarea{font-family:inherit;}
    reuses the same status-dot convention (grey/gold/green = empty/partial/
    complete) the old tabs used.
    ============================================================ */
-.month-bar{margin:18px 0 0;}
+.month-bar{margin:18px 0 0; display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
 .month-picker{display:flex; align-items:center; gap:8px;}
+.month-meta{display:flex; flex-direction:column; gap:4px;}
 .month-nav-btn{font-family:var(--font-display); font-weight:700; font-size:16px; line-height:1; padding:6px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer;}
 .month-nav-btn:disabled{opacity:.35; cursor:not-allowed;}
 .month-nav-btn:not(:disabled):hover{border-color:var(--accent);}
@@ -712,10 +713,11 @@ button,input,select,textarea{font-family:inherit;}
 .month-picker-skip-btn:hover{opacity:1; background:var(--bg-soft);}
 .month-picker-add{border-top:1px dashed var(--line); margin-top:4px; padding-top:10px; color:var(--accent);}
 .month-picker-add .dot{display:none;}
-.month-period{margin-top:8px; font-size:12.5px; color:var(--muted); font-family:var(--font-mono);}
-.month-start-override{display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--muted);}
+.month-period{font-size:12.5px; color:var(--muted); font-family:var(--font-mono);}
+.month-start-override{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);}
 .month-start-override select{font-family:var(--font-body); font-size:12px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:3px 6px;}
 .time-message{font-size:13px; color:var(--muted); margin-top:2px;}
+.month-bar .time-message{flex:1 1 100%; margin-top:0;}
 
 /* ============================================================
    PAGE NAV — the 6 sections, in place of one long scroll
