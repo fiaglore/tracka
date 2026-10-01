@@ -6190,6 +6190,42 @@ window.__ftStart = function(){
     vaporwave: 'linear-gradient(135deg, #FF9DE2 0%, #8A7FFB 50%, #7FD8FF 100%)',
     cozycabin: 'linear-gradient(135deg, #D9A066 0%, #8B5A2B 100%)'
   };
+  // The emoji every page already hard-codes (nav tabs' .ic spans, and each
+  // tracker section's <h2> — see the .section-ic spans sign-in.html/
+  // settings.html wrap their leading emoji in) — what every theme that
+  // ISN'T one of the 9 below keeps showing, and what THEME_ICONS is a
+  // per-key override of.
+  var DEFAULT_ICONS = {
+    overview:'🏡', networth:'📈', income:'💸', extra:'🍾', debts:'💳',
+    gifts:'🎁', savings:'🐷', expenses:'🏠', investments:'💹', xp:'🌟', whatsnew:'✨'
+  };
+  // Only the 9 newest, aesthetic-driven themes get their own icon set —
+  // Meadow/Harbor/etc were always just a recolor, and giving 21 existing
+  // themes a bespoke icon vocabulary too is a much bigger design effort
+  // than this table attempts. A theme with no entry here falls back to
+  // DEFAULT_ICONS in applyThemeIcons() below.
+  var THEME_ICONS = {
+    biker:     { overview:'🏍️', networth:'🔧', income:'⛽', extra:'🔥', debts:'⛓️', gifts:'🎁', savings:'🛢️', expenses:'🏠', investments:'⚙️', xp:'🏁', whatsnew:'📣' },
+    fire:      { overview:'🔥', networth:'📊', income:'☀️', extra:'✨', debts:'🌋', gifts:'🎁', savings:'🪔', expenses:'🏠', investments:'📈', xp:'⚡', whatsnew:'📣' },
+    barbie:    { overview:'💗', networth:'💎', income:'💄', extra:'🎀', debts:'👛', gifts:'🎁', savings:'👜', expenses:'🏠', investments:'💅', xp:'👑', whatsnew:'✨' },
+    ghibli:    { overview:'🌿', networth:'🌲', income:'🌾', extra:'☁️', debts:'🌀', gifts:'🎐', savings:'🍃', expenses:'🏡', investments:'🌳', xp:'✨', whatsnew:'🌙' },
+    cyberpunk: { overview:'🌆', networth:'💾', income:'⚡', extra:'🛰️', debts:'🔌', gifts:'🎁', savings:'💿', expenses:'🏙️', investments:'📡', xp:'🤖', whatsnew:'📶' },
+    galaxy:    { overview:'🌌', networth:'🪐', income:'🌟', extra:'☄️', debts:'🕳️', gifts:'🎁', savings:'🌙', expenses:'🛰️', investments:'🚀', xp:'✨', whatsnew:'🔭' },
+    matcha:    { overview:'🍵', networth:'🌿', income:'🌱', extra:'🍃', debts:'🪨', gifts:'🎁', savings:'🫖', expenses:'🏡', investments:'🌳', xp:'🍵', whatsnew:'🌸' },
+    vaporwave: { overview:'🌴', networth:'📼', income:'💽', extra:'🕶️', debts:'📟', gifts:'🎁', savings:'🛸', expenses:'🏙️', investments:'📻', xp:'💫', whatsnew:'📡' },
+    cozycabin: { overview:'🪵', networth:'🧺', income:'🌾', extra:'🍂', debts:'🪓', gifts:'🎁', savings:'🍯', expenses:'🏡', investments:'🌲', xp:'🔥', whatsnew:'📬' }
+  };
+  function applyThemeIcons(id){
+    var icons = THEME_ICONS[id] || DEFAULT_ICONS;
+    Object.keys(DEFAULT_ICONS).forEach(function(key){
+      var icon = icons[key] || DEFAULT_ICONS[key];
+      var navIcon = document.querySelector('.page-nav-btn[data-page="'+key+'"] .ic');
+      if(navIcon) navIcon.textContent = icon;
+      document.querySelectorAll('.section-ic[data-icon="'+key+'"]').forEach(function(el){
+        el.textContent = icon;
+      });
+    });
+  }
   function loadThemePreset(){
     var cloud = window.__ftCloudData;
     return (cloud && THEMES.some(function(t){ return t.id===cloud.themePreset; })) ? cloud.themePreset : 'meadow';
@@ -6200,6 +6236,7 @@ window.__ftStart = function(){
   }
   function applyThemePreset(id){
     document.body.setAttribute('data-theme-preset', id);
+    applyThemeIcons(id);
     var wrap = document.getElementById('theme-swatches');
     if(wrap){
       Array.prototype.forEach.call(wrap.children, function(btn){

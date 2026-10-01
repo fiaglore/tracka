@@ -342,7 +342,7 @@ window.__ftSettingsPage = true;
   <!-- ============ INCOME ============ -->
   <div class="app-page" id="page-income" data-page="income">
     <section>
-      <div class="section-head"><h2>💸 Income</h2><div class="head-right"><div class="totals" id="income-totals"></div><button class="select-btn" id="income-select-btn" title="Check off all income items for this month">✓ Select all</button><button class="reset-btn" id="income-reset-btn" title="Uncheck all income items for this month">↺ Reset all</button></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="income">💸</span> Income</h2><div class="head-right"><div class="totals" id="income-totals"></div><button class="select-btn" id="income-select-btn" title="Check off all income items for this month">✓ Select all</button><button class="reset-btn" id="income-reset-btn" title="Uncheck all income items for this month">↺ Reset all</button></div></div>
       <div class="payoff-panel" id="recurring-income-panel" hidden></div>
       <div class="extra-add">
         <input type="text" id="income-desc" placeholder="Add a source, e.g. Side gig payout">
@@ -355,7 +355,7 @@ window.__ftSettingsPage = true;
     </section>
 
     <section>
-      <div class="section-head"><h2>🍾 Extra / windfall income</h2><div class="head-right"><div class="totals">Freelance, refunds, gifts received — logged with a date, kept forever</div><button class="reset-btn" id="extra-reset-btn" title="Delete all extra income entries for this month">↺ Reset all</button></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="extra">🍾</span> Extra / windfall income</h2><div class="head-right"><div class="totals">Freelance, refunds, gifts received — logged with a date, kept forever</div><button class="reset-btn" id="extra-reset-btn" title="Delete all extra income entries for this month">↺ Reset all</button></div></div>
       <div class="extra-add">
         <input type="text" id="extra-desc" placeholder="What was it? e.g. Freelance payout">
         <input type="number" id="extra-amt" placeholder="Amount {c}" data-ph="Amount {c}">
@@ -369,7 +369,7 @@ window.__ftSettingsPage = true;
   <!-- ============ DEBTS ============ -->
   <div class="app-page" id="page-debts" data-page="debts">
     <section>
-      <div class="section-head"><h2>💳 Debt payments due</h2><div class="head-right"><div class="totals" id="debt-totals"></div><button class="select-btn" id="debt-select-btn" title="Check off all debt payments for this month">✓ Select all</button><button class="reset-btn" id="debt-reset-btn" title="Uncheck all debt payments for this month">↺ Reset all</button></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="debts">💳</span> Debt payments due</h2><div class="head-right"><div class="totals" id="debt-totals"></div><button class="select-btn" id="debt-select-btn" title="Check off all debt payments for this month">✓ Select all</button><button class="reset-btn" id="debt-reset-btn" title="Uncheck all debt payments for this month">↺ Reset all</button></div></div>
       <div class="payoff-panel" id="payoff-panel">
         <div class="payoff-panel-head">
           <h3>🏁 Payoff plan — every debt you've added</h3>
@@ -393,7 +393,7 @@ window.__ftSettingsPage = true;
   <!-- ============ GIFTS ============ -->
   <div class="app-page" id="page-gifts" data-page="gifts">
     <section>
-      <div class="section-head"><h2>🎁 Gift deductions</h2><div class="head-right"><div class="totals" id="gift-totals"></div><button class="select-btn" id="gift-select-btn" title="Check off all gift deductions for this month">✓ Select all</button><button class="reset-btn" id="gift-reset-btn" title="Uncheck and reset gift deductions for this month">↺ Reset all</button></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="gifts">🎁</span> Gift deductions</h2><div class="head-right"><div class="totals" id="gift-totals"></div><button class="select-btn" id="gift-select-btn" title="Check off all gift deductions for this month">✓ Select all</button><button class="reset-btn" id="gift-reset-btn" title="Uncheck and reset gift deductions for this month">↺ Reset all</button></div></div>
       <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">Money set aside each month toward a future gift. Contributions run for N months leading up to the target month — the goal disappears from the list once its target month arrives, because that's when it's actually bought.</p>
 
       <div class="goal-list-head">
@@ -418,7 +418,7 @@ window.__ftSettingsPage = true;
   <!-- ============ SAVINGS ============ -->
   <div class="app-page" id="page-savings" data-page="savings">
     <section>
-      <div class="section-head"><h2>🐷 Savings</h2><div class="head-right"><div class="totals" id="savings-totals"></div><button class="reset-btn" id="savings-reset-btn" title="Delete all savings top-ups added this month">↺ Reset all</button></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="savings">🐷</span> Savings</h2><div class="head-right"><div class="totals" id="savings-totals"></div><button class="reset-btn" id="savings-reset-btn" title="Delete all savings top-ups added this month">↺ Reset all</button></div></div>
       <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">Top up whenever you like, any amount. Each deposit locks away for 3 months from the month you add it — untouchable until then — and is subtracted from your spendable cumulative balance below the whole time it's saved.</p>
 
       <div class="savings-goal">
@@ -469,7 +469,7 @@ window.__ftSettingsPage = true;
   <!-- ============ EXPENSES ============ -->
   <div class="app-page" id="page-expenses" data-page="expenses">
     <section>
-      <div class="section-head"><h2>🏠 Living expenses</h2><div class="head-right"><div class="totals" id="living-totals"></div></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="expenses">🏠</span> Living expenses</h2><div class="head-right"><div class="totals" id="living-totals"></div></div></div>
 
       <div class="living-subpanel">
         <button type="button" class="living-subpanel-toggle" id="living-cat-chart-toggle">
@@ -525,7 +525,7 @@ window.__ftSettingsPage = true;
   <!-- ============ XP & ACHIEVEMENTS ============ -->
   <div class="app-page" id="page-xp" data-page="xp">
     <section>
-      <div class="section-head"><h2>🌟 XP &amp; Level</h2></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="xp">🌟</span> XP &amp; Level</h2></div>
       <div class="xp-panel">
         <div class="xp-head">
           <div class="xp-level"><span class="badge-icon">🌟</span><span id="xp-page-level-num">Level 1</span></div>
@@ -548,7 +548,7 @@ window.__ftSettingsPage = true;
   <!-- ============ INVESTMENTS ============ -->
   <div class="app-page" id="page-investments" data-page="investments">
     <section>
-      <div class="section-head"><h2>💹 Investments</h2></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="investments">💹</span> Investments</h2></div>
       <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:640px;">Stocks, mutual funds, shares, commercial papers, treasury bills, crypto — anything you hold units of. Log a price for "today" whenever you check it, and your gain/(loss) updates off the most recent price you've logged, not a live feed.</p>
       <div class="payoff-panel" id="inv-panel">
         <div class="payoff-head" id="inv-head"></div>
@@ -568,7 +568,7 @@ window.__ftSettingsPage = true;
   <!-- ============ NET WORTH ============ -->
   <div class="app-page" id="page-networth" data-page="networth">
     <section>
-      <div class="section-head"><h2>📈 Net worth</h2></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="networth">📈</span> Net worth</h2></div>
       <div id="networth-locked" class="empty-msg" hidden>Net worth is a Premium feature. Upgrade in Settings to unlock it.</div>
       <div id="networth-content">
         <div class="summary-grid">
@@ -600,7 +600,7 @@ window.__ftSettingsPage = true;
   <!-- ============ WHAT'S NEW ============ -->
   <div class="app-page" id="page-whatsnew" data-page="whatsnew">
     <section>
-      <div class="section-head"><h2>✨ What's New</h2><div class="head-right"><button type="button" class="select-btn" id="whatsnew-mark-read-btn">✅ Mark all as read</button></div></div>
+      <div class="section-head"><h2><span class="section-ic" data-icon="whatsnew">✨</span> What's New</h2><div class="head-right"><button type="button" class="select-btn" id="whatsnew-mark-read-btn">✅ Mark all as read</button></div></div>
       <p style="font-size:13px;color:var(--muted);margin:-6px 0 16px;max-width:600px;">A look at what's changed recently — newest first.</p>
       <div class="whatsnew-list" id="whatsnew-list"></div>
       <button type="button" class="xl-btn" id="whatsnew-toggle-btn" hidden></button>
