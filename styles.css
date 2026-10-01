@@ -641,6 +641,12 @@ button,input,select,textarea{font-family:inherit;}
 /* theme picker */
 .theme-picker{display:inline-flex; align-items:center; gap:6px; margin-left:6px; position:relative;}
 .theme-picker-label{font-size:11px; color:var(--muted); font-weight:600;}
+/* Shows which of the 30 themes is hovered/focused (or, once the pointer
+   leaves, whichever is actually applied) — the swatches themselves are
+   just small color circles, so without this there was no way to tell
+   what a swatch even *was* short of reading its title-attribute tooltip,
+   which touch devices never show at all. */
+.theme-picker-current{display:block; font-size:12px; font-weight:700; color:var(--ink); margin-top:3px;}
 .theme-swatches{display:flex; gap:5px; flex-wrap:wrap;}
 /* The Theme row alone (30 swatches and counting) needs the full width of
    its .toolbar row to wrap sensibly — left inline-flex like every other
