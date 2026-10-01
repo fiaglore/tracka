@@ -109,18 +109,6 @@
       </details>
 
       <details class="faq-item">
-        <summary>Who can actually see my data?</summary>
-        <div class="faq-body">
-          <p>We believe in being direct about this rather than making a blanket "it's private" claim that doesn't hold up to the obvious follow-up question:</p>
-          <ul>
-            <li><b>Other users</b> — never. Firestore's security rules mean one account's request literally cannot read or write another account's document.</li>
-            <li><b>The Trakka operator (us)</b> — yes, technically possible. As the Firebase project's owner, we can view any account's stored data via the Firebase Console, and a scheduled background job (which sends reminder/level-up/achievement/birthday notifications) runs with elevated backend access that also bypasses the per-user security rules by necessity. We don't browse user data as a matter of course, and we never sell it or share it with third parties for marketing — but technically, admin-level access to the underlying database exists, the same way it would for any app's backend operator. If that matters to how you use the app, keep that in mind for anything especially sensitive you log.</li>
-            <li><b>Service providers</b> — Google (Firebase, for authentication and data storage) and Cloudflare (for hosting). They process data on our behalf under their own standard terms and don't use it for their own purposes.</li>
-          </ul>
-        </div>
-      </details>
-
-      <details class="faq-item">
         <summary>Do you sell or share my data?</summary>
         <div class="faq-body">
           <p>No. We don't sell your data, rent it, or share it with advertisers or data brokers. The only "sharing" that happens is the infrastructure providers above (Firebase/Google, Cloudflare) processing it to run the app, and, if you link one, the Spotify playlist ID passed to Spotify's own public embed player when it loads on your Overview page.</p>
