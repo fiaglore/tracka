@@ -624,18 +624,20 @@ window.__ftSettingsPage = true;
         <label class="xl-set">Username <input type="text" id="profile-username" maxlength="30" placeholder="e.g. ada_o" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
         <label class="xl-set">Date of birth <input type="date" id="profile-dob" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
       </div>
-      <div class="theme-picker" style="margin-top:10px;">
-        <span class="theme-picker-label">Profile photo</span>
-        <div class="avatar-upload-row">
-          <input type="file" id="avatar-upload-input" accept="image/*" hidden>
-          <button type="button" class="xl-btn" id="avatar-upload-btn">📷 Upload photo</button>
-          <button type="button" class="xl-btn" id="avatar-remove-btn" hidden>🗑️ Remove photo</button>
-          <span class="avatar-upload-status" id="avatar-upload-status"></span>
+      <div class="toolbar">
+        <div class="theme-picker">
+          <span class="theme-picker-label">Profile photo</span>
+          <div class="avatar-upload-row">
+            <input type="file" id="avatar-upload-input" accept="image/*" hidden>
+            <button type="button" class="xl-btn" id="avatar-upload-btn">📷 Upload photo</button>
+            <button type="button" class="xl-btn" id="avatar-remove-btn" hidden>🗑️ Remove photo</button>
+            <span class="avatar-upload-status" id="avatar-upload-status"></span>
+          </div>
         </div>
-      </div>
-      <div class="theme-picker" style="margin-top:10px;">
-        <span class="theme-picker-label">...or pick an icon</span>
-        <div class="avatar-picker" id="avatar-picker"></div>
+        <div class="theme-picker">
+          <span class="theme-picker-label">...or pick an icon</span>
+          <div class="avatar-picker" id="avatar-picker"></div>
+        </div>
       </div>
     </section>
 

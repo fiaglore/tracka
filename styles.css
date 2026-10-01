@@ -894,7 +894,15 @@ body.ft-locked #auth-overlay{display:flex;}
 .faq-body ul{margin:0 0 10px; padding-left:20px;}
 .faq-body li{margin-bottom:4px;}
 
-/* ===== Section headers / lists (income, debt, gifts, savings, expenses) ===== */
+/* ===== Section headers / lists (income, debt, gifts, savings, expenses) =====
+   Every .app-page section used to rely on whatever margin its own last
+   child happened to carry — a trailing <p>, a .toolbar (margin-top only,
+   no margin-bottom), a bare list div with none at all — so the gap before
+   the next section's heading varied section to section for no reason.
+   One deliberate margin-bottom here, collapsing with (not stacking onto)
+   any margin a section's last child already has, makes every gap equal. */
+.app-page section{margin-bottom:28px;}
+.app-page section:last-child{margin-bottom:0;}
 .section-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
 .section-head h2{font-size:17px; font-weight:700;}
 .head-right{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -1097,7 +1105,9 @@ body.ft-locked #auth-overlay{display:flex;}
 .acct-currency-row{opacity:.9;}
 .item-currency-badge{font-family:var(--font-display); font-weight:700; font-size:10px; letter-spacing:.03em; color:var(--accent); background:var(--bg-soft); border:1px solid var(--line); border-radius:6px; padding:2px 6px; flex:0 0 auto;}
 .currency-converted{color:var(--accent) !important;}
+#currency-rates-list{margin-top:14px; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); box-shadow:var(--shadow-sm);}
 .currency-rate-row{display:flex; align-items:center; gap:8px; margin:0 0 8px;}
+.currency-rate-row:last-child{margin-bottom:0;}
 .currency-rate-input{font-family:var(--font-body); font-size:13px; padding:6px 9px; border-radius:9px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink); width:120px;}
 .ds-pay-btn,.acct-wd-btn{font-family:var(--font-display); font-weight:700; font-size:12px; padding:8px 13px; border-radius:9px; border:none; background:var(--accent); color:#fff; cursor:pointer; white-space:nowrap;}
 .ds-pay-btn:hover,.acct-wd-btn:hover{filter:brightness(.95);}
