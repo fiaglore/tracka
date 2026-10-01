@@ -2170,6 +2170,7 @@ window.__ftStart = function(){
     }
     items.forEach((item, idx)=>{
       const key = appKeyOf(item);
+      const acctCode = getAccountCurrencyCode(key);
       const balanceBefore = appBalanceUpTo(key, activeMonth-1);
       const balanceToDate = appBalanceUpTo(key, activeMonth);
       const topup = Number(item.amount||0);
@@ -2186,7 +2187,7 @@ window.__ftStart = function(){
       }
       const subLine = item.withdrawal
         ? `<span class="sub">${escapeAttr(item.sub||'Withdrawal')}</span>`
-        : `<span class="sub">Opened at ${fmt(balanceBefore)} · balance to date ${fmt(balanceToDate)}</span>`;
+        : `<span class="sub">Opened at ${fmtIn(balanceBefore, acctCode)} · balance to date ${fmtIn(balanceToDate, acctCode)}</span>`;
       const row = document.createElement('div');
       row.className = 'item-row' + (item.checked?' checked':'');
       row.innerHTML = `
@@ -2198,9 +2199,10 @@ window.__ftStart = function(){
         </div>
         ${pctHtml}
         <div class="currency-prefix">
-          <span>${CUR}</span>
+          <span>${symbolForCode(acctCode)}</span>
           <input type="number" class="item-amt" value="${item.amount}" data-kind="savingsApps" data-idx="${idx}">
         </div>
+        ${acctCode!==currencyCode() ? `<span class="item-currency-badge" title="Held in ${acctCode} — change in the account's 'Held in' selector below">${acctCode}</span>` : ''}
         ${item.custom ? `<button class="del" data-kind="savingsApps" data-del-idx="${idx}" title="Remove">✕</button>` : ''}
       `;
       container.appendChild(row);
