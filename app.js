@@ -172,18 +172,17 @@ window.__ftStart = function(){
   }
   let visibleTabIds = loadVisibleTabs();
   // Custom tab order (Settings — the ▲▼ arrows next to "Visible tabs").
-  // tabOrder holds only the REORDERABLE tabs (everything but xp) — xp's
-  // fixed POSITION (not a fixed neighbor) is spliced back in at render time
-  // by fullTabOrder() below. Earlier this stored all 8 ids with moves
-  // blocked from crossing xp's slot, which treated xp as a wall splitting
-  // the list into two independent groups — fine for the 6 tabs before it,
-  // but investments (the only tab after it) then had nothing to swap with
-  // on either side and could never move at all. Tracking just the
-  // reorderable ids sidesteps that: every one of them, investments
-  // included, can move freely top-to-bottom among each other, and xp
-  // simply always renders at the same rank relative to wherever they land.
+  // tabOrder holds only the REORDERABLE tabs (everything but xp) — xp is
+  // always the last tab, right before the always-last What's New, appended
+  // by fullTabOrder() below rather than ever living in tabOrder itself.
+  // Earlier this stored all 8 ids with moves blocked from crossing xp's
+  // slot, which treated xp as a wall splitting the list into two
+  // independent groups — fine for the tabs before it, but investments (the
+  // one tab after it) then had nothing to swap with on either side and
+  // could never move at all. Tracking just the reorderable ids sidesteps
+  // that: every one of them, investments included, can move freely
+  // top-to-bottom among each other, with xp always rendering last.
   const REORDERABLE_TAB_IDS = ALL_TAB_IDS.filter(id=>id!=='xp');
-  const XP_FIXED_INDEX = ALL_TAB_IDS.indexOf('xp');
   function loadTabOrder(){
     const saved = cloud.tabOrder;
     const order = Array.isArray(saved) ? saved.filter(id=>REORDERABLE_TAB_IDS.includes(id)) : [];
@@ -191,12 +190,9 @@ window.__ftStart = function(){
     return order;
   }
   let tabOrder = loadTabOrder();
-  // The actual display sequence: tabOrder's 7 tabs with 'xp' inserted at
-  // its fixed index.
+  // The actual display sequence: tabOrder's 7 tabs, then xp last.
   function fullTabOrder(){
-    const full = tabOrder.slice();
-    full.splice(Math.min(XP_FIXED_INDEX, full.length), 0, 'xp');
-    return full;
+    return tabOrder.concat('xp');
   }
   function applyTabVisibility(){
     ALL_TAB_IDS.forEach(id=>{
