@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v97";
+const CACHE_VERSION = "tracka-shell-v98";
 
 const SHELL_FILES = [
   "./",
@@ -30,7 +30,9 @@ const SHELL_FILES = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-512-maskable.png",
-  "./apple-touch-icon.png"
+  "./apple-touch-icon.png",
+  "./images/hero-phone-smile.jpg",
+  "./images/final-cta-planner.jpg"
 ];
 
 // A host that serves *.html at a "pretty" extensionless URL (Cloudflare
