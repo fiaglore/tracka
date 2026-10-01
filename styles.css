@@ -517,7 +517,8 @@ button,input,select,textarea{font-family:inherit;}
 .topbar{padding:22px 0 14px;}
 .brand-row{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;}
 .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit;}
-.brand-mark{font-size:26px; line-height:1;}
+.brand-mark{line-height:1;}
+.brand-mark img{width:28px; height:28px; display:block; border-radius:7px;}
 .brand-text h1{font-size:clamp(19px,2.6vw,24px); font-weight:700;}
 .brand-text .tag{font-size:12px; color:var(--muted); margin-top:1px;}
 
@@ -723,7 +724,8 @@ body.ft-locked{overflow:hidden;}
 #auth-overlay{display:none; position:fixed; inset:0; z-index:5000; align-items:center; justify-content:center; padding:20px; overflow-y:auto; background:var(--bg);}
 body.ft-locked #auth-overlay{display:flex;}
 .auth-card{width:100%; max-width:400px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:28px 26px 22px; box-shadow:var(--shadow-md); color:var(--ink);}
-.auth-logo{font-size:34px; text-align:center; line-height:1;}
+.auth-logo{text-align:center; line-height:1;}
+.auth-logo img{width:34px; height:34px; display:block; margin:0 auto; border-radius:8px;}
 .auth-card h2{font-size:22px; text-align:center; margin:8px 0 2px; color:var(--ink);}
 .auth-sub{text-align:center; color:var(--muted); font-size:13px; margin:0 0 16px;}
 .auth-tabs{display:flex; gap:6px; background:var(--bg-soft); padding:4px; border-radius:12px; margin-bottom:14px;}
@@ -740,7 +742,8 @@ body.ft-locked #auth-overlay{display:flex;}
 .auth-link{display:block; margin:12px auto 0; background:none; border:none; color:var(--muted); font-size:12px; text-decoration:underline; cursor:pointer;}
 .auth-note{font-size:11px; color:var(--muted); text-align:center; margin:16px 0 0; line-height:1.5;}
 .auth-loading-box{display:flex; flex-direction:column; align-items:center; gap:14px; padding:48px 26px;}
-.auth-loading-spin{font-size:38px; line-height:1; display:inline-block; animation:authSpin 1s linear infinite;}
+.auth-loading-spin{line-height:1; display:inline-block; animation:authSpin 1s linear infinite;}
+.auth-loading-spin img{width:38px; height:38px; display:block; border-radius:9px;}
 .auth-loading-box p{font-family:var(--font-display); font-weight:600; font-size:14px; color:var(--muted); margin:0; text-align:center;}
 @keyframes authSpin{from{transform:rotate(0deg);} to{transform:rotate(360deg);}}
 /* prefers-reduced-motion is already handled globally, see bottom of file */
@@ -761,7 +764,8 @@ body.ft-locked #auth-overlay{display:flex;}
 
 .landing-nav{display:flex; align-items:center; justify-content:space-between; padding:20px 0;}
 .landing-brand{display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:800; font-size:19px; color:var(--ink); text-decoration:none;}
-.landing-mark{font-size:22px;}
+.landing-mark{line-height:1;}
+.landing-mark img{width:22px; height:22px; display:block; border-radius:6px;}
 .landing-nav-links{display:flex; align-items:center; gap:18px;}
 .landing-nav-link{font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--muted); text-decoration:none;}
 .landing-nav-link:hover{color:var(--ink);}
@@ -815,10 +819,16 @@ body.ft-locked #auth-overlay{display:flex;}
   .landing-hero-art{order:-1;}
 }
 
-/* ---- faq.html: a standalone page, no sign-in required to read it ---- */
-.faq-hero{padding:8px 0 32px; max-width:640px;}
-.faq-hero h1{font-size:clamp(24px,3.4vw,32px); margin:0 0 10px; font-weight:800;}
-.faq-hero p{font-size:14.5px; color:var(--muted); margin:0; line-height:1.6;}
+/* ---- faq.html / terms.html: standalone pages, no sign-in required to read them ----
+   The max-width used to sit on .faq-hero itself, sized for "Help & FAQ" —
+   fine there, but it also squeezed terms.html's longer "Terms & Conditions
+   and Privacy Policy" into an unnecessary two-line wrap even on a wide
+   screen. The title now uses the full hero width (wrapping only when it
+   actually needs to); only the paragraph underneath keeps a narrower
+   column, since line length only matters for readability on body text. */
+.faq-hero{padding:8px 0 32px;}
+.faq-hero h1{font-size:clamp(24px,3.4vw,32px); margin:0 0 10px; font-weight:800; max-width:900px;}
+.faq-hero p{font-size:14.5px; color:var(--muted); margin:0; line-height:1.6; max-width:640px;}
 .faq-section{padding-bottom:36px;}
 .faq-section h2{font-size:clamp(18px,2.4vw,21px); margin:0 0 14px; font-weight:800;}
 .faq-item{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); margin-bottom:10px; overflow:hidden;}

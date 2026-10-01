@@ -70,6 +70,13 @@ import {
   arrayUnion,
   arrayRemove
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCTwklrfnEsMat8WhkwWPHLHV-YfFl_ono",
@@ -83,6 +90,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Public half of the VAPID key pair used for Web Push (see
 // notifications/scripts/send-notifications.mjs, which holds the matching private half as
@@ -358,6 +366,27 @@ window.Trakka = {
     await subscription.unsubscribe();
     await setDoc(userDocRef(uid), { pushSubscriptions: arrayRemove(json) }, { merge: true }).catch(function (e) {
       console.error("Save failed:", e);
+    });
+  },
+
+  // ----- profile photo (Firebase Storage) -----
+  // One object per user at avatars/{uid}, overwritten on every re-upload
+  // rather than versioned — keeps it simple and never leaves an orphaned
+  // old photo behind in Storage. app.js resizes/crops client-side before
+  // calling this, so the blob arriving here is already small; storage.rules
+  // enforces the same size/type limits server-side too, not just trusting
+  // the client.
+  async uploadAvatarPhoto(uid, blob) {
+    const photoRef = ref(storage, `avatars/${uid}`);
+    await uploadBytes(photoRef, blob, { contentType: blob.type || "image/jpeg" });
+    return await getDownloadURL(photoRef);
+  },
+  async deleteAvatarPhoto(uid) {
+    const photoRef = ref(storage, `avatars/${uid}`);
+    await deleteObject(photoRef).catch(function (e) {
+      // Already gone (never uploaded, or deleted already) isn't an error
+      // worth surfacing — the end state the caller wants is the same either way.
+      if (e && e.code !== "storage/object-not-found") throw e;
     });
   }
 };
