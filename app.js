@@ -1366,6 +1366,7 @@ window.__ftStart = function(){
     state.giftGoals.forEach(g=>{ if(g.currency) codes.add(g.currency); });
     Object.values(state.accountCurrency).forEach(code=>{ if(code && code!==currencyCode()) codes.add(typeof code==='string' ? code : code.code); });
     state.investments.forEach(i=>{ if(i.currency) codes.add(i.currency); });
+    state.extra.forEach(e=>{ if(e.currency) codes.add(e.currency); });
     codes.delete(currencyCode());
     return Array.from(codes);
   }
@@ -1394,12 +1395,36 @@ window.__ftStart = function(){
     save();
   });
 
+  // Picking a foreign currency on an Income/Debt/Gift/Investment row or a
+  // savings app (.item-currency-select / .acct-currency-select) used to
+  // leave its rate unset until someone happened to open Settings → Currency
+  // rates — and rateFor() treats an unset rate as 1, so until then that
+  // item's amount silently flowed into every total as if it were already
+  // in the primary currency (e.g. a $1,000 income row counted as "₦1,000"
+  // toward Max income on Overview, not ₦1,000 × the real rate). Prompting
+  // for the rate the moment a foreign currency is first picked — the
+  // "inline wherever a foreign currency is first chosen" this file's
+  // currency-rate comment already described — closes that gap at the
+  // source, for every total that reads from state.currencyRates.
+  document.addEventListener('change', function(e){
+    if(!e.target.matches('.item-currency-select, .acct-currency-select')) return;
+    const code = e.target.value;
+    if(!code || code===currencyCode() || Number(state.currencyRates[code])>0) return;
+    const input = window.prompt('1 '+code+' = how many '+currencyCode()+'? (You can change this later in Settings → "🌍 Currency rates".)');
+    const rate = Number(input);
+    if(rate>0){
+      setCurrencyRate(code, rate);
+      save();
+      renderCurrencyRates();
+    }
+  });
+
   function sumChecked(items){ return items.filter(i=>i.checked).reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0); }
   function sumAll(items){ return items.reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0); }
 
   function extraForMonth(mi){ return state.extra.filter(e=>e.monthIndex===mi); }
-  function sumExtraForMonth(mi){ return extraForMonth(mi).reduce((s,e)=>s+Number(e.amount||0),0); }
-  function sumExtraAll(){ return state.extra.reduce((s,e)=>s+Number(e.amount||0),0); }
+  function sumExtraForMonth(mi){ return extraForMonth(mi).reduce((s,e)=>s+convertToPrimary(e.amount, e.currency),0); }
+  function sumExtraAll(){ return state.extra.reduce((s,e)=>s+convertToPrimary(e.amount, e.currency),0); }
 
   function giftItemsForMonth(mi){
     return state.giftGoals
@@ -2348,14 +2373,17 @@ window.__ftStart = function(){
     }
     entries.forEach(e=>{
       const globalIdx = state.extra.indexOf(e);
+      const foreign = e.currency && e.currency!==currencyCode();
       const row = document.createElement('div');
       row.className = 'extra-row';
       row.innerHTML = `
         <div class="desc">
           <input type="text" class="desc-input" value="${escapeAttr(e.desc)}" data-extra-gidx="${globalIdx}">
           <span class="date">${e.date}</span>
+          ${foreign ? `<span class="sub currency-converted">≈ ${fmt(convertToPrimary(e.amount, e.currency))} at the saved rate</span>` : ''}
         </div>
-        <div class="amt">${fmt(e.amount)}</div>
+        <div class="amt">${foreign ? fmtIn(e.amount, e.currency) : fmt(e.amount)}</div>
+        ${foreign ? `<span class="item-currency-badge" title="Denominated in ${e.currency}, converted to ${currencyCode()} at the rate set in Settings → Currency rates">${e.currency}</span>` : ''}
         <button class="del" data-gidx="${globalIdx}" title="Remove">✕</button>
       `;
       container.appendChild(row);
@@ -3988,13 +4016,17 @@ window.__ftStart = function(){
   document.getElementById('extra-add-btn').addEventListener('click', function(){
     const descEl = document.getElementById('extra-desc');
     const amtEl = document.getElementById('extra-amt');
+    const curEl = document.getElementById('extra-currency');
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
+    const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-NG', {day:'numeric', month:'short', year:'numeric'});
-    state.extra.push({desc, amount:amt, date:dateStr, monthIndex:activeMonth});
-    descEl.value=''; amtEl.value='';
+    const entry = {desc, amount:amt, date:dateStr, monthIndex:activeMonth};
+    if(cur && cur!==currencyCode()) entry.currency = cur;
+    state.extra.push(entry);
+    descEl.value=''; amtEl.value=''; if(curEl) curEl.value = currencyCode();
     save();
   });
 
