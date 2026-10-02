@@ -952,21 +952,22 @@ body.ft-locked #auth-overlay{display:flex;}
    the next section's heading varied section to section for no reason.
    One deliberate margin-bottom here, collapsing with (not stacking onto)
    any margin a section's last child already has, makes every gap equal. */
-.app-page section, .app-page details{margin-bottom:28px;}
-.app-page section:last-child, .app-page details:last-child{margin-bottom:0;}
+.app-page section{margin-bottom:28px;}
+.app-page section:last-child{margin-bottom:0;}
 .section-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
 .section-head h2{font-size:17px; font-weight:700;}
 .head-right{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-/* Settings categories (👤 Profile, 🎨 Appearance, etc.) — plain <section>s
-   everywhere else in the app, but <details>/<summary> here specifically so
-   each category collapses on click, with zero JS: the browser's own native
-   toggle, free keyboard support, and free "expanded/collapsed" state for
-   screen readers, the same way faq.html's questions already do it. */
-#page-settings details.settings-section > summary.section-head{cursor:pointer; list-style:none; user-select:none;}
-#page-settings details.settings-section > summary.section-head::-webkit-details-marker{display:none;}
-#page-settings details.settings-section > summary.section-head h2::before{content:'▸'; display:inline-block; font-size:13px; color:var(--muted); margin-right:8px; transition:transform .15s; width:8px;}
-#page-settings details.settings-section[open] > summary.section-head h2::before{transform:rotate(90deg);}
-#page-settings details.settings-section > summary.section-head:hover h2::before{color:var(--ink);}
+/* Settings: each category (👤 Profile, 🎨 Appearance, etc.) opens as its
+   own page instead of all 12 sitting on one long scroll. #settings-menu
+   lists every category; clicking one hides the menu and shows the
+   matching .settings-subpage (see the click delegation in app.js), and
+   each subpage's own back button returns to the menu. */
+.settings-menu{display:flex; flex-direction:column; gap:8px;}
+.settings-menu-item{display:flex; align-items:center; justify-content:space-between; width:100%; text-align:left; padding:16px 18px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); box-shadow:var(--shadow-sm); cursor:pointer; font-family:var(--font-display); font-weight:700; font-size:15px; color:var(--ink);}
+.settings-menu-item:hover{border-color:var(--accent); background:var(--bg-soft);}
+.settings-menu-chevron{color:var(--muted); font-size:20px; line-height:1;}
+.settings-back-btn{display:inline-flex; align-items:center; gap:4px; margin-bottom:18px; background:none; border:none; padding:0; font-family:var(--font-display); font-weight:700; font-size:14px; color:var(--accent-ink); cursor:pointer;}
+.settings-back-btn:hover{text-decoration:underline;}
 .totals{font-family:var(--font-mono); font-size:12px; color:var(--muted);}
 .select-btn,.reset-btn{font-family:var(--font-display); font-weight:600; font-size:11.5px; padding:6px 11px; border-radius:9px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer;}
 .select-btn:hover{border-color:var(--good); color:var(--good);}

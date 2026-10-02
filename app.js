@@ -6377,6 +6377,34 @@ window.__ftStart = function(){
     if(!document.body.classList.contains('ft-locked')) refreshThemeForCurrentUser();
   }
 
+  // ===== Settings: each category (👤 Profile, 🎨 Appearance, etc.) opens
+  // as its own page instead of all 12 sitting on one long scroll. #settings-
+  // menu lists every category; clicking one hides the menu and shows just
+  // that category's .settings-subpage, and each subpage's own back button
+  // returns to the menu. Pure DOM show/hide — no data dependency — so this
+  // runs unconditionally rather than waiting on sign-in like most of
+  // Settings' own content does.
+  (function(){
+    var menu = document.getElementById('settings-menu');
+    if(!menu) return;
+    var subpages = Array.prototype.slice.call(document.querySelectorAll('.settings-subpage'));
+    function showSettingsMenu(){
+      menu.hidden = false;
+      subpages.forEach(function(p){ p.hidden = true; });
+    }
+    menu.addEventListener('click', function(e){
+      var item = e.target.closest('.settings-menu-item');
+      if(!item) return;
+      var id = item.getAttribute('data-settings-page');
+      menu.hidden = true;
+      subpages.forEach(function(p){ p.hidden = (p.getAttribute('data-settings-page') !== id); });
+    });
+    subpages.forEach(function(p){
+      var backBtn = p.querySelector('.settings-back-btn');
+      if(backBtn) backBtn.addEventListener('click', showSettingsMenu);
+    });
+  })();
+
   /* ---------------- Page navigation ---------------- */
   function showPage(name){
     // A page restored from sessionStorage (below) could have been hidden
