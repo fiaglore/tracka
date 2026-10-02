@@ -682,7 +682,7 @@ button,input,select,textarea{font-family:inherit;}
    what a swatch even *was* short of reading its title-attribute tooltip,
    which touch devices never show at all. */
 .theme-picker-current{display:block; font-size:12px; font-weight:700; color:var(--ink); margin-top:3px;}
-.theme-swatches{display:flex; gap:5px; flex-wrap:wrap;}
+.theme-swatches{display:flex; gap:8px; flex-wrap:wrap;}
 /* The Theme row alone (30 swatches and counting) needs the full width of
    its .toolbar row to wrap sensibly — left inline-flex like every other
    .theme-picker row here (Pet, weather, etc, which stay compact on
@@ -701,13 +701,17 @@ button,input,select,textarea{font-family:inherit;}
    every hover. A fixed box the text can never resize removes the feedback
    loop entirely; long names just wrap inside it instead. */
 .theme-picker-full .theme-picker-label{flex:0 0 92px; width:92px;}
-.theme-swatch{width:22px; height:22px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
+/* 44x44 is the standard minimum comfortable tap target (WCAG 2.5.5) — sized
+   up from the original 22px circle so each swatch is reliably tappable on
+   its own without catching a neighbor, rather than leaving the hit area
+   tiny and relying on zoom/precision. */
+.theme-swatch{width:44px; height:44px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
 .theme-swatch.active{box-shadow:0 0 0 2px var(--accent);}
 /* Gamification: themes unlocked via level/achievement (see THEMES'
    `requires` entries in app.js) — dimmed with a 🔒 overlay until earned;
    still clickable so the click handler's "locked theme" notice fires. */
 .theme-swatch.locked{opacity:.4; filter:grayscale(.6);}
-.theme-swatch.locked::after{content:'🔒'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px;}
+.theme-swatch.locked::after{content:'🔒'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:17px;}
 /* Icon-only variant of .xl-btn — the light/dark mode toggle sits with the
    other top-right toolbar controls (see #theme-toggle-btn in sign-in.html)
    rather than floating fixed on the page like its old, dead incarnation did. */
