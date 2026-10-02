@@ -656,6 +656,16 @@ button,input,select,textarea{font-family:inherit;}
    looking column instead of spanning the available width. */
 .theme-picker-full{display:flex; flex-basis:100%; width:100%; align-items:flex-start; margin-left:0;}
 .theme-picker-full .theme-swatches{flex:1;}
+/* Fixed width, not shrink-to-fit: #theme-picker-current's text changes
+   length on every hover (theme names range from "Mint" to "Studio Ghibli
+   (gradient)"), and a shrink-to-fit label next to a flex:1 row means that
+   every such change reflows the swatches sideways — moving whichever one
+   the pointer is actually sitting on out from under it, which fires a
+   mouseleave, which reverts the label, which moves the swatch back under
+   the pointer, which fires mouseenter again... a jittery feedback loop on
+   every hover. A fixed box the text can never resize removes the feedback
+   loop entirely; long names just wrap inside it instead. */
+.theme-picker-full .theme-picker-label{flex:0 0 92px; width:92px;}
 .theme-swatch{width:22px; height:22px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
 .theme-swatch.active{box-shadow:0 0 0 2px var(--accent);}
 /* Icon-only variant of .xl-btn — the light/dark mode toggle sits with the
