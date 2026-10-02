@@ -703,6 +703,11 @@ button,input,select,textarea{font-family:inherit;}
 .theme-picker-full .theme-picker-label{flex:0 0 92px; width:92px;}
 .theme-swatch{width:22px; height:22px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative;}
 .theme-swatch.active{box-shadow:0 0 0 2px var(--accent);}
+/* Gamification: themes unlocked via level/achievement (see THEMES'
+   `requires` entries in app.js) — dimmed with a 🔒 overlay until earned;
+   still clickable so the click handler's "locked theme" notice fires. */
+.theme-swatch.locked{opacity:.4; filter:grayscale(.6);}
+.theme-swatch.locked::after{content:'🔒'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px;}
 /* Icon-only variant of .xl-btn — the light/dark mode toggle sits with the
    other top-right toolbar controls (see #theme-toggle-btn in sign-in.html)
    rather than floating fixed on the page like its old, dead incarnation did. */
@@ -1212,6 +1217,23 @@ body.ft-locked #auth-overlay{display:flex;}
 .mvl-nums{font-family:var(--font-mono); font-size:12px; color:var(--muted); flex:1; min-width:160px;}
 .mvl-nums b{color:var(--ink);}
 .mvl-empty{font-size:12px; color:var(--muted); font-style:italic;}
+.mvl-trophy{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--accent-ink);}
+.mvl-trophy[hidden]{display:none;}
+
+/* ===== Mini-quests ===== */
+.quests-card{border:1px solid var(--line); border-radius:var(--radius-lg); background:var(--surface); padding:16px 20px; margin:0 0 20px; box-shadow:var(--shadow-sm);}
+.quests-card h3{font-weight:600; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:12px;}
+.quest-row{margin-bottom:12px;}
+.quest-row:last-child{margin-bottom:0;}
+.quest-top{display:flex; align-items:center; gap:8px; margin-bottom:5px;}
+.quest-icon{font-size:15px; flex:0 0 auto;}
+.quest-label{font-weight:600; font-size:12.5px; flex:1;}
+.quest-period{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; flex:0 0 auto;}
+.quest-track{height:7px; background:var(--bg-soft); border-radius:6px; overflow:hidden;}
+.quest-fill{height:100%; background:var(--accent); border-radius:6px; transition:width .3s ease;}
+.quest-row.done .quest-fill{background:var(--good);}
+.quest-meta{font-family:var(--font-mono); font-size:10.5px; color:var(--muted); margin-top:4px;}
+.quest-row.done .quest-meta{color:var(--good);}
 
 .budget-health{display:flex; justify-content:space-between; align-items:center; gap:18px; border:1px solid var(--line); border-radius:var(--radius-lg); padding:15px 18px; margin:0 0 18px; flex-wrap:wrap; box-shadow:var(--shadow-sm); border-left-width:5px;}
 .budget-health.ok{background:color-mix(in srgb, var(--good) 8%, var(--surface)); border-left-color:var(--good);}
@@ -1267,6 +1289,37 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 .badge-chip{display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:var(--bg-soft); border:1px solid var(--line); font-size:13px; line-height:1; cursor:default;}
 .badge-chip.locked{opacity:.35; filter:grayscale(1);}
 .badge-chip-empty{font-size:12px; color:var(--muted);}
+
+/* ===== Debt "boss" health bars ===== */
+.ds-boss-row{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+.ds-boss-icon{font-size:28px; line-height:1; flex:0 0 auto;}
+.ds-boss-bar-wrap{flex:1; min-width:0;}
+.ds-boss-label{font-family:var(--font-display); font-weight:800; font-size:9.5px; letter-spacing:.06em; color:var(--muted); margin-bottom:3px;}
+.ds-hp-track{height:11px; border-radius:7px;}
+.ds-hp-fill{border-radius:7px; transition:width .4s ease, background .4s ease;}
+
+/* ===== Prestige ===== */
+.prestige-panel{border:1px dashed var(--accent); border-radius:var(--radius-md); background:color-mix(in srgb, var(--accent) 8%, var(--surface)); padding:16px 18px;}
+.prestige-panel p{font-size:13px; color:var(--ink); margin:0 0 12px; max-width:640px;}
+.prestige-stars{font-size:18px; letter-spacing:2px; margin-bottom:10px; color:var(--muted);}
+
+/* ===== Growing garden companion (alongside the pet) ===== */
+.growth-tree{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:16px; z-index:25; display:flex; flex-direction:column; align-items:center; gap:4px;}
+.growth-tree-face{width:72px; height:72px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:32px; box-shadow:var(--shadow-md);}
+.growth-tree-label{font-family:var(--font-display); font-weight:700; font-size:10px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:2px 9px;}
+@media (max-width:640px){
+  .growth-tree{bottom:10px; left:10px;}
+  .growth-tree-face{width:48px; height:48px; font-size:22px;}
+  .growth-tree-label{font-size:9px;}
+}
+
+/* ===== Shareable milestone card modal ===== */
+.milestone-modal-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.55);}
+.milestone-modal-overlay[hidden]{display:none;}
+.milestone-modal{position:relative; background:var(--surface); border-radius:var(--radius-lg); padding:16px; box-shadow:var(--shadow-md); max-width:min(420px,90vw);}
+.milestone-modal-close{position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:none; background:var(--bg-soft); color:var(--ink); cursor:pointer; font-size:13px;}
+#milestone-canvas{display:block; width:100%; height:auto; border-radius:var(--radius-md); margin-bottom:12px;}
+.milestone-modal-actions{display:flex; gap:8px; justify-content:center;}
 .xp-page-breakdown{font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin:10px 0 0;}
 /* A little tighter than a first pass — smaller minimum column, icon and
    padding both trimmed down — while keeping the icon+label layout the
