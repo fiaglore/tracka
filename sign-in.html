@@ -603,8 +603,8 @@
       <span class="xl-status" id="settings-save-status" style="width:auto;margin:0;">Everything below already saves the moment you change it — this just confirms it's all synced and forces through anything still in flight.</span>
     </div>
 
-    <section>
-      <div class="section-head"><h2>👤 Profile</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>👤 Profile</h2></summary>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Personalizes your greeting and lets Trakka send you a birthday shoutout. None of this is required.</p>
       <div class="toolbar">
         <label class="xl-set">First name <input type="text" id="profile-first-name" maxlength="40" placeholder="e.g. Ada" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
@@ -625,10 +625,10 @@
         <span class="theme-picker-label">...or pick an icon</span>
         <div class="avatar-picker" id="avatar-picker"></div>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>🎨 Appearance</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>🎨 Appearance</h2></summary>
       <div class="toolbar">
         <div class="theme-picker theme-picker-full">
           <span class="theme-picker-label">Theme<span class="theme-picker-current" id="theme-picker-current"></span></span>
@@ -653,10 +653,10 @@
         <span class="theme-picker-label">Sound effects</span>
         <button class="xl-btn ambient-toggle" id="sfx-toggle-btn" type="button" title="Turn off sound effects">🔔</button>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>🎵 Spotify playlist</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>🎵 Spotify playlist</h2></summary>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Paste a Spotify playlist link to embed a player on your Overview page while you track. Without Spotify Premium (and being logged into Spotify in this browser), it only plays 30-second previews — that's a Spotify limitation, not Trakka's.</p>
       <div class="toolbar">
         <label class="xl-set" style="flex:1;min-width:220px;">Playlist link <input type="text" id="spotify-playlist-input" placeholder="https://open.spotify.com/playlist/..." style="flex:1;font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
@@ -665,10 +665,10 @@
       <div class="spotify-embed-wrap" id="spotify-embed-wrap" hidden>
         <iframe id="spotify-embed-frame" src="" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" title="Spotify playlist"></iframe>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>📌 Top bar cards</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>📌 Top bar cards</h2></summary>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which cards show in the bar at the top of every page. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again.</p>
       <div class="toolbar">
         <div class="chip-picker" id="chip-picker">
@@ -684,18 +684,18 @@
           <label class="chip-picker-item"><input type="checkbox" data-chip-id="chip-networth" checked> 📈 Net worth</label>
         </div>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>📑 Visible tabs</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>📑 Visible tabs</h2></summary>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which tabs show in the nav bar — e.g. turn off Investments if you don't use it. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again. Use the ▲▼ arrows to put them in whatever order you like. Overview always leads and What's New always trails, and neither can be reordered; XP stays fixed as the tab right before What's New too, but every other tab is free to move around it.</p>
       <div class="toolbar">
         <div class="tab-order-list" id="tab-picker"></div>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>🎮 XP &amp; achievements</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>🎮 XP &amp; achievements</h2></summary>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose how much XP each level takes to reach. This only changes leveling speed — how you earn XP and which achievements you can unlock stay exactly the same either way.</p>
       <div class="toolbar">
         <label class="xl-set">Leveling pace <select id="set-xp-difficulty">
@@ -704,40 +704,40 @@
           <option value="hard">🔥 Hard — levels take much longer</option>
         </select></label>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>💱 Currency &amp; billing period</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>💱 Currency &amp; billing period</h2></summary>
       <div class="toolbar">
         <label class="xl-set">Currency <select id="set-currency"></select></label>
         <label class="xl-set">Month starts on day <select id="set-payday"></select></label>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>🌍 Currency rates</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>🌍 Currency rates</h2></summary>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">One rate per foreign currency, shared everywhere it's used — Income, Debts, Gifts and Savings accounts all convert through this same table, so the same currency never disagrees with itself between tabs. Set by you, not fetched live.</p>
       <div id="currency-rates-list"></div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>🔐 Security</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>🔐 Security</h2></summary>
       <div class="toolbar">
         <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Set up quick-unlock PIN</button>
         <label class="xl-set">Sign me out after being idle for <select id="set-idle-timeout"></select></label>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>🔔 Notifications</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>🔔 Notifications</h2></summary>
       <div class="toolbar">
         <button class="xl-btn reminder-toggle" id="reminder-toggle-btn" type="button" title="Turn on notifications">🔕</button>
         <span class="xl-status" style="width:auto;margin:0;">Shows a notification for your daily reminder (if you haven't logged anything yet today), leveling up, unlocking an achievement, or fully clearing a debt. Needs your browser's notification permission. Your daily reminder, level-ups, and debt-cleared alerts now arrive even with the app fully closed — checked roughly every 15 minutes, so it's instant-ish rather than exact. Achievement unlocks still only notify while the app is open.</span>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>📁 Data</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>📁 Data</h2></summary>
       <div class="toolbar">
         <button class="xl-btn" id="xl-import-btn" type="button" title="Load a filled-in workbook (replaces what is in the tracker now)">📥 Import</button>
         <button class="xl-btn primary" id="xl-export-btn" type="button" title="Download everything in the tracker as an .xlsx workbook">📤 Export</button>
@@ -746,10 +746,10 @@
         <input type="file" id="xl-file-input" accept=".xlsx,.xlsm" style="display:none">
         <div class="xl-status" id="xl-status"></div>
       </div>
-    </section>
+    </details>
 
-    <section>
-      <div class="section-head"><h2>📲 App</h2></div>
+    <details class="settings-section" open>
+      <summary class="section-head"><h2>📲 App</h2></summary>
       <div class="toolbar">
         <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
         <span class="xl-status" style="width:auto;margin:0;">Adds a home-screen icon and works offline. Shows up here automatically in Chrome/Edge/Android when it's available and not already installed.</span>
@@ -762,7 +762,7 @@
         <a class="xl-btn" href="faq.html" title="In-depth walkthroughs of every part of Trakka">❓ Help &amp; FAQ</a>
         <span class="xl-status" style="width:auto;margin:0;">In-depth tutorials for every part of the app. Leaving this page signs you out, for security — sign back in anytime.</span>
       </div>
-    </section>
+    </details>
   </div>
 
   <footer>figures in <span id="footer-cur">—</span> · reopen anytime, nothing is sent anywhere · covers <span id="footer-coverage">—</span> · <span id="footer-period"></span></footer>
