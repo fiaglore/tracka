@@ -138,6 +138,23 @@ window.__ftSettingsPage = true;
   <div class="cat-speech" id="cat-speech-text">Purring along — nothing checked yet this month!</div>
   <div class="cat-face" id="cat-face">😺</div>
 </div>
+<!-- Growing garden — a second companion tied to net worth, alongside (not
+     instead of) the pet above. See renderGrowthTree() in app.js. -->
+<div class="growth-tree" id="growth-tree" title="Grows with your net worth">
+  <div class="growth-tree-face" id="growth-tree-face">🌱</div>
+  <div class="growth-tree-label" id="growth-tree-label">Seedling</div>
+</div>
+<!-- Shareable milestone card modal — see showMilestoneCard()/drawMilestoneCard() in app.js. -->
+<div class="milestone-modal-overlay" id="milestone-modal-overlay" hidden>
+  <div class="milestone-modal">
+    <button type="button" class="milestone-modal-close" id="milestone-modal-close" aria-label="Close">✕</button>
+    <canvas id="milestone-canvas" width="1080" height="1080"></canvas>
+    <div class="milestone-modal-actions">
+      <button type="button" class="xl-btn" id="milestone-download-btn">⬇️ Download</button>
+      <button type="button" class="xl-btn" id="milestone-share-btn" hidden>📤 Share</button>
+    </div>
+  </div>
+</div>
 
 <div class="app-shell">
 
@@ -336,6 +353,12 @@ window.__ftSettingsPage = true;
     <div class="mvl-card" id="mvl-card">
       <h3>This month vs last month</h3>
       <div id="mvl-body"></div>
+      <div class="mvl-trophy" id="mvl-trophy" hidden></div>
+    </div>
+
+    <div class="quests-card" id="quests-card">
+      <h3>🎯 Mini-quests</h3>
+      <div id="quests-body"></div>
     </div>
 
   </div>
@@ -535,6 +558,15 @@ window.__ftSettingsPage = true;
         <div class="xp-track"><div class="xp-fill" id="xp-page-fill"></div></div>
         <div class="xp-sub" id="xp-page-sub">0 / 150 XP to level 2</div>
         <p class="xp-page-breakdown" id="xp-page-breakdown"></p>
+      </div>
+    </section>
+
+    <section id="prestige-section" hidden>
+      <div class="section-head"><h2>👑 Prestige</h2></div>
+      <div class="prestige-panel">
+        <p>You've reached Level 100 — the top of the ladder. Prestige resets your level to 1 in exchange for a permanent 👑 crown shown next to your level everywhere in the app. Every badge, streak and achievement you've already earned stays exactly as it is — only the level number resets, so you can climb it again.</p>
+        <div class="prestige-stars" id="prestige-stars"></div>
+        <button type="button" class="xl-btn" id="prestige-btn">👑 Prestige now</button>
       </div>
     </section>
 

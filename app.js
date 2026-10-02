@@ -672,6 +672,7 @@ window.__ftStart = function(){
   }
   function renderMonthComparison(){
     const body = document.getElementById('mvl-body');
+    const trophyEl = document.getElementById('mvl-trophy');
     if(!body) return;
     // Compares against the nearest earlier month that wasn't marked "not tracked" — a skipped
     // month has nothing logged, so comparing against it literally would read as a fake 100% drop.
@@ -680,6 +681,7 @@ window.__ftStart = function(){
       body.innerHTML = '<div class="mvl-empty">'+(activeMonth===0
         ? 'This is your first tracked month — comparisons start next month.'
         : 'No earlier tracked month to compare against yet.')+'</div>';
+      if(trophyEl){ trophyEl.hidden = true; trophyEl.innerHTML = ''; }
       return;
     }
     const cur = state.months[activeMonth], prev = state.months[prevIdx];
@@ -687,6 +689,8 @@ window.__ftStart = function(){
     const incomeLast = sumChecked(prev.income) + sumExtraForMonth(prevIdx);
     const debtThis = sumChecked(cur.debts);
     const debtLast = sumChecked(prev.debts);
+    const netThis = netForMonth(activeMonth);
+    const netLast = netForMonth(prevIdx);
     const vsLabel = prevIdx===activeMonth-1 ? 'last month' : (monthLabels[prevIdx]+' '+yearTags[prevIdx]);
     body.innerHTML = `
       <div class="mvl-row">
@@ -699,11 +703,92 @@ window.__ftStart = function(){
         <div class="mvl-nums"><b>${fmt(debtThis)}</b> vs ${fmt(debtLast)} ${vsLabel}</div>
         ${pctBadgeHtml(debtThis, debtLast)}
       </div>
+      <div class="mvl-row">
+        <div class="mvl-label">Net</div>
+        <div class="mvl-nums"><b>${(netThis>=0?'+':'-')+fmt(Math.abs(netThis))}</b> vs ${(netLast>=0?'+':'-')+fmt(Math.abs(netLast))} ${vsLabel}</div>
+        ${pctBadgeHtml(netThis, netLast)}
+      </div>
     `;
+    // "Beat your past self" — this month's net vs. the same month a year ago
+    // (12 billing periods back, since periods run monthly that lands on the
+    // real same-named month for almost everyone). A live comparison only,
+    // recomputed fresh every render — no achievement bookkeeping, it just
+    // quietly reflects however things stand right now.
+    if(trophyEl){
+      const yearIdx = activeMonth-12;
+      const netYearAgo = yearIdx>=0 ? netForMonth(yearIdx) : null;
+      if(netYearAgo!==null && netThis>netYearAgo){
+        trophyEl.hidden = false;
+        trophyEl.innerHTML = `🏆 <b>Beating your past self</b> — this month's net (${fmt(netThis)}) is ahead of ${monthLabels[yearIdx]} ${yearTags[yearIdx]}'s net (${fmt(netYearAgo)}), twelve months ago.`;
+      } else {
+        trophyEl.hidden = true;
+        trophyEl.innerHTML = '';
+      }
+    }
+  }
+
+  // ===== Weekly / monthly mini-quests panel =====
+  // Rendering only — the quest list itself (progress/target/completed) is
+  // computed fresh every render() over in the gamification block, which
+  // also owns the one-time "newly completed" XP + notification bookkeeping;
+  // this just draws whatever list it's handed.
+  function renderQuestsPanel(quests){
+    const body = document.getElementById('quests-body');
+    if(!body) return;
+    body.innerHTML = quests.map(function(q){
+      const pct = Math.min(100, (q.progress/q.target)*100);
+      return `<div class="quest-row ${q.completed?'done':''}">
+        <div class="quest-top">
+          <span class="quest-icon">${q.completed?'✅':q.icon}</span>
+          <span class="quest-label">${escapeAttr(q.label)}</span>
+          <span class="quest-period">${q.period==='week'?'this week':'this month'}</span>
+        </div>
+        <div class="quest-track"><div class="quest-fill" style="width:${pct}%"></div></div>
+        <div class="quest-meta">${Math.min(q.progress,q.target)} / ${q.target}${q.completed?' · +20 XP':''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ===== Growing garden visual =====
+  // A second, always-visible companion alongside the pet (never replacing
+  // it) — stages tied to net worth rather than any one month's activity, so
+  // it tracks the slow, cumulative kind of progress the pet's day-to-day
+  // mood doesn't capture. ct() scales the thresholds with whatever currency
+  // conversion the account has applied, same as every money-based badge.
+  function renderGrowthTree(netWorth){
+    const faceEl = document.getElementById('growth-tree-face');
+    if(!faceEl) return;
+    const stages = [
+      {min:-Infinity,     emoji:'🌱', label:'Seedling'},
+      {min:ct(50000),     emoji:'🌿', label:'Sprout'},
+      {min:ct(250000),    emoji:'🪴', label:'Potted sapling'},
+      {min:ct(1000000),   emoji:'🌳', label:'Young tree'},
+      {min:ct(5000000),   emoji:'🌲', label:'Mature tree'},
+      {min:ct(20000000),  emoji:'🌳🏡', label:'Flourishing garden'}
+    ];
+    let stage = stages[0];
+    stages.forEach(function(s){ if(netWorth>=s.min) stage = s; });
+    faceEl.textContent = stage.emoji;
+    const labelEl = document.getElementById('growth-tree-label');
+    if(labelEl) labelEl.textContent = stage.label;
+    const wrapEl = document.getElementById('growth-tree');
+    if(wrapEl) wrapEl.title = 'Net worth: '+fmt(netWorth)+' — grows as your net worth grows';
   }
 
   function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function todayISO(){ return dateKey(new Date()); }
+  // Monday of the calendar week a 'YYYY-MM-DD' key falls in, as its own
+  // 'YYYY-MM-DD' key — used by the weekly mini-quests below as "this week"'s
+  // identity, independent of whichever day the billing period happens to
+  // start on.
+  function weekKeyOf(dateKeyStr){
+    const [y,mo,da] = dateKeyStr.split('-').map(Number);
+    const d = new Date(y, mo-1, da);
+    const sinceMonday = (d.getDay()+6)%7;
+    d.setDate(d.getDate()-sinceMonday);
+    return dateKey(d);
+  }
+  function monthKeyOf(dateKeyStr){ return dateKeyStr.slice(0,7); }
   // Records today's real-world date (not the billing-period date) whenever a checkbox is ticked.
   function todayKey(){ return dateKey(new Date()); }
   function fmtTickDate(key){
@@ -1150,6 +1235,58 @@ window.__ftStart = function(){
       if(frame<maxFrames){ requestAnimationFrame(tick); }
       else{ ctx.clearRect(0,0,canvas.width,canvas.height); }
     })();
+  }
+
+  // ===== Gamification: shareable milestone cards =====
+  // Drawn straight onto a <canvas> (same approach as the confetti burst
+  // above) rather than pulled in from an image library — a debt clearing or
+  // a savings goal landing is rare enough that a nicer, brandable PNG is
+  // worth more here than confetti alone, and this needs nothing beyond
+  // what's already loaded.
+  function drawMilestoneCard(canvas, title, subtitle, footer){
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,'#D98E2B');
+    grad.addColorStop(1,'#5C3B0E');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '600 '+Math.round(W*0.045)+'px system-ui, sans-serif';
+    ctx.fillText('TRAKKA', W/2, H*0.16);
+    ctx.font = Math.round(W*0.22)+'px system-ui, sans-serif';
+    ctx.fillText(title.split(' ')[0], W/2, H*0.42);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 '+Math.round(W*0.075)+'px system-ui, sans-serif';
+    wrapCanvasText(ctx, title.replace(/^\S+\s*/,''), W/2, H*0.58, W*0.82, W*0.085);
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.font = Math.round(W*0.042)+'px system-ui, sans-serif';
+    wrapCanvasText(ctx, subtitle, W/2, H*0.7, W*0.82, W*0.055);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = Math.round(W*0.03)+'px system-ui, sans-serif';
+    ctx.fillText(footer, W/2, H*0.94);
+  }
+  function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight){
+    const words = text.split(' ');
+    let line = '', lines = [];
+    words.forEach(function(w){
+      const test = line ? line+' '+w : w;
+      if(ctx.measureText(test).width > maxWidth && line){ lines.push(line); line = w; }
+      else line = test;
+    });
+    if(line) lines.push(line);
+    const startY = y - (lines.length-1)*lineHeight/2;
+    lines.forEach(function(l,i){ ctx.fillText(l, x, startY + i*lineHeight); });
+  }
+  function showMilestoneCard(title, subtitle, footer){
+    const overlay = document.getElementById('milestone-modal-overlay');
+    const canvas = document.getElementById('milestone-canvas');
+    if(!overlay || !canvas) return;
+    drawMilestoneCard(canvas, title, subtitle, footer);
+    overlay.hidden = false;
+    const shareBtn = document.getElementById('milestone-share-btn');
+    if(shareBtn) shareBtn.hidden = !(navigator.share && navigator.canShare);
   }
 
   // ===== Saving =====
@@ -2614,30 +2751,42 @@ window.__ftStart = function(){
 
     // ===== Gamification: XP / Level =====
     const earnedBadgeCount = Object.keys(badgeMemory).filter(k=>k.startsWith('badge_')).length;
-    const totalXP = ovCheckedItems*10 + earnedBadgeCount*50;
+    const questBonusCount = Object.keys(badgeMemory).filter(k=>k.startsWith('quest_')).length;
+    const totalXP = ovCheckedItems*10 + earnedBadgeCount*50 + questBonusCount*20;
     // Each level costs more than the last (level L needs L*150 XP to clear,
     // not a flat 150) — a fixed cost meant levels 1-9 were all equally easy,
     // so a busy first month alone could blow past them. The running total
     // still grows at the same rate it always did (10 XP/item, 50/badge);
     // only how far that total goes stretches out, the same way a real RPG's
     // level curve keeps a year of play meaningful instead of front-loaded.
+    // `level` here is the LIFETIME level (never decreases — every level-gated
+    // badge/ladder/theme-unlock below keys off this one, so a prestige reset
+    // can never re-lock something already earned). `prestigeLevel` is the
+    // separate, resettable number actually shown to the user everywhere else
+    // (XP bars, the level chip, the level-up toast) — see the Prestige block
+    // further down for how/why it resets.
     const {level, xpIntoLevel, xpPerLevel} = levelFromXP(totalXP);
+    const prestigeBaselineXP = Number(cloud.prestigeBaselineXP)||0;
+    const prestigeCount = Number(cloud.prestigeCount)||0;
+    const {level: prestigeLevel, xpIntoLevel: prestigeXpIntoLevel, xpPerLevel: prestigeXpPerLevel} = levelFromXP(Math.max(0, totalXP - prestigeBaselineXP));
     // Notify on a level-up, but never on the first render that ever sees
     // `lastNotifiedLevel` unset — otherwise an existing account picks up
     // this feature and immediately gets told it "leveled up" to whatever
     // level it was already sitting at. Only levels reached AFTER that
-    // baseline is recorded actually notify.
+    // baseline is recorded actually notify. Tracks prestigeLevel (not the
+    // lifetime one) so the toast always matches whatever number the chip/XP
+    // bars are showing, including right after a prestige reset.
     // saveCloudField() only writes to Firestore — it never mutates `cloud`
     // itself — so `cloud.lastNotifiedLevel` has to be updated here too, or
     // every render for the rest of this session would think the level-up
     // still hasn't been notified yet and fire again and again.
     if(cloud.lastNotifiedLevel == null){
-      cloud.lastNotifiedLevel = level;
-      saveCloudField('lastNotifiedLevel', level);
-    } else if(level > Number(cloud.lastNotifiedLevel)){
-      cloud.lastNotifiedLevel = level;
-      saveCloudField('lastNotifiedLevel', level);
-      showAppNotification('🌟 Level up!', 'You reached Level '+level+' in Trakka.');
+      cloud.lastNotifiedLevel = prestigeLevel;
+      saveCloudField('lastNotifiedLevel', prestigeLevel);
+    } else if(prestigeLevel > Number(cloud.lastNotifiedLevel)){
+      cloud.lastNotifiedLevel = prestigeLevel;
+      saveCloudField('lastNotifiedLevel', prestigeLevel);
+      showAppNotification('🌟 Level up!', 'You reached Level '+prestigeLevel+' in Trakka.');
     }
 
     // ===== Gamification: birthday shoutout (client-side) =====
@@ -2664,32 +2813,50 @@ window.__ftStart = function(){
       }
     }
 
+    const crownSuffix = prestigeCount>0 ? ' 👑×'+prestigeCount : '';
     const xpLevelEl = document.getElementById('xp-level-num');
-    if(xpLevelEl) xpLevelEl.textContent = 'Level '+level;
+    if(xpLevelEl) xpLevelEl.textContent = 'Level '+prestigeLevel+crownSuffix;
     const xpFillEl = document.getElementById('xp-fill');
-    if(xpFillEl) xpFillEl.style.width = Math.min(100,(xpIntoLevel/xpPerLevel)*100)+'%';
+    if(xpFillEl) xpFillEl.style.width = Math.min(100,(prestigeXpIntoLevel/prestigeXpPerLevel)*100)+'%';
     const xpSubEl = document.getElementById('xp-sub');
-    if(xpSubEl) xpSubEl.textContent = xpIntoLevel+' / '+xpPerLevel+' XP to level '+(level+1)+' · '+totalXP+' XP total';
+    if(xpSubEl) xpSubEl.textContent = prestigeXpIntoLevel+' / '+prestigeXpPerLevel+' XP to level '+(prestigeLevel+1)+' · '+totalXP+' XP total';
     // Same numbers as the small Overview panel above, mirrored onto the
     // dedicated XP page (#page-xp) with a source breakdown the small panel
     // has no room for.
     const xpPageLevelEl = document.getElementById('xp-page-level-num');
-    if(xpPageLevelEl) xpPageLevelEl.textContent = 'Level '+level;
+    if(xpPageLevelEl) xpPageLevelEl.textContent = 'Level '+prestigeLevel+crownSuffix;
     const xpPageFillEl = document.getElementById('xp-page-fill');
-    if(xpPageFillEl) xpPageFillEl.style.width = Math.min(100,(xpIntoLevel/xpPerLevel)*100)+'%';
+    if(xpPageFillEl) xpPageFillEl.style.width = Math.min(100,(prestigeXpIntoLevel/prestigeXpPerLevel)*100)+'%';
     const xpPageSubEl = document.getElementById('xp-page-sub');
-    if(xpPageSubEl) xpPageSubEl.textContent = xpIntoLevel+' / '+xpPerLevel+' XP to level '+(level+1);
+    if(xpPageSubEl) xpPageSubEl.textContent = prestigeXpIntoLevel+' / '+prestigeXpPerLevel+' XP to level '+(prestigeLevel+1);
     const xpPageTotalEl = document.getElementById('xp-page-total');
     if(xpPageTotalEl) xpPageTotalEl.textContent = totalXP.toLocaleString('en-NG')+' XP total';
     const xpPageBreakdownEl = document.getElementById('xp-page-breakdown');
     if(xpPageBreakdownEl){
       xpPageBreakdownEl.textContent = ovCheckedItems.toLocaleString('en-NG')+' items checked off (×10 XP = '+(ovCheckedItems*10).toLocaleString('en-NG')+' XP) + '
-        +earnedBadgeCount+' badge'+(earnedBadgeCount===1?'':'s')+' earned (×50 XP = '+(earnedBadgeCount*50).toLocaleString('en-NG')+' XP)';
+        +earnedBadgeCount+' badge'+(earnedBadgeCount===1?'':'s')+' earned (×50 XP = '+(earnedBadgeCount*50).toLocaleString('en-NG')+' XP)'
+        +(questBonusCount ? ' + '+questBonusCount+' quest'+(questBonusCount===1?'':'s')+' completed (×20 XP = '+(questBonusCount*20).toLocaleString('en-NG')+' XP)' : '');
     }
     // Same level the XP panel above already shows — mirrored into the
     // persistent top chip row so it's visible on every tab, not just Overview.
     const chipLevelEl = document.getElementById('chip-level-val');
-    if(chipLevelEl) chipLevelEl.textContent = String(level);
+    if(chipLevelEl) chipLevelEl.textContent = String(prestigeLevel)+crownSuffix;
+
+    // ===== Gamification: Prestige (Level 100+) =====
+    // A classic "reset the number, keep the substance" prestige loop for
+    // whoever's actually reached the top of the display ladder: resetting
+    // only subtracts from the XP used to compute prestigeLevel above (by
+    // raising the baseline to the current lifetime total) — it never
+    // touches totalXP itself, so every badge/ladder rung already earned
+    // (which all key off the lifetime `level`, never prestigeLevel) stays
+    // earned forever. The crown count is the one permanent, visible trace
+    // of how many times that's happened.
+    const prestigeSectionEl = document.getElementById('prestige-section');
+    if(prestigeSectionEl){
+      prestigeSectionEl.hidden = prestigeLevel < 100;
+      const starsEl = document.getElementById('prestige-stars');
+      if(starsEl) starsEl.textContent = prestigeCount>0 ? '👑'.repeat(Math.min(prestigeCount,10)) + (prestigeCount>10?' ×'+prestigeCount:'') + ' earned so far' : '';
+    }
 
     // Same "Still outstanding" total the debt-payoff overview shows, and the
     // active month's net (checked income minus checked debts/living/gifts —
@@ -2720,7 +2887,9 @@ window.__ftStart = function(){
     const chipInvestmentsEl = document.getElementById('chip-investments-val');
     if(chipInvestmentsEl) chipInvestmentsEl.textContent = fmt(totalInvestmentsValue());
     const chipNetworthEl = document.getElementById('chip-networth-val');
-    if(chipNetworthEl) chipNetworthEl.textContent = fmt(netWorthForMonth(activeMonth));
+    const curNetWorth = netWorthForMonth(activeMonth);
+    if(chipNetworthEl) chipNetworthEl.textContent = fmt(curNetWorth);
+    renderGrowthTree(curNetWorth);
 
     // ===== Gamification: achievement badges =====
     let maxSaved = 0;
@@ -2955,6 +3124,15 @@ window.__ftStart = function(){
     badgeDefs.forEach(function(b){
       if(!b.earned && REBALANCED_BADGE_IDS.indexOf(b.id)!==-1 && badgeMemory['badge_'+b.id]) b.earned = true;
     });
+    // Exposed for the theme-unlock gating in the separate theming IIFE
+    // further down this file (it has no access to this render()'s locals) —
+    // it checks a theme's `requires:{level}`/`requires:{badge}` against
+    // these two globals, refreshed on every render. Lifetime `level` is
+    // used (not prestigeLevel) so prestiging can never re-lock a theme.
+    window.__ftLevel = level;
+    window.__ftTotalXP = totalXP;
+    window.__ftEarnedBadgeIds = badgeDefs.filter(b=>b.earned).map(b=>b.id);
+    if(window.__refreshThemeLocks) window.__refreshThemeLocks();
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
       // Icon-only on Overview, and only the ones actually earned — with 100+
@@ -3001,6 +3179,43 @@ window.__ftStart = function(){
     const xpTotalCountEl = document.getElementById('xp-page-total-count');
     if(xpTotalCountEl) xpTotalCountEl.textContent = String(badgeDefs.length);
 
+    // ===== Gamification: weekly / monthly mini-quests =====
+    // Short-horizon goals that reset every real calendar week/month —
+    // alongside the lifetime badge ladders above, so there's always
+    // something reachable within days, not just months. Weekly quests key
+    // off real dates (livingEntries.date, items' lastTicked — both already
+    // stored as 'YYYY-MM-DD') since "this week" should mean the same thing
+    // no matter which day the billing period starts on; monthly quests key
+    // off the active billing-period month instead, since that's what
+    // "this month" already means everywhere else in the app.
+    const curWeekKey = weekKeyOf(todayISO());
+    const curMonthKey = monthKeyOf(todayISO());
+    let tickedThisWeek = 0;
+    for(let i=0;i<N;i++){
+      const mm = state.months[i];
+      if(!mm) continue;
+      ['income','debts'].forEach(function(kind){
+        (mm[kind]||[]).forEach(function(it){ if(it.checked && it.lastTicked && weekKeyOf(it.lastTicked)===curWeekKey) tickedThisWeek++; });
+      });
+    }
+    Object.keys(state.giftProgress||{}).forEach(function(k){
+      const gp = state.giftProgress[k];
+      if(gp && gp.checked && gp.lastTicked && weekKeyOf(gp.lastTicked)===curWeekKey) tickedThisWeek++;
+    });
+    const expenseDaysThisWeek = new Set(
+      state.livingEntries.filter(function(e){ return e.date && weekKeyOf(e.date)===curWeekKey; }).map(function(e){ return e.date; })
+    ).size;
+    const debtPaidThisMonth = (m.debts||[]).some(function(it){ return it.checked && !it.extraPayment && Number(it.amount)>0; });
+    const savingsAddedThisMonth = state.savings.some(function(s){ return s.monthIndex===activeMonth && Number(s.amount)>0; });
+    const QUEST_DEFS = [
+      {id:'weekcheck5', period:'week',  periodKey:curWeekKey,  icon:'✅', label:'Check off 5 items this week', progress:tickedThisWeek, target:5},
+      {id:'weeklog3',   period:'week',  periodKey:curWeekKey,  icon:'🧾', label:'Log expenses on 3 different days this week', progress:expenseDaysThisWeek, target:3},
+      {id:'monthdebt',  period:'month', periodKey:curMonthKey, icon:'📉', label:'Make a debt payment this month', progress:debtPaidThisMonth?1:0, target:1},
+      {id:'monthsave',  period:'month', periodKey:curMonthKey, icon:'🐷', label:'Add a savings top-up this month', progress:savingsAddedThisMonth?1:0, target:1}
+    ];
+    QUEST_DEFS.forEach(function(q){ q.completed = q.progress>=q.target; q.memKey = 'quest_'+q.id+'_'+q.periodKey; });
+    renderQuestsPanel(QUEST_DEFS);
+
     // ===== Gamification: detect newly-earned milestones, confetti once each =====
     let newlyEarned = false;
     const newlyEarnedBadges = [];
@@ -3037,6 +3252,13 @@ window.__ftStart = function(){
         if(!badgeMemory[k]){ badgeMemory[k]=true; newlyEarned = true; newlyClearedDebts.push(d); }
       });
     }
+    // Quests reward a smaller +20 XP (folded into totalXP above via
+    // questBonusCount) rather than a badge's 50 — they're meant to be easy,
+    // recurring wins, not a one-time achievement.
+    const newlyCompletedQuests = [];
+    QUEST_DEFS.forEach(function(q){
+      if(q.completed && !badgeMemory[q.memKey]){ badgeMemory[q.memKey]=true; newlyEarned = true; newlyCompletedQuests.push(q); }
+    });
     if(newlyEarned){
       saveBadgeMemory(badgeMemory);
       if(newlyEarnedBadges.length===1){
@@ -3049,8 +3271,13 @@ window.__ftStart = function(){
       } else if(newlyClearedDebts.length>1){
         showAppNotification('💳 '+newlyClearedDebts.length+' debts cleared!', newlyClearedDebts.map(d=>d.label).join(' · ')+' are fully paid off!');
       }
+      if(newlyCompletedQuests.length===1){
+        showAppNotification('🎯 Quest complete', newlyCompletedQuests[0].label+' (+20 XP)');
+      } else if(newlyCompletedQuests.length>1){
+        showAppNotification('🎯 '+newlyCompletedQuests.length+' quests complete!', newlyCompletedQuests.map(q=>q.label).join(' · ')+' (+20 XP each)');
+      }
       triggerConfetti();
-      if(newlyEarnedBadges.length || newlyClearedDebts.length) playAchievement(newlyEarnedBadges.length + newlyClearedDebts.length > 1);
+      if(newlyEarnedBadges.length || newlyClearedDebts.length || newlyCompletedQuests.length) playAchievement(newlyEarnedBadges.length + newlyClearedDebts.length > 1);
       // Celebratory pet state for a few seconds, then fall back to the
       // normal net/checked-based mood — see catMilestoneUntil above.
       const species = getSpecies();
@@ -3062,6 +3289,15 @@ window.__ftStart = function(){
         catMilestoneUntil = 0;
         applyCatMood(computeNormalCatMood());
       }, 4000);
+      // A shareable milestone card only for the headline wins — a debt
+      // wiped out entirely, or the savings-goal badge — not every small
+      // badge/quest, so it stays special rather than popping up constantly.
+      const savingsGoalJustHit = newlyEarnedBadges.some(b=>b.id==='savingsgoalhit');
+      if(newlyClearedDebts.length){
+        showMilestoneCard('🎉 Debt-Free!', newlyClearedDebts.map(d=>'"'+d.label+'"').join(' & ')+' fully paid off', 'trakka.com.ng');
+      } else if(savingsGoalJustHit){
+        showMilestoneCard('🌻 Goal Reached!', 'Savings goal of '+fmt(goal)+' hit', 'trakka.com.ng');
+      }
     }
 
     // ===== Cat companion mood =====
@@ -3817,7 +4053,24 @@ window.__ftStart = function(){
       const ongoing = !!state.ongoingSeries[d.key];
       const foreign = d.currency && d.currency!==currencyCode();
       const convertedNote = foreign ? ` · ≈ ${fmt(convertToPrimary(d.remaining, d.currency))} at the saved rate` : '';
+      // ===== Gamification: debt "boss" health bar =====
+      // Purely a visual reskin of the same paid/total numbers above — the
+      // bar's fill is the boss's remaining HP (100% at the first instalment,
+      // 0% once cleared), tinted red→green as it drops, bigger debts getting
+      // a tougher-looking boss icon. Nothing here changes what's actually
+      // tracked, only how the existing balance reads.
+      const hpPct = done ? 0 : Math.max(0, 100-pct);
+      const hpHue = Math.round((100-hpPct)*1.15); // 0 (red, full HP) -> ~115 (green, defeated)
+      const totalPrimary = convertToPrimary(d.total, d.currency);
+      const bossIcon = totalPrimary>=ct(5000000) ? '🐉' : totalPrimary>=ct(1000000) ? '👹' : totalPrimary>=ct(250000) ? '🧌' : totalPrimary>=ct(50000) ? '👺' : '🐺';
       return `<div class="ds-row">
+        <div class="ds-boss-row">
+          <span class="ds-boss-icon">${done ? '💀' : bossIcon}</span>
+          <div class="ds-boss-bar-wrap">
+            <div class="ds-boss-label">${done ? 'BOSS DEFEATED' : 'BOSS HP'}</div>
+            <div class="ds-track ds-hp-track"><div class="ds-fill ds-hp-fill" style="width:${hpPct}%; background:${done?'var(--line)':'hsl('+hpHue+',62%,52%)'}"></div></div>
+          </div>
+        </div>
         <div class="ds-top">
           <span class="ds-name">${escapeAttr(d.label)}${ongoing ? ' <span class="ds-ongoing-badge" title="Automatically added to every new month until stopped">🔁</span>' : ''}${foreign ? ' <span class="item-currency-badge">'+d.currency+'</span>' : ''}</span>
           <span class="ds-top-right">
@@ -3825,7 +4078,6 @@ window.__ftStart = function(){
             <button class="del ds-del-btn" data-series="${d.key}" title="Delete this debt entirely">✕</button>
           </span>
         </div>
-        <div class="ds-track"><div class="ds-fill" style="width:${pct}%"></div></div>
         <div class="ds-meta">${fmtIn(d.paid, d.currency)} of ${fmtIn(d.total, d.currency)} repaid (${pct.toFixed(0)}%) · ${d.paymentsLeft} payment${d.paymentsLeft===1?'':'s'} left · last due ${lastLabel}${extraNote}${convertedNote}</div>
         ${done ? '' : `<div class="ds-pay">
           <input type="number" min="0" class="ds-extra-input" data-series="${d.key}" placeholder="Extra payment ${symbolForCode(d.currency)}">
@@ -3893,6 +4145,44 @@ window.__ftStart = function(){
   })();
 
   document.addEventListener('click', function(e){
+    if(e.target.matches('#prestige-btn')){
+      if(!confirm('Reset to Level 1 in exchange for a permanent 👑 Prestige crown? Every badge, streak and achievement you\'ve earned stays exactly as it is — only the level number resets.')) return;
+      const currentTotalXP = Number(window.__ftTotalXP)||0;
+      const nextCount = (Number(cloud.prestigeCount)||0) + 1;
+      cloud.prestigeBaselineXP = currentTotalXP;
+      cloud.prestigeCount = nextCount;
+      saveCloudField('prestigeBaselineXP', currentTotalXP);
+      saveCloudField('prestigeCount', nextCount);
+      showAppNotification('👑 Prestige!', 'You reset to Level 1 — your '+nextCount+(nextCount===1?'st':nextCount===2?'nd':nextCount===3?'rd':'th')+' Prestige crown is permanent.');
+      triggerConfetti();
+      render();
+      return;
+    }
+    if(e.target.matches('#milestone-modal-close') || e.target.matches('#milestone-modal-overlay')){
+      const overlay = document.getElementById('milestone-modal-overlay');
+      if(overlay) overlay.hidden = true;
+      return;
+    }
+    if(e.target.matches('#milestone-download-btn')){
+      const canvas = document.getElementById('milestone-canvas');
+      if(!canvas) return;
+      const a = document.createElement('a');
+      a.download = 'trakka-milestone.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      return;
+    }
+    if(e.target.matches('#milestone-share-btn')){
+      const canvas = document.getElementById('milestone-canvas');
+      if(!canvas || !navigator.share) return;
+      canvas.toBlob(function(blob){
+        if(!blob) return;
+        const file = new File([blob], 'trakka-milestone.png', {type:'image/png'});
+        if(navigator.canShare && !navigator.canShare({files:[file]})) return;
+        navigator.share({files:[file], title:'Trakka milestone'}).catch(function(){});
+      }, 'image/png');
+      return;
+    }
     if(e.target.matches('#xp-hide-earned-toggle')){
       hideEarnedAchievements = !hideEarnedAchievements;
       try{ localStorage.setItem(HIDE_EARNED_XP_KEY, hideEarnedAchievements ? '1' : '0'); }catch(err){}
@@ -5283,6 +5573,10 @@ window.__ftStart = function(){
       try{ new Notification(title, opts); }catch(e){}
     }
   }
+  // Exposed so the separate theming IIFE further down this file (which runs
+  // on every page load, signed in or not, and has no access to this IIFE's
+  // locals) can log a "locked theme" notice through the same in-app bell.
+  window.__ftShowNotification = showAppNotification;
 
   // ===== Daily reminder notifications =====
   // A browser Notification, shown once per calendar day when the tracker
@@ -6143,26 +6437,37 @@ window.__ftStart = function(){
     { id:'lagoon',      name:'Lagoon (gradient)' },
     { id:'orchard',     name:'Orchard (dot pattern)' },
     { id:'contour',     name:'Contour (line pattern)' },
-    { id:'raspberry',   name:'Raspberry' },
-    { id:'mint',        name:'Mint' },
-    { id:'lavender',    name:'Lavender' },
-    { id:'navy',        name:'Navy' },
-    { id:'mustard',     name:'Mustard' },
+    { id:'raspberry',   name:'Raspberry',   requires:{level:5},  requiresText:'Reach Level 5' },
+    { id:'mint',        name:'Mint',        requires:{level:10}, requiresText:'Reach Level 10' },
+    { id:'lavender',    name:'Lavender',    requires:{badge:'debtslayer'}, requiresText:'Clear your first debt' },
+    { id:'navy',        name:'Navy',        requires:{level:15}, requiresText:'Reach Level 15' },
+    { id:'mustard',     name:'Mustard',     requires:{badge:'savingsgoalhit'}, requiresText:'Hit your savings goal' },
     { id:'charcoal',    name:'Charcoal' },
-    { id:'forest',      name:'Forest' },
-    { id:'aurora',      name:'Aurora (gradient)' },
-    { id:'sunset',      name:'Sunset (gradient)' },
+    { id:'forest',      name:'Forest',      requires:{level:20}, requiresText:'Reach Level 20' },
+    { id:'aurora',      name:'Aurora (gradient)', requires:{level:30}, requiresText:'Reach Level 30' },
+    { id:'sunset',      name:'Sunset (gradient)', requires:{badge:'streak30'}, requiresText:'Hit a 30-day streak' },
     { id:'honeycomb',   name:'Honeycomb (pattern)' },
     { id:'biker',       name:'Biker' },
     { id:'fire',        name:'Fire (gradient)' },
     { id:'barbie',      name:'Barbie' },
     { id:'ghibli',      name:'Studio Ghibli (gradient)' },
     { id:'cyberpunk',   name:'Cyberpunk (gradient)' },
-    { id:'galaxy',      name:'Galaxy (gradient)' },
+    { id:'galaxy',      name:'Galaxy (gradient)', requires:{level:50}, requiresText:'Reach Level 50' },
     { id:'matcha',      name:'Matcha' },
     { id:'vaporwave',   name:'Vaporwave (gradient)' },
-    { id:'cozycabin',   name:'Cozy Cabin' }
+    { id:'cozycabin',   name:'Cozy Cabin', requires:{badge:'debtfree'}, requiresText:'Go totally debt-free' }
   ];
+  // ===== Gamification: theme unlocks =====
+  // 10 of the 30 presets above are gated behind a level or a specific
+  // achievement instead of being free from day one — refreshed every main
+  // render() via window.__ftLevel/__ftEarnedBadgeIds (set in app.js's main
+  // IIFE, which this theming IIFE otherwise has no access to).
+  function themeUnlocked(t){
+    if(!t.requires) return true;
+    if('level' in t.requires) return (Number(window.__ftLevel)||0) >= t.requires.level;
+    if('badge' in t.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(t.requires.badge)!==-1;
+    return true;
+  }
   // A flat hex works as a swatch's background for the 10 plain-color
   // presets, but says nothing about "this one has a gradient/pattern" —
   // so the 4 new presets get a real (tiny, swatch-sized) CSS background
@@ -6259,9 +6564,21 @@ window.__ftStart = function(){
     setThemeCurrentLabel(id);
   }
   window.setThemePreset = function(id){
+    var theme = THEMES.filter(function(t){ return t.id===id; })[0];
+    if(theme && !themeUnlocked(theme)){
+      showAppNotificationSafe('🔒 Locked theme', theme.name+' — '+theme.requiresText+' to unlock.');
+      return;
+    }
     applyThemePreset(id);
     saveThemePreset(id);
   };
+  // showAppNotification lives in the main IIFE (only defined post-sign-in) —
+  // this theming IIFE runs on every page, signed in or not, so it falls
+  // back to a plain alert if that hasn't loaded.
+  function showAppNotificationSafe(title, body){
+    if(typeof window.__ftShowNotification === 'function') window.__ftShowNotification(title, body);
+    else alert(title+' — '+body);
+  }
 
   function buildSwatches(){
     var wrap = document.getElementById('theme-swatches');
@@ -6271,7 +6588,7 @@ window.__ftStart = function(){
       b.type = 'button';
       b.className = 'theme-swatch';
       b.setAttribute('data-theme-id', t.id);
-      b.title = t.name;
+      b.title = t.requires ? t.name+' — locked: '+t.requiresText : t.name;
       b.setAttribute('aria-label', t.name);
       b.style.background = SWATCH_BG[t.id];
       if(t.id==='orchard'){ b.style.backgroundSize = '6px 6px, auto'; }
@@ -6282,7 +6599,25 @@ window.__ftStart = function(){
       b.addEventListener('blur', function(){ setThemeCurrentLabel(document.body.getAttribute('data-theme-preset')); });
       wrap.appendChild(b);
     });
+    refreshThemeLocks();
   }
+  // Re-applied every main render() (see window.__refreshThemeLocks below) —
+  // just toggles a CSS class + the 🔒 overlay/title, never rebuilds the
+  // swatch buttons themselves, so a level/badge reached mid-session unlocks
+  // its theme instantly without losing hover state or re-running the
+  // one-time buildSwatches() DOM construction above.
+  function refreshThemeLocks(){
+    var wrap = document.getElementById('theme-swatches');
+    if(!wrap) return;
+    Array.prototype.forEach.call(wrap.children, function(btn){
+      var t = THEMES.filter(function(x){ return x.id===btn.getAttribute('data-theme-id'); })[0];
+      if(!t) return;
+      var locked = !themeUnlocked(t);
+      btn.classList.toggle('locked', locked);
+      btn.title = locked ? t.name+' — locked: '+t.requiresText : t.name;
+    });
+  }
+  window.__refreshThemeLocks = refreshThemeLocks;
 
   // ----- light/dark mode (independent of which preset is selected) -----
   var MODE_STORAGE_KEY = 'financialTrackerPublicThemeV1'; // same key the old, dead toggle already used — see below
