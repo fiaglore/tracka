@@ -36,11 +36,23 @@
    Settings looked broken by default every single time someone opened
    it — nothing to actually protect there, just an unreadable page
    until "Show data" was clicked.
+
+   .profile-banner (the time-of-day greeting — "You've logged ₦X in
+   expenses so far today", etc. — see timeOfDayMessage() in app.js) and
+   .notif-dropdown (the 🔔 bell's notification history — debt-cleared,
+   budget-threshold and money-badge entries all embed a real amount in
+   plain sentence text) both sit in the topbar, outside every container
+   above, so a real figure in a sentence used to stay fully readable even
+   with privacy mode on. Blurred here the same blanket-container way as
+   everything else, rather than trying to mask just the digits within
+   the text.
    ============================================================ */
 body[data-privacy="on"] .app-shell > .month-bar,
 body[data-privacy="on"] .app-shell > .page-nav,
 body[data-privacy="on"] .meta-chips,
 body[data-privacy="on"] .overall,
+body[data-privacy="on"] .profile-banner,
+body[data-privacy="on"] .notif-dropdown,
 body[data-privacy="on"] .app-page:not(#page-settings):not(#page-whatsnew){
   filter: blur(9px);
   user-select: none;

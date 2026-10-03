@@ -1306,6 +1306,14 @@ window.__ftStart = function(){
     const overlay = document.getElementById('milestone-modal-overlay');
     const canvas = document.getElementById('milestone-canvas');
     if(!overlay || !canvas) return;
+    // A CSS blur on the canvas would only be cosmetic — the Download/Share
+    // buttons would still export the real, unblurred amount underneath, so
+    // this skips drawing/opening the card entirely while privacy mode is
+    // on, rather than show a "blurred" popup that leaks the real figure
+    // the moment it's saved or shared. The badge/confetti/notification for
+    // the same milestone still fire as normal; only this specific
+    // shareable-image popup is held back.
+    if(document.body.getAttribute('data-privacy')==='on') return;
     drawMilestoneCard(canvas, title, subtitle, footer);
     overlay.hidden = false;
     const shareBtn = document.getElementById('milestone-share-btn');
@@ -6292,6 +6300,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🙈 Hide data now blurs your greeting and notification history too', body: 'Turning on "🙈 Hide data" used to leave two spots showing real figures in plain sentences: the time-of-day greeting at the top of the page ("You\'ve logged ₦X in expenses so far today") and the 🔔 bell\'s notification history (debt-cleared, budget-threshold and badge entries that mention an amount). Both are now blurred along with everything else while privacy mode is on. The shareable milestone card (the one offered when a debt is cleared or a savings goal is hit) is also skipped entirely while hiding data is on, instead of showing a blurred-but-still-downloadable image.' },
     { title: '⛄ Pick a debt payoff strategy — Snowball, Avalanche, or your own pace', body: 'The Debts tab\'s payoff plan now offers three ways to tackle multiple debts: "🧘 My own pace" (no suggested order, exactly as before), "⛄ Snowball" (pay minimums on everything, then throw every extra at your smallest balance first, for quick motivational wins), or "⚡ Avalanche" (same idea, but targeting your highest interest rate first, for the cheapest route overall). Each debt can have an optional interest rate set on it — the picked strategy reorders the list, badges the one to focus on first, and shows roughly how many months sooner you\'d be debt-free by rolling payments forward versus paying each debt separately.' },
     { title: '🫆 Biometric unlock, trusted devices & a security activity log', body: 'Settings → "🔐 Security" now offers biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative to the PIN, set up separately on each device since it\'s tied to that device\'s own hardware. It shows up both on the usual "you were signed out, enter your PIN" screen and, once it\'s set up, right on the sign-in page itself — so a normal fresh visit can skip typing a password too. The same Settings page also lists every device that\'s ever signed in under "💻 Trusted devices" (forgetting one signs it out the next time it\'s opened) and a "📜 Recent activity" log of the last 30 sign-ins, PIN/biometric changes, and device removals.' },
     { title: "💰 A zero-based monthly budget plan", body: 'The Expenses tab has a new "💰 Monthly budget plan" card: your expected income for the month against everything already spoken for — living expense budgets, debt instalments due, and gift contributions due — down to what\'s still unassigned. Each expense category can also turn on "Rollover" (in "Categories & budget" below it), which carries whatever\'s left unspent, or overspent, in that category into next month\'s budget instead of resetting to the flat number every period.' },
