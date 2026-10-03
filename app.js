@@ -836,12 +836,33 @@ window.__ftStart = function(){
   function setLivingBudget(mi, catId, value){
     state.livingBudgetOverrides[mi+'_'+catId] = Number(value)||0;
   }
+  function sumLivingForCategoryMonth(mi, catId){
+    return livingEntriesForMonth(mi).filter(e=>e.categoryId===catId).reduce((s,e)=>s+Number(e.amount||0),0);
+  }
+  // A category's actual usable budget for month `mi`: its own set budget,
+  // plus whatever unused (or overspent) budget rolled forward from every
+  // prior month, if rollover is turned on for it (category.rollover — see
+  // the checkbox in renderLivingCategoryManage()). Off (the default),
+  // this is identical to getLivingBudget() — a month's budget resets clean.
+  // On, under-spending one month raises next month's effective budget by
+  // the leftover; overspending lowers it, the same "give every ₦ a job"
+  // envelope-budgeting behavior YNAB-style tools call a rollover.
+  function effectiveBudgetFor(mi, catId){
+    const base = getLivingBudget(mi, catId);
+    const cat = state.livingCategories.find(c=>c.id===catId);
+    if(!cat || !cat.rollover) return base;
+    let carry = 0;
+    for(let i=0;i<mi;i++){
+      carry = (getLivingBudget(i, catId) + carry) - sumLivingForCategoryMonth(i, catId);
+    }
+    return base + carry;
+  }
   function livingCategoryTotalsForMonth(mi){
     const entries = livingEntriesForMonth(mi);
     const map = {};
     entries.forEach(e=>{ map[e.categoryId] = (map[e.categoryId]||0) + Number(e.amount||0); });
     return state.livingCategories
-      .map(c=>({category:c, total: map[c.id]||0, budget: getLivingBudget(mi, c.id)}))
+      .map(c=>({category:c, total: map[c.id]||0, budget: effectiveBudgetFor(mi, c.id)}))
       .filter(r=> r.total>0 || r.budget>0)
       .sort((a,b)=>b.total-a.total);
   }
@@ -1823,6 +1844,7 @@ window.__ftStart = function(){
       }
       trendBody.innerHTML = rows.length ? rows.join('') : '<div class="mvl-empty">Nothing tracked yet.</div>';
     }
+    renderTrendCharts();
 
     const list = document.getElementById('asset-list');
     if(list){
@@ -2232,6 +2254,138 @@ window.__ftStart = function(){
   }
   function sumForDate(ds){ return state.livingEntries.filter(e=>e.date===ds).reduce((s,e)=>s+Number(e.amount||0),0); }
 
+  // ===== Multi-month trend sparklines (Net Worth tab) =====
+  // A small reusable line+area chart, same inline-SVG approach as the daily
+  // expenses bar chart above — no charting library, just enough markup to
+  // show the shape of a trend across every tracked month at a glance. Points
+  // with <2 values render nothing (a single dot/line says nothing a number
+  // doesn't already), so the empty state just leaves the number showing.
+  function renderTrendChart(svgId, points, color){
+    const svg = document.getElementById(svgId);
+    if(!svg) return;
+    if(points.length < 2){
+      svg.innerHTML = points.length===1 ? `<text x="4" y="40" class="trend-empty-label">Only one month tracked so far.</text>` : '';
+      svg.removeAttribute('viewBox');
+      return;
+    }
+    const w = 300, h = 80, padTop = 8, padBottom = 16, padX = 4;
+    const vals = points.map(p=>p.value);
+    const maxV = Math.max(...vals, 0), minV = Math.min(...vals, 0);
+    const range = (maxV - minV) || 1;
+    const chartH = h - padTop - padBottom;
+    const stepX = (w - padX*2) / (points.length-1);
+    const xFor = i => padX + i*stepX;
+    const yFor = v => padTop + chartH - ((v-minV)/range)*chartH;
+    const linePts = points.map((p,i)=>`${xFor(i)},${yFor(p.value)}`).join(' ');
+    const areaPts = `${xFor(0)},${yFor(0)} ` + linePts + ` ${xFor(points.length-1)},${yFor(0)}`;
+    let zeroLine = '';
+    if(minV < 0 && maxV > 0){
+      const zy = yFor(0);
+      zeroLine = `<line x1="${padX}" y1="${zy}" x2="${w-padX}" y2="${zy}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3,3"></line>`;
+    }
+    // At most ~6 x-axis labels regardless of how many months are tracked —
+    // showing all of them for a multi-year account would just overlap into
+    // an unreadable smear.
+    const labelEvery = Math.max(1, Math.ceil(points.length/6));
+    let labels = '';
+    points.forEach((p,i)=>{
+      if(i % labelEvery !== 0 && i !== points.length-1) return;
+      labels += `<text x="${xFor(i)}" y="${h-3}" text-anchor="middle" font-size="8" fill="var(--muted)" font-family="'Space Mono',monospace">${p.label}</text>`;
+    });
+    const dots = points.map((p,i)=>
+      `<circle cx="${xFor(i)}" cy="${yFor(p.value)}" r="${i===points.length-1?3:2}" fill="${color}"><title>${p.label}: ${fmt(p.value)}</title></circle>`
+    ).join('');
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.innerHTML = `<polygon points="${areaPts}" fill="${color}" opacity="0.12"></polygon>`
+      + zeroLine
+      + `<polyline points="${linePts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>`
+      + dots + labels;
+  }
+  // Builds the {label, value} series for one trend chart, skipping months
+  // marked "not tracked" the same way the old text-list trend did — a
+  // skipped month has nothing logged, so plotting it would just show a
+  // fake dip/flat spot that was never really there.
+  function trendSeries(valueFn){
+    const out = [];
+    for(let i=0;i<N;i++){
+      if(isMonthSkipped(i)) continue;
+      out.push({label: monthLabels[i], value: valueFn(i)});
+    }
+    return out;
+  }
+  function renderTrendCharts(){
+    if(!document.getElementById('trend-networth-svg')) return;
+    const nwSeries = trendSeries(i => netWorthForMonth(i));
+    const incomeSeries = trendSeries(i => sumChecked(state.months[i].income) + sumExtraForMonth(i));
+    const expenseSeries = trendSeries(i => sumLivingForMonth(i));
+    const savingsSeries = trendSeries(i => cumulativeSavingsUpTo(i));
+    renderTrendChart('trend-networth-svg', nwSeries, 'var(--accent)');
+    renderTrendChart('trend-income-svg', incomeSeries, 'var(--good)');
+    renderTrendChart('trend-expenses-svg', expenseSeries, 'var(--bad)');
+    renderTrendChart('trend-savings-svg', savingsSeries, 'var(--info)');
+    const setLatest = (id, series) => {
+      const el = document.getElementById(id);
+      if(el) el.textContent = series.length ? fmt(series[series.length-1].value) : '—';
+    };
+    setLatest('trend-networth-val', nwSeries);
+    setLatest('trend-income-val', incomeSeries);
+    setLatest('trend-expenses-val', expenseSeries);
+    setLatest('trend-savings-val', savingsSeries);
+  }
+
+  // ===== Security: trusted devices + recent activity (Settings -> Security) =====
+  // Both are plain arrays on the user doc (see registerDevice()/
+  // logSecurityEvent() in firebase-init.js) — rendered here like any other
+  // settings list, refreshed on every render() the same as everything else.
+  const SECURITY_EVENT_LABELS = {
+    signin: '🔓 Signed in', pin_setup: '🔢 PIN set up', pin_removed: '🔢 PIN removed',
+    biometric_setup: '🫆 Biometric unlock set up', device_removed: '🗑️ Device removed'
+  };
+  function fmtSecurityTs(ts){
+    return new Date(ts).toLocaleString('en-GB', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+  }
+  function renderSecurityPanel(){
+    const devicesEl = document.getElementById('trusted-devices-list');
+    if(devicesEl){
+      const devices = Array.isArray(cloud.trustedDevices) ? cloud.trustedDevices.slice().sort((a,b)=>b.lastSeen-a.lastSeen) : [];
+      const thisId = window.Trakka && window.Trakka.deviceId ? window.Trakka.deviceId() : null;
+      devicesEl.innerHTML = devices.length===0
+        ? '<div class="empty-msg">No devices recorded yet.</div>'
+        : devices.map(d=>`<div class="item-row">
+            <div class="item-label">${escapeAttr(d.label)}${d.id===thisId?' <span class="sub">(this device)</span>':''}
+              <span class="sub">Last seen ${fmtSecurityTs(d.lastSeen)}</span>
+            </div>
+            <button class="del security-forget-device-btn" data-device-id="${d.id}" title="Forget this device">✕</button>
+          </div>`).join('');
+    }
+    const logEl = document.getElementById('security-log-list');
+    if(logEl){
+      const log = Array.isArray(cloud.securityLog) ? cloud.securityLog : [];
+      logEl.innerHTML = log.length===0
+        ? '<div class="empty-msg">Nothing logged yet.</div>'
+        : log.map(l=>`<div class="item-row">
+            <div class="item-label">${SECURITY_EVENT_LABELS[l.event]||l.event}${l.detail?' — '+escapeAttr(l.detail):''}
+              <span class="sub">${fmtSecurityTs(l.ts)}</span>
+            </div>
+          </div>`).join('');
+    }
+  }
+  document.addEventListener('click', function(e){
+    const forgetBtn = e.target.closest ? e.target.closest('.security-forget-device-btn') : null;
+    if(!forgetBtn) return;
+    const id = forgetBtn.dataset.deviceId;
+    if(!window.__ftUid || !window.Trakka || !window.Trakka.forgetDevice) return;
+    const isThisDevice = window.Trakka.deviceId && id===window.Trakka.deviceId();
+    window.Trakka.forgetDevice(window.__ftUid, id).then(function(list){
+      cloud.trustedDevices = list; // mirror locally — saveUserDoc-adjacent writes never update `cloud` themselves
+      window.Trakka.logSecurityEvent(window.__ftUid, 'device_removed', '').catch(function(){});
+      // Forgetting the device you're sitting at right now doesn't need to
+      // wait for the next-load trust-check above — sign it out immediately.
+      if(isThisDevice) window.Trakka.signOutUser();
+      else renderSecurityPanel();
+    }).catch(function(err){ console.error('Forget device failed:', err); });
+  });
+
   function renderLivingCategorySelect(){
     const sel = document.getElementById('living-entry-category');
     const prev = sel.value;
@@ -2239,16 +2393,54 @@ window.__ftStart = function(){
     if(state.livingCategories.some(c=>c.id===prev)) sel.value = prev;
   }
 
+  // ===== Zero-based monthly budget plan =====
+  // "Give every ₦ a job" — expected income vs. everything already assigned
+  // somewhere (living budgets, debt instalments due, gift contributions due)
+  // vs. whatever's left unassigned. Living budgets use effectiveBudgetFor()
+  // (rollover-aware) so a category with rollover on reports what it can
+  // actually spend this month, not just its own bare number.
+  function renderBudgetPlan(){
+    const el = document.getElementById('budget-plan-body');
+    if(!el) return;
+    const m = state.months[activeMonth];
+    const expectedIncome = sumAll(m.income);
+    const livingAllocated = state.livingCategories.reduce((s,c)=>s+effectiveBudgetFor(activeMonth, c.id),0);
+    const debtsDue = sumAll((m.debts||[]).filter(d=>!d.extraPayment));
+    const giftsDue = sumAll(giftItemsForMonth(activeMonth));
+    const totalAllocated = livingAllocated + debtsDue + giftsDue;
+    const unassigned = expectedIncome - totalAllocated;
+    el.innerHTML = `
+      <div class="budget-plan-row head"><span>Expected income this month</span><b class="mono">${fmt(expectedIncome)}</b></div>
+      <div class="budget-plan-row sub"><span>Living expense budgets</span><span class="mono">${fmt(livingAllocated)}</span></div>
+      <div class="budget-plan-row sub"><span>Debt payments due</span><span class="mono">${fmt(debtsDue)}</span></div>
+      <div class="budget-plan-row sub"><span>Gift contributions due</span><span class="mono">${fmt(giftsDue)}</span></div>
+      <div class="budget-plan-row head"><span>Total allocated</span><b class="mono">${fmt(totalAllocated)}</b></div>
+      <div class="budget-plan-row unassigned ${unassigned<0?'over':''}">
+        <span>${unassigned<0 ? 'Over-allocated by' : 'Unassigned — still needs a job'}</span>
+        <b class="mono">${fmt(Math.abs(unassigned))}</b>
+      </div>
+    `;
+  }
+
   function renderLivingCategoryManage(){
     const container = document.getElementById('living-cat-manage-list');
-    container.innerHTML = state.livingCategories.map(c=>`
+    container.innerHTML = state.livingCategories.map(c=>{
+      const eff = effectiveBudgetFor(activeMonth, c.id);
+      const base = getLivingBudget(activeMonth, c.id)||0;
+      const carryNote = c.rollover && eff!==base
+        ? `<span class="sub">${eff>base?'+':''}${fmt(eff-base)} rolled in → ${fmt(eff)} available</span>` : '';
+      return `
       <div class="cat-manage-row">
         <span class="cat-dot" style="background:${c.color}"></span>
         <input type="text" class="living-cat-name-input" value="${escapeAttr(c.name)}" data-cat-id="${c.id}">
-        <input type="number" class="living-cat-budget-input" value="${getLivingBudget(activeMonth, c.id)||0}" data-cat-id="${c.id}" title="Budget for ${monthLabels[activeMonth]} ${yearTags[activeMonth]} only">
+        <input type="number" class="living-cat-budget-input" value="${base}" data-cat-id="${c.id}" title="Budget for ${monthLabels[activeMonth]} ${yearTags[activeMonth]} only">
+        <label class="cat-rollover-toggle" title="Carry unused (or overspent) budget into next month">
+          <input type="checkbox" class="living-cat-rollover" data-cat-id="${c.id}" ${c.rollover?'checked':''}> Rollover
+        </label>
         <button class="living-cat-del" data-cat-id="${c.id}" title="Remove category">✕</button>
-      </div>
-    `).join('');
+        ${carryNote}
+      </div>`;
+    }).join('');
   }
 
   // Which day-groups in the Expenses tab's daily log are expanded — a plain
@@ -2290,16 +2482,24 @@ window.__ftStart = function(){
   function renderLivingDailyLog(){
     const entries = livingEntriesForMonth(activeMonth);
     const container = document.getElementById('living-list');
+    // A selection only ever makes sense against whatever's actually visible
+    // right now — switching months (or hiding the log) drops any ids that
+    // aren't in this month's entries, rather than leaving an invisible
+    // "N selected" bulk bar pointed at rows nobody can see.
+    const visibleIds = new Set(entries.map(e=>e.id));
+    Array.from(selectedLivingEntryIds).forEach(id=>{ if(!visibleIds.has(id)) selectedLivingEntryIds.delete(id); });
     if(hideLivingLog){
       container.innerHTML = '<div class="empty-msg">Daily log hidden — click "Show daily log" above to view it.</div>';
       lastLivingDaysList = [];
       updateLivingListToggleAllLabel();
+      renderLivingBulkBar();
       return;
     }
     if(entries.length===0){
       container.innerHTML = '<div class="empty-msg">No living expenses logged for this billing period yet.</div>';
       lastLivingDaysList = [];
       updateLivingListToggleAllLabel();
+      renderLivingBulkBar();
       return;
     }
     const byDate = {};
@@ -2315,7 +2515,8 @@ window.__ftStart = function(){
       const isOpen = expandedLivingDays.has(ds);
       const rows = dayEntries.map(e=>{
         const cat = livingCategoryById(e.categoryId);
-        return `<div class="entry-row">
+        return `<div class="entry-row ${selectedLivingEntryIds.has(e.id)?'selected':''}">
+          <input type="checkbox" class="entry-select-box" data-living-entry-id="${e.id}" ${selectedLivingEntryIds.has(e.id)?'checked':''} title="Select for bulk actions">
           <span class="cat-dot" style="background:${cat.color}"></span>
           <div class="entry-mid">
             <input type="text" class="entry-desc-input" value="${escapeAttr(e.desc)}" data-living-entry-id="${e.id}">
@@ -2336,7 +2537,63 @@ window.__ftStart = function(){
       </div>`;
     }).join('');
     updateLivingListToggleAllLabel();
+    renderLivingBulkBar();
   }
+
+  // ===== Bulk editing: daily expenses log =====
+  // Multi-select across the daily log, same visual language as the other
+  // bulk-ish controls in the app (the .xl-btn toolbar look) — recategorize
+  // or delete several entries at once instead of one row at a time. Pure
+  // session-local UI state (not synced, not in `state`), same reasoning as
+  // hideClearedDebts/expandedLivingDays above: it's "what's selected right
+  // now", not tracker data.
+  let selectedLivingEntryIds = new Set();
+  function renderLivingBulkBar(){
+    const bar = document.getElementById('living-bulk-bar');
+    if(!bar) return;
+    const n = selectedLivingEntryIds.size;
+    bar.hidden = n===0;
+    if(n===0) return;
+    const countEl = document.getElementById('living-bulk-count');
+    if(countEl) countEl.textContent = n+' selected';
+    const recatSel = document.getElementById('living-bulk-recat');
+    if(recatSel){
+      const prev = recatSel.value;
+      recatSel.innerHTML = state.livingCategories.map(c=>`<option value="${c.id}">${escapeAttr(c.name)}</option>`).join('');
+      if(state.livingCategories.some(c=>c.id===prev)) recatSel.value = prev;
+    }
+  }
+  document.addEventListener('change', function(e){
+    if(e.target.matches('.entry-select-box')){
+      const id = e.target.dataset.livingEntryId;
+      if(e.target.checked) selectedLivingEntryIds.add(id); else selectedLivingEntryIds.delete(id);
+      renderLivingBulkBar();
+      e.target.closest('.entry-row').classList.toggle('selected', e.target.checked);
+    }
+  });
+  document.addEventListener('click', function(e){
+    if(e.target.matches('#living-bulk-clear-btn')){
+      selectedLivingEntryIds.clear();
+      renderLivingDailyLog();
+      return;
+    }
+    if(e.target.matches('#living-bulk-delete-btn')){
+      const n = selectedLivingEntryIds.size;
+      if(!n || !confirm('Delete '+n+' selected expense'+(n===1?'':'s')+'? This can\'t be undone.')) return;
+      state.livingEntries = state.livingEntries.filter(e=>!selectedLivingEntryIds.has(e.id));
+      selectedLivingEntryIds.clear();
+      save();
+      return;
+    }
+    if(e.target.matches('#living-bulk-recat-btn')){
+      const sel = document.getElementById('living-bulk-recat');
+      if(!sel || !sel.value || !selectedLivingEntryIds.size) return;
+      state.livingEntries.forEach(entry=>{ if(selectedLivingEntryIds.has(entry.id)) entry.categoryId = sel.value; });
+      selectedLivingEntryIds.clear();
+      save();
+      return;
+    }
+  });
 
   function renderGiftList(){
     const items = giftItemsForMonth(activeMonth);
@@ -2607,6 +2864,7 @@ window.__ftStart = function(){
     renderDebtOverview();
     renderLivingCategoryChart();
     renderLivingDailyChart();
+    renderBudgetPlan();
     renderLivingCategorySelect();
     renderLivingCategoryManage();
     document.getElementById('manage-cats-month-label').textContent = monthLabels[activeMonth]+' '+yearTags[activeMonth];
@@ -2619,6 +2877,7 @@ window.__ftStart = function(){
     renderInvestments();
     renderNetWorth();
     renderCurrencyRates();
+    renderSecurityPanel();
     applyTabVisibility();
     renderExtra();
 
@@ -2786,7 +3045,7 @@ window.__ftStart = function(){
     } else if(prestigeLevel > Number(cloud.lastNotifiedLevel)){
       cloud.lastNotifiedLevel = prestigeLevel;
       saveCloudField('lastNotifiedLevel', prestigeLevel);
-      showAppNotification('🌟 Level up!', 'You reached Level '+prestigeLevel+' in Trakka.');
+      showAppNotification('🌟 Level up!', 'You reached Level '+prestigeLevel+' in Trakka.', null, 'levelUp');
     }
 
     // ===== Gamification: birthday shoutout (client-side) =====
@@ -2809,7 +3068,7 @@ window.__ftStart = function(){
         cloud.lastBirthdayNotifiedYear = thisYear;
         saveCloudField('lastBirthdayNotifiedYear', thisYear);
         const name = profile.firstName ? ', '+profile.firstName : '';
-        showAppNotification('🎂 Happy Birthday!', 'Happy birthday'+name+'! Wishing you a great year ahead — treat yourself, you\'ve earned it.', '🎂');
+        showAppNotification('🎂 Happy Birthday!', 'Happy birthday'+name+'! Wishing you a great year ahead — treat yourself, you\'ve earned it.', '🎂', 'birthday');
       }
     }
 
@@ -3262,19 +3521,19 @@ window.__ftStart = function(){
     if(newlyEarned){
       saveBadgeMemory(badgeMemory);
       if(newlyEarnedBadges.length===1){
-        showAppNotification('🏅 Achievement unlocked', newlyEarnedBadges[0].label);
+        showAppNotification('🏅 Achievement unlocked', newlyEarnedBadges[0].label, null, 'achievements');
       } else if(newlyEarnedBadges.length>1){
-        showAppNotification('🏅 '+newlyEarnedBadges.length+' new achievements unlocked!', newlyEarnedBadges.map(b=>b.label).join(' · '));
+        showAppNotification('🏅 '+newlyEarnedBadges.length+' new achievements unlocked!', newlyEarnedBadges.map(b=>b.label).join(' · '), null, 'achievements');
       }
       if(newlyClearedDebts.length===1){
-        showAppNotification('💳 Debt cleared', '"'+newlyClearedDebts[0].label+'" is fully paid off!');
+        showAppNotification('💳 Debt cleared', '"'+newlyClearedDebts[0].label+'" is fully paid off!', null, 'debtCleared');
       } else if(newlyClearedDebts.length>1){
-        showAppNotification('💳 '+newlyClearedDebts.length+' debts cleared!', newlyClearedDebts.map(d=>d.label).join(' · ')+' are fully paid off!');
+        showAppNotification('💳 '+newlyClearedDebts.length+' debts cleared!', newlyClearedDebts.map(d=>d.label).join(' · ')+' are fully paid off!', null, 'debtCleared');
       }
       if(newlyCompletedQuests.length===1){
-        showAppNotification('🎯 Quest complete', newlyCompletedQuests[0].label+' (+20 XP)');
+        showAppNotification('🎯 Quest complete', newlyCompletedQuests[0].label+' (+20 XP)', null, 'achievements');
       } else if(newlyCompletedQuests.length>1){
-        showAppNotification('🎯 '+newlyCompletedQuests.length+' quests complete!', newlyCompletedQuests.map(q=>q.label).join(' · ')+' (+20 XP each)');
+        showAppNotification('🎯 '+newlyCompletedQuests.length+' quests complete!', newlyCompletedQuests.map(q=>q.label).join(' · ')+' (+20 XP each)', null, 'achievements');
       }
       triggerConfetti();
       if(newlyEarnedBadges.length || newlyClearedDebts.length || newlyCompletedQuests.length) playAchievement(newlyEarnedBadges.length + newlyClearedDebts.length > 1);
@@ -3299,6 +3558,73 @@ window.__ftStart = function(){
         showMilestoneCard('🌻 Goal Reached!', 'Savings goal of '+fmt(goal)+' hit', 'trakka.com.ng');
       }
     }
+
+    // ===== Gamification-adjacent: bill-due and budget-threshold alerts =====
+    // Same instant-while-open reasoning as everything above — this mirrors
+    // upcomingDebtInstalments()/budgetThresholdAlerts() in
+    // notifications/scripts/lib/notify-logic.mjs, which covers the same two
+    // conditions while the app is fully closed. badgeMemory is reused as the
+    // "already notified" store here too (keys prefixed 'billdue_'/
+    // 'budgetalert_'), same mechanism as every other one-time notice above.
+    (function checkBillDueAndBudgetAlerts(){
+      const BILL_DUE_DAYS_AHEAD = 3;
+      const today = new Date(); today.setHours(0,0,0,0);
+      // Same first-run baseline reasoning as the debt-cleared check above —
+      // an existing account can easily already have overdue bills or an
+      // already-overspent category; the first render that ever runs this
+      // should just learn what's already true rather than firing a pile of
+      // alerts for old news the moment this feature ships.
+      const billBaselined = !!badgeMemory['billDueBaselineSet'];
+      const budgetBaselined = !!badgeMemory['budgetAlertBaselineSet'];
+      let memoryChanged = false;
+      const dueSoonBills = [];
+      for(let i=0;i<N;i++){
+        const mm = state.months[i];
+        if(!mm || !mm.debts) continue;
+        const periodEnd = periodBounds(i).end;
+        const daysLeft = Math.ceil((periodEnd-today)/86400000);
+        if(daysLeft > BILL_DUE_DAYS_AHEAD) continue;
+        mm.debts.forEach(it=>{
+          if(it.checked || it.extraPayment || !(Number(it.amount)>0)) return;
+          const key = 'billdue_'+seriesKeyOf(it)+'_'+monthLabels[i]+yearTags[i];
+          if(!badgeMemory[key]){
+            badgeMemory[key] = true; memoryChanged = true;
+            if(billBaselined) dueSoonBills.push(it.label);
+          }
+        });
+      }
+      if(!billBaselined){ badgeMemory['billDueBaselineSet'] = true; memoryChanged = true; }
+      if(dueSoonBills.length){
+        showAppNotification(
+          dueSoonBills.length===1 ? '💳 Bill due soon' : '💳 '+dueSoonBills.length+' bills due soon',
+          dueSoonBills.join(' · ')+(dueSoonBills.length===1?' is due soon.':' are due soon.'),
+          null, 'billDue'
+        );
+      }
+      const overBudgetCats = [];
+      livingCategoryTotalsForMonth(activeMonth).forEach(r=>{
+        if(r.budget<=0) return;
+        const pct = r.total/r.budget;
+        const threshold = pct>=1 ? 100 : pct>=0.9 ? 90 : null;
+        if(threshold===null) return;
+        const key = 'budgetalert_'+r.category.id+'_'+monthLabels[activeMonth]+yearTags[activeMonth]+'_'+threshold;
+        if(!badgeMemory[key]){
+          badgeMemory[key] = true; memoryChanged = true;
+          if(budgetBaselined) overBudgetCats.push({name:r.category.name, threshold, total:r.total, budget:r.budget});
+        }
+      });
+      if(!budgetBaselined){ badgeMemory['budgetAlertBaselineSet'] = true; memoryChanged = true; }
+      overBudgetCats.forEach(c=>{
+        showAppNotification(
+          c.threshold>=100 ? '🏠 '+c.name+' over budget' : '🏠 '+c.name+' nearly at budget',
+          c.threshold>=100
+            ? 'You’ve spent '+fmt(c.total)+' of your '+fmt(c.budget)+' '+c.name+' budget this period.'
+            : 'You’re at '+Math.round((c.total/c.budget)*100)+'% of your '+c.name+' budget this period.',
+          null, 'budgetThreshold'
+        );
+      });
+      if(memoryChanged) saveBadgeMemory(badgeMemory);
+    })();
 
     // ===== Cat companion mood =====
     if(document.getElementById('cat-face') && Date.now() >= catMilestoneUntil){
@@ -3357,6 +3683,11 @@ window.__ftStart = function(){
     if(e.target.matches('.living-cat-budget-input')){
       const cat = state.livingCategories.find(c=>c.id===e.target.dataset.catId);
       if(cat){ setLivingBudget(activeMonth, cat.id, e.target.value); }
+      save();
+    }
+    if(e.target.matches('.living-cat-rollover')){
+      const cat = state.livingCategories.find(c=>c.id===e.target.dataset.catId);
+      if(cat){ cat.rollover = e.target.checked; }
       save();
     }
     if(e.target.matches('.checkbox[data-gift-key]')){
@@ -4097,29 +4428,89 @@ window.__ftStart = function(){
   // Heavy users end up scrolling through a year-plus of month tabs looking for one entry — this
   // scans every month's income/debts/gifts and every logged living expense at once and jumps
   // straight to wherever a match lives, instead of paging through months one at a time.
-  function searchAllItems(query){
+  // `filters` narrows the scan beyond the text query: a date range, a min/max amount, and which
+  // kinds to include — income/debt/gift entries only carry a billing-period month (not an exact
+  // date), so their "date" for range purposes is that period's own [start,end] window; only the
+  // living-expense log has a real per-entry date.
+  function searchAllItems(query, filters){
+    filters = filters || {};
     const q = query.trim().toLowerCase();
-    if(!q) return [];
+    const kinds = filters.kinds; // null/undefined = all kinds
     const results = [];
+    const pushIf = (cond, r) => { if(cond) results.push(r); };
     for(let i=0;i<N;i++){
       const m = state.months[i];
-      (m.income||[]).forEach(it=>{ if(String(it.label||'').toLowerCase().includes(q)) results.push({page:'income', mi:i, label:it.label, amount:it.amount, kind:'Income'}); });
-      (m.debts||[]).forEach(it=>{ if(!it.extraPayment && String(it.label||'').toLowerCase().includes(q)) results.push({page:'debts', mi:i, label:it.label, amount:it.amount, kind:'Debt'}); });
-      giftItemsForMonth(i).forEach(it=>{ if(String(it.label||'').toLowerCase().includes(q)) results.push({page:'gifts', mi:i, label:it.label, amount:it.amount, kind:'Gift'}); });
-    }
-    state.livingEntries.forEach(e=>{
-      if(String(e.desc||'').toLowerCase().includes(q)){
-        results.push({page:'expenses', mi:entryMonthIndex(e), label:e.desc, amount:e.amount, kind:'Expense'});
+      if(!kinds || kinds.has('Income')){
+        (m.income||[]).forEach(it=>{ pushIf(String(it.label||'').toLowerCase().includes(q), {page:'income', mi:i, label:it.label, amount:it.amount, kind:'Income'}); });
       }
+      if(!kinds || kinds.has('Debt')){
+        (m.debts||[]).forEach(it=>{ if(it.extraPayment) return; pushIf(String(it.label||'').toLowerCase().includes(q), {page:'debts', mi:i, label:it.label, amount:it.amount, kind:'Debt'}); });
+      }
+      if(!kinds || kinds.has('Gift')){
+        giftItemsForMonth(i).forEach(it=>{ pushIf(String(it.label||'').toLowerCase().includes(q), {page:'gifts', mi:i, label:it.label, amount:it.amount, kind:'Gift'}); });
+      }
+    }
+    if(!kinds || kinds.has('Expense')){
+      state.livingEntries.forEach(e=>{
+        pushIf(String(e.desc||'').toLowerCase().includes(q), {page:'expenses', mi:entryMonthIndex(e), label:e.desc, amount:e.amount, kind:'Expense', date:e.date});
+      });
+    }
+    const fromD = filters.dateFrom ? new Date(filters.dateFrom) : null;
+    const toD = filters.dateTo ? new Date(filters.dateTo) : null;
+    const filtered = results.filter(r=>{
+      if(filters.minAmount!=null && Number(r.amount)<filters.minAmount) return false;
+      if(filters.maxAmount!=null && Number(r.amount)>filters.maxAmount) return false;
+      if(fromD || toD){
+        if(r.date){
+          const d = new Date(r.date);
+          if(fromD && d<fromD) return false;
+          if(toD && d>toD) return false;
+        } else {
+          const {start, end} = periodBounds(r.mi);
+          if(fromD && end<fromD) return false;
+          if(toD && start>toD) return false;
+        }
+      }
+      return true;
     });
-    results.sort((a,b)=>b.mi-a.mi);
-    return results.slice(0,50);
+    filtered.sort((a,b)=>b.mi-a.mi);
+    return filtered.slice(0,50);
+  }
+  // Collects whatever's currently sitting in the filter panel into the
+  // shape searchAllItems() expects — read fresh on every keystroke/change
+  // rather than cached, since the panel is cheap to read and this keeps
+  // there from being a second, driftable copy of "what the filters are".
+  function readSearchFilters(){
+    const minEl = document.getElementById('gsf-amt-min');
+    const maxEl = document.getElementById('gsf-amt-max');
+    const fromEl = document.getElementById('gsf-date-from');
+    const toEl = document.getElementById('gsf-date-to');
+    const kindBoxes = document.querySelectorAll('.gsf-kind');
+    let kinds = null;
+    if(kindBoxes.length){
+      const checked = Array.from(kindBoxes).filter(cb=>cb.checked).map(cb=>cb.value);
+      if(checked.length < kindBoxes.length) kinds = new Set(checked);
+    }
+    return {
+      dateFrom: fromEl && fromEl.value ? fromEl.value : null,
+      dateTo: toEl && toEl.value ? toEl.value : null,
+      minAmount: minEl && minEl.value!=='' ? Number(minEl.value) : null,
+      maxAmount: maxEl && maxEl.value!=='' ? Number(maxEl.value) : null,
+      kinds
+    };
+  }
+  function searchFiltersActive(filters){
+    return !!(filters.dateFrom || filters.dateTo || filters.minAmount!=null || filters.maxAmount!=null || filters.kinds);
   }
   function renderGlobalSearch(query){
     const box = document.getElementById('global-search-results');
     if(!box) return;
-    if(!query.trim()){ box.innerHTML=''; box.hidden=true; return; }
-    const results = searchAllItems(query);
+    const filters = readSearchFilters();
+    // A query alone, filters alone, or both together all trigger a search —
+    // only truly nothing-entered clears the results, rather than showing
+    // every single item the moment a filter is touched with an empty box.
+    if(!query.trim() && !searchFiltersActive(filters)){ box.innerHTML=''; box.hidden=true; return; }
+    const results = searchAllItems(query, filters);
     box.hidden = false;
     if(results.length===0){ box.innerHTML = '<div class="empty-msg">No matches.</div>'; return; }
     box.innerHTML = results.map(r=>`<div class="search-result-row" data-mi="${r.mi}" data-page="${r.page}">
@@ -4133,6 +4524,26 @@ window.__ftStart = function(){
     const input = document.getElementById('global-search-input');
     if(!input) return;
     input.addEventListener('input', function(){ renderGlobalSearch(this.value); });
+    const filterToggle = document.getElementById('global-search-filter-toggle');
+    const filterPanel = document.getElementById('global-search-filters');
+    if(filterToggle && filterPanel){
+      filterToggle.addEventListener('click', function(){
+        filterPanel.hidden = !filterPanel.hidden;
+        filterToggle.classList.toggle('active', !filterPanel.hidden);
+      });
+      filterPanel.addEventListener('input', function(){ renderGlobalSearch(input.value); });
+      filterPanel.addEventListener('change', function(){ renderGlobalSearch(input.value); });
+    }
+    const clearBtn = document.getElementById('gsf-clear-btn');
+    if(clearBtn){
+      clearBtn.addEventListener('click', function(){
+        if(filterPanel){
+          filterPanel.querySelectorAll('input[type="date"], input[type="number"]').forEach(el=>el.value='');
+          filterPanel.querySelectorAll('.gsf-kind').forEach(cb=>cb.checked=true);
+        }
+        renderGlobalSearch(input.value);
+      });
+    }
     document.addEventListener('click', function(e){
       const row = e.target.closest ? e.target.closest('.search-result-row') : null;
       if(!row) return;
@@ -4153,7 +4564,7 @@ window.__ftStart = function(){
       cloud.prestigeCount = nextCount;
       saveCloudField('prestigeBaselineXP', currentTotalXP);
       saveCloudField('prestigeCount', nextCount);
-      showAppNotification('👑 Prestige!', 'You reset to Level 1 — your '+nextCount+(nextCount===1?'st':nextCount===2?'nd':nextCount===3?'rd':'th')+' Prestige crown is permanent.');
+      showAppNotification('👑 Prestige!', 'You reset to Level 1 — your '+nextCount+(nextCount===1?'st':nextCount===2?'nd':nextCount===3?'rd':'th')+' Prestige crown is permanent.', null, 'achievements');
       triggerConfetti();
       render();
       return;
@@ -5550,7 +5961,27 @@ window.__ftStart = function(){
   // the daily reminder, a level-up, a newly-earned achievement, a debt
   // getting fully cleared — goes through here, gated on the same
   // permission + on/off toggle as the original reminders feature.
-  function showAppNotification(title, body, icon){
+  // Settings → Notifications used to be one on/off switch for every kind of
+  // push; `type` (one of NOTIFY_PREF_TYPES below) lets a specific kind be
+  // turned off without losing the rest. Omitting `type` (the What's New
+  // announcement is the one caller that does) means "always allowed, as
+  // long as the master switch is on" — the original behavior, preserved for
+  // anything that doesn't fit one of the per-type checkboxes.
+  const NOTIFY_PREF_TYPES = [
+    {key:'dailyReminder', label:'Haven’t logged anything today'},
+    {key:'levelUp', label:'Level up'},
+    {key:'debtCleared', label:'Debt cleared'},
+    {key:'billDue', label:'Bill due soon'},
+    {key:'budgetThreshold', label:'Approaching/over a budget'},
+    {key:'birthday', label:'Birthday'},
+    {key:'achievements', label:'Achievements & quests'}
+  ];
+  function notifyPrefEnabled(type){
+    const prefs = cloud.notifyPrefs;
+    if(!prefs || typeof prefs !== 'object') return true;
+    return prefs[type] !== false;
+  }
+  function showAppNotification(title, body, icon, type){
     // Always logged to the in-app 🔔 notification center, regardless of OS
     // push permission or the reminders on/off toggle below — someone who's
     // never granted push permission (or has it switched off) still gets to
@@ -5560,9 +5991,11 @@ window.__ftStart = function(){
     // to Firestore, never back into it — so the on/off toggle below has to
     // (and does) mutate cloud.remindersEnabled directly the moment it's
     // flipped, or this check would keep reading whatever it was at page load
-    // for the rest of the session.
+    // for the rest of the session. Same reasoning is why the per-type
+    // toggles below write into cloud.notifyPrefs directly too.
     if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     if(!cloud.remindersEnabled) return;
+    if(type && !notifyPrefEnabled(type)) return;
     const opts = { body, icon: 'icon-192.png' };
     if(navigator.serviceWorker && navigator.serviceWorker.ready){
       navigator.serviceWorker.ready.then(function(reg){
@@ -5629,7 +6062,7 @@ window.__ftStart = function(){
       try{ lastShown = localStorage.getItem(REMINDED_KEY); }catch(e){}
       const today = todayKey();
       if(lastShown===today || hasLoggedAnythingToday()) return;
-      showAppNotification('Trakka', "You haven't logged anything yet today — a couple of minutes keeps your tracker honest.");
+      showAppNotification('Trakka', "You haven't logged anything yet today — a couple of minutes keeps your tracker honest.", null, 'dailyReminder');
       try{ localStorage.setItem(REMINDED_KEY, today); }catch(e){}
     }
 
@@ -5678,6 +6111,28 @@ window.__ftStart = function(){
     if(enabled && supported && Notification.permission==='granted' && window.Trakka && window.Trakka.subscribeToPush && window.__ftUid){
       window.Trakka.subscribeToPush(window.__ftUid).catch(function(e){ console.warn('Push subscribe failed:', e); });
     }
+  })();
+
+  // ===== Per-type notification preferences =====
+  // The master 🔔/🔕 toggle above is the "is this on at all" switch; this is
+  // the breakdown of WHICH kinds still get through once it's on. Every type
+  // defaults to checked (see notifyPrefEnabled() — no saved notifyPrefs
+  // object at all means "everything the master switch already covers"), so
+  // an existing account's behavior doesn't change until they actually
+  // uncheck something.
+  (function(){
+    const list = document.getElementById('notify-pref-list');
+    if(!list) return;
+    list.innerHTML = NOTIFY_PREF_TYPES.map(function(t){
+      return `<label class="chip-picker-item"><input type="checkbox" data-notify-pref="${t.key}" ${notifyPrefEnabled(t.key)?'checked':''}> ${escapeAttr(t.label)}</label>`;
+    }).join('');
+    list.addEventListener('change', function(e){
+      if(!e.target.matches('input[data-notify-pref]')) return;
+      const prefs = Object.assign({}, cloud.notifyPrefs && typeof cloud.notifyPrefs==='object' ? cloud.notifyPrefs : {});
+      prefs[e.target.dataset.notifyPref] = e.target.checked;
+      cloud.notifyPrefs = prefs; // read directly by notifyPrefEnabled() — same "mutate cloud now" reasoning as remindersEnabled above
+      saveCloudField('notifyPrefs', prefs);
+    });
   })();
 
   // ===== What's New =====
@@ -6162,6 +6617,24 @@ window.__ftStart = function(){
       return;
     }
     window.__ftCloudData = cloudData || {};
+    // ===== Trusted-device check =====
+    // A device "forgotten" from Settings → Security on another device finds
+    // out here, the next time it actually loads — there's no live push for
+    // this, same "instant-ish, not exact" trade-off the rest of the
+    // notification system already makes. An account with no trustedDevices
+    // list at all (nobody's ever opened Security, or this is a brand-new
+    // sign-in about to register itself below) is never blocked by this.
+    if(window.Trakka && window.Trakka.deviceId){
+      const trusted = window.__ftCloudData.trustedDevices;
+      if(Array.isArray(trusted) && trusted.length>0 && !trusted.some(function(d){ return d.id===window.Trakka.deviceId(); })){
+        await window.Trakka.signOutUser();
+        setError('This device was signed out from Settings → Security on another device.');
+        hideAuthLoading();
+        started = false;
+        window.__ftUid = null;
+        return;
+      }
+    }
     const ftProfile = window.__ftCloudData.profile || {};
     $('xl-user').textContent = '👤 ' + (ftProfile.username || (ftProfile.firstName && ftProfile.lastName ? ftProfile.firstName+' '+ftProfile.lastName : '') || user.displayName || window.__ftCloudData.displayName || 'you');
     hideAuthLoading();
@@ -6169,6 +6642,11 @@ window.__ftStart = function(){
     $('auth-pass').value = ''; $('auth-pass2').value = '';
     showRandomQuote();
     window.__ftStart();
+    // Fire-and-forget — neither should ever block getting into the app.
+    if(window.Trakka && window.Trakka.registerDevice){
+      window.Trakka.registerDevice(user.uid).catch(function(e){ console.warn('Device registration failed:', e); });
+      window.Trakka.logSecurityEvent(user.uid, 'signin', window.Trakka.deviceLabel()).catch(function(){});
+    }
     // Nudge toward setting up a quick-unlock PIN — every sign-in, not just
     // the first one, since nothing here remembers "already asked": there's
     // no dismiss-forever option, only "Remind me later" for this one visit
@@ -6176,6 +6654,7 @@ window.__ftStart = function(){
     // next reload/sign-in as long as hasPinConfigured() is still false, by
     // design — that's what makes it a nag rather than a one-time tip.
     updatePinSetupOpenButton();
+    updateBioSetupOpenButton();
     // Skipped this one time if the onboarding tour just opened instead —
     // two full-screen overlays fighting for the same spot isn't a choice
     // anyone needs to make. Nothing here remembers that skip, so the PIN
@@ -6247,6 +6726,8 @@ window.__ftStart = function(){
     $('pin-unlock-input').value = '';
     formCard.hidden = true;
     pinCard.hidden = false;
+    var bioBtn = $('pin-unlock-biometric-btn');
+    if(bioBtn) bioBtn.hidden = !(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
     // Also hides #auth-loading-box directly (settings.html starts with it
     // showing — see revealSignInGate()) so the two never overlap, rather
     // than waiting on the later onAuthChange callback to do it.
@@ -6305,6 +6786,28 @@ window.__ftStart = function(){
     }
   });
   $('pin-unlock-fallback').addEventListener('click', function(){ showPlainSignInForm(); });
+  var bioUnlockBtn = $('pin-unlock-biometric-btn');
+  if(bioUnlockBtn) bioUnlockBtn.addEventListener('click', async function(){
+    var errEl = $('pin-unlock-error');
+    errEl.textContent = '';
+    bioUnlockBtn.disabled = true;
+    try{
+      var result = await window.Trakka.unlockWithBiometric();
+      if(!result || !result.ok){
+        errEl.textContent = result && result.reason==='no-biometric'
+          ? 'Biometric unlock isn’t set up on this device.'
+          : 'Biometric check failed or was cancelled — try your PIN or password instead.';
+      }
+      // On success, unlockWithBiometric()'s signIn() fires the same
+      // onAuthChange listener below as a normal sign-in — begin() takes it
+      // from here, same as the PIN path above.
+    }catch(e){
+      console.error(e);
+      errEl.textContent = 'Something went wrong — try your PIN or password instead.';
+    }finally{
+      bioUnlockBtn.disabled = false;
+    }
+  });
 
   // ----- quick-unlock PIN: setup/remove overlay (from the signed-in app) -----
   // isNudge distinguishes the post-login nag (see begin() above) from
@@ -6366,6 +6869,7 @@ window.__ftStart = function(){
     btn.disabled = true;
     try{
       await window.Trakka.setupPin(password, pin);
+      if(window.__ftUid && window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(window.__ftUid, 'pin_setup', window.Trakka.deviceLabel()).catch(function(){});
       closePinSetup();
     }catch(e){
       console.error(e);
@@ -6376,7 +6880,66 @@ window.__ftStart = function(){
   });
   $('pin-setup-remove').addEventListener('click', async function(){
     try{ await window.Trakka.clearPin(); }catch(e){ console.error(e); }
+    if(window.__ftUid && window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(window.__ftUid, 'pin_removed', window.Trakka.deviceLabel()).catch(function(){});
     closePinSetup();
+  });
+
+  // ----- biometric unlock: setup/remove overlay (same shape as the PIN one above) -----
+  function updateBioSetupOpenButton(){
+    var btn = $('bio-setup-open');
+    if(!btn) return;
+    var already = !!(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+    btn.textContent = already ? '🫆 Remove biometric unlock' : '🫆 Set up biometric unlock';
+    btn.title = already ? 'Remove biometric unlock from this device' : "Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader";
+  }
+  // Hidden by default (see the HTML) until this device actually reports
+  // platform-authenticator support — offering it on a device/browser that
+  // can't do it would just be a dead button.
+  if(window.Trakka && window.Trakka.biometricSupported){
+    window.Trakka.biometricSupported().then(function(supported){
+      var btn = $('bio-setup-open');
+      if(btn) btn.hidden = !supported;
+      updateBioSetupOpenButton();
+    });
+  }
+  function openBioSetup(){
+    var already = !!(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+    $('bio-setup-password').value = '';
+    $('bio-setup-error').textContent = '';
+    $('bio-setup-remove').hidden = !already;
+    $('bio-setup-save').hidden = already;
+    $('bio-setup-overlay').hidden = false;
+    setTimeout(function(){ if(!already) $('bio-setup-password').focus(); }, 50);
+  }
+  function closeBioSetup(){
+    $('bio-setup-overlay').hidden = true;
+    updateBioSetupOpenButton();
+  }
+  var bioSetupOpenBtn = $('bio-setup-open');
+  if(bioSetupOpenBtn) bioSetupOpenBtn.addEventListener('click', openBioSetup);
+  $('bio-setup-close').addEventListener('click', closeBioSetup);
+  $('bio-setup-form').addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('bio-setup-error');
+    errEl.textContent = '';
+    var password = $('bio-setup-password').value;
+    if(!password){ errEl.textContent = 'Enter your current password.'; return; }
+    var btn = $('bio-setup-save');
+    btn.disabled = true;
+    try{
+      await window.Trakka.setupBiometric(password);
+      if(window.__ftUid && window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(window.__ftUid, 'biometric_setup', window.Trakka.deviceLabel()).catch(function(){});
+      closeBioSetup();
+    }catch(e){
+      console.error(e);
+      errEl.textContent = friendlyAuthError(e);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $('bio-setup-remove').addEventListener('click', function(){
+    if(window.Trakka && window.Trakka.clearBiometric) window.Trakka.clearBiometric();
+    closeBioSetup();
   });
 
   // ----- start: Firebase tells us if a session already exists (e.g. "keep me

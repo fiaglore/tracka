@@ -114,3 +114,111 @@ export function localDateParts(timeZone, now = new Date()) {
   );
   return { dateStr, hour };
 }
+
+// ---------------------------------------------------------------------------
+// Bill-due and budget-threshold reminders — both need the same billing-
+// period math app.js's periodBounds()/monthStartDayFor() do, so that's
+// mirrored here too (a "month" in Trakka is a payday-to-payday period, not
+// a calendar month, and can be overridden per-month — see
+// state.monthStartOverrides). A user with no monthLabels/yearTags saved yet
+// (very first save hasn't landed) just gets no bill/budget reminders that
+// run — there's nothing to compute a period from.
+// ---------------------------------------------------------------------------
+const MONTH_NUM_MAP = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+const MONTH_ORDER = Object.keys(MONTH_NUM_MAP);
+function fullYear(yt) { return 2000 + Number(String(yt).replace("'", "")); }
+function monthOverrideKey(label, yearTag) { return label + yearTag; }
+function monthStartDayFor(state, label, yearTag, payStart) {
+  const override = (state.monthStartOverrides || {})[monthOverrideKey(label, yearTag)];
+  return override >= 1 && override <= 28 ? override : payStart;
+}
+function nextMonthLabelYear(label, yearTag) {
+  const num = MONTH_NUM_MAP[label];
+  const yr = fullYear(yearTag);
+  const nextNum = (num + 1) % 12;
+  const nextYr = num === 11 ? yr + 1 : yr;
+  return [MONTH_ORDER[nextNum], "'" + String(nextYr).slice(-2)];
+}
+function periodBounds(state, monthLabels, yearTags, mi, payStart) {
+  const y = fullYear(yearTags[mi]);
+  const mNum = MONTH_NUM_MAP[monthLabels[mi]];
+  const startDay = monthStartDayFor(state, monthLabels[mi], yearTags[mi], payStart);
+  const [nextLabel, nextYearTag] = nextMonthLabelYear(monthLabels[mi], yearTags[mi]);
+  const endDay = monthStartDayFor(state, nextLabel, nextYearTag, payStart) - 1;
+  return { start: new Date(y, mNum, startDay), end: new Date(y, mNum + 1, endDay) };
+}
+function msPerDay() { return 24 * 60 * 60 * 1000; }
+
+// Every unchecked, non-extra-payment debt instalment whose billing period
+// ends within `daysAhead` days of `now` (overdue ones included — a missed
+// bill is more worth surfacing than a merely upcoming one, not less). Mirrors
+// the due-date math behind app.js's debtFreeDate()/lastDueMonthIndex(), just
+// per-instalment instead of aggregated into one countdown.
+export function upcomingDebtInstalments(state, monthLabels, yearTags, payStart, now, daysAhead) {
+  const N = monthLabels.length;
+  const out = [];
+  for (let i = 0; i < N; i++) {
+    const m = state.months && state.months[i];
+    if (!m || !m.debts) continue;
+    const { end } = periodBounds(state, monthLabels, yearTags, i, payStart);
+    const daysLeft = Math.ceil((end.getTime() - now.getTime()) / msPerDay());
+    if (daysLeft > daysAhead) continue;
+    m.debts.forEach((it) => {
+      if (it.checked || it.extraPayment || !(Number(it.amount) > 0)) return;
+      out.push({
+        key: seriesKeyOf(it) + "_" + monthLabels[i] + yearTags[i],
+        label: it.label, amount: Number(it.amount), daysLeft,
+        monthLabel: monthLabels[i], yearTag: yearTags[i]
+      });
+    });
+  }
+  return out;
+}
+
+// Mirrors getLivingBudget()/sumLivingForMonth() in app.js, split per
+// category — the whole-month total isn't enough here since each category
+// crosses its own threshold independently.
+function livingBudgetFor(state, mi, catId) {
+  const key = mi + "_" + catId;
+  if (Object.prototype.hasOwnProperty.call(state.livingBudgetOverrides || {}, key)) {
+    return Number(state.livingBudgetOverrides[key]) || 0;
+  }
+  const cat = (state.livingCategories || []).find((c) => c.id === catId);
+  return cat ? Number(cat.budget) || 0 : 0;
+}
+function livingSpendFor(state, mi, catId) {
+  return (state.livingEntries || [])
+    .filter((e) => e.monthIndex === mi && e.categoryId === catId)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+}
+
+// Which billing period "now" actually falls in — mirrors app.js's
+// dateToMonthIndex(), clamped to the tracked range the same way.
+export function monthIndexForDate(state, monthLabels, yearTags, payStart, now) {
+  const N = monthLabels.length;
+  for (let i = 0; i < N; i++) {
+    const { start, end } = periodBounds(state, monthLabels, yearTags, i, payStart);
+    if (now >= start && now <= end) return i;
+  }
+  const first = periodBounds(state, monthLabels, yearTags, 0, payStart);
+  return now < first.start ? 0 : N - 1;
+}
+
+// Every living-expense category in the CURRENT billing period that has
+// crossed 90% or 100% of its budget — only the highest threshold crossed is
+// returned per category (crossing 100% implies 90% already happened), so a
+// category doesn't double-notify in the same check.
+export function budgetThresholdAlerts(state, monthLabels, yearTags, payStart, now) {
+  const mi = monthIndexForDate(state, monthLabels, yearTags, payStart, now);
+  const out = [];
+  (state.livingCategories || []).forEach((cat) => {
+    const budget = livingBudgetFor(state, mi, cat.id);
+    if (budget <= 0) return;
+    const spent = livingSpendFor(state, mi, cat.id);
+    const pct = spent / budget;
+    const threshold = pct >= 1 ? 100 : pct >= 0.9 ? 90 : null;
+    if (threshold === null) return;
+    out.push({ key: cat.id + "_" + monthLabels[mi] + yearTags[mi] + "_" + threshold, catName: cat.name, spent, budget, threshold });
+  });
+  return out;
+}
