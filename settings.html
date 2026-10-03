@@ -82,6 +82,7 @@ window.__ftSettingsPage = true;
       <div class="auth-error" id="pin-unlock-error" role="alert"></div>
       <button type="submit" class="auth-submit" id="pin-unlock-submit">Unlock</button>
     </form>
+    <button type="button" class="auth-link" id="pin-unlock-biometric-btn" hidden>🫆 Use biometric unlock instead</button>
     <button type="button" class="auth-link" id="pin-unlock-fallback">Not you? Sign in with password instead</button>
   </div>
 </div>
@@ -103,6 +104,23 @@ window.__ftSettingsPage = true;
     </form>
     <button type="button" class="auth-link" id="pin-setup-remove" hidden>Remove PIN from this account</button>
     <button type="button" class="auth-link" id="pin-setup-close">Cancel</button>
+  </div>
+</div>
+
+<!-- Biometric unlock setup/remove — same per-device-only pattern as the PIN
+     overlay above, opened from the "🫆 Biometric unlock" button in Settings
+     → Security. See setupBiometric()/clearBiometric() in firebase-init.js. -->
+<div id="bio-setup-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="bio-setup-title">
+  <div class="auth-card" id="bio-setup-card">
+    <h2 id="bio-setup-title">Biometric unlock</h2>
+    <p class="auth-sub">Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader to get back in after you're auto signed-out — set up separately on each device, since it's tied to this device's own hardware.</p>
+    <form id="bio-setup-form" autocomplete="off" novalidate>
+      <label class="auth-field">Current password<input id="bio-setup-password" type="password" autocomplete="current-password"></label>
+      <div class="auth-error" id="bio-setup-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="bio-setup-save">Set up on this device</button>
+    </form>
+    <button type="button" class="auth-link" id="bio-setup-remove" hidden>Remove from this device</button>
+    <button type="button" class="auth-link" id="bio-setup-close">Cancel</button>
   </div>
 </div>
 
@@ -303,7 +321,23 @@ window.__ftSettingsPage = true;
   <div class="app-page active" id="page-overview" data-page="overview">
 
     <div class="global-search-wrap">
-      <input type="search" id="global-search-input" class="global-search-input" placeholder="🔎 Search income, debts, gifts &amp; expenses across every month…">
+      <div class="global-search-row">
+        <input type="search" id="global-search-input" class="global-search-input" placeholder="🔎 Search income, debts, gifts &amp; expenses across every month…">
+        <button type="button" class="xl-btn" id="global-search-filter-toggle" title="Filter by date, amount or kind">⚙️ Filters</button>
+      </div>
+      <div class="global-search-filters" id="global-search-filters" hidden>
+        <label class="gsf-field">From<input type="date" id="gsf-date-from"></label>
+        <label class="gsf-field">To<input type="date" id="gsf-date-to"></label>
+        <label class="gsf-field">Min<input type="number" id="gsf-amt-min" placeholder="Amount {c}" data-ph="Amount {c}"></label>
+        <label class="gsf-field">Max<input type="number" id="gsf-amt-max" placeholder="Amount {c}" data-ph="Amount {c}"></label>
+        <span class="gsf-kinds">
+          <label class="chip-picker-item"><input type="checkbox" class="gsf-kind" value="Income" checked> Income</label>
+          <label class="chip-picker-item"><input type="checkbox" class="gsf-kind" value="Debt" checked> Debt</label>
+          <label class="chip-picker-item"><input type="checkbox" class="gsf-kind" value="Gift" checked> Gift</label>
+          <label class="chip-picker-item"><input type="checkbox" class="gsf-kind" value="Expense" checked> Expense</label>
+        </span>
+        <button type="button" class="link-btn" id="gsf-clear-btn">Clear filters</button>
+      </div>
       <div class="global-search-results" id="global-search-results" hidden></div>
     </div>
 
@@ -510,6 +544,11 @@ window.__ftSettingsPage = true;
         <div class="chart-scroll"><svg id="living-daily-chart" width="100%" height="138"></svg></div>
       </div>
 
+      <div class="budget-plan-card" id="budget-plan-card">
+        <h3>💰 Monthly budget plan</h3>
+        <div id="budget-plan-body"></div>
+      </div>
+
       <h3 class="extra-add-label">➕ Add an expense to the daily log</h3>
       <div class="extra-add">
         <input type="date" id="living-entry-date">
@@ -541,6 +580,13 @@ window.__ftSettingsPage = true;
           <button type="button" class="link-btn" id="living-list-hide-toggle" title="Hide every entry in the daily log from view">🙈 Hide daily log</button>
           <button type="button" class="link-btn" id="living-list-toggle-all" hidden>Expand all</button>
         </div>
+      </div>
+      <div class="bulk-actions-bar" id="living-bulk-bar" hidden>
+        <span class="bulk-count" id="living-bulk-count">0 selected</span>
+        <select id="living-bulk-recat"></select>
+        <button type="button" class="xl-btn" id="living-bulk-recat-btn">Recategorize</button>
+        <button type="button" class="xl-btn" id="living-bulk-delete-btn">🗑 Delete selected</button>
+        <button type="button" class="link-btn" id="living-bulk-clear-btn">Clear selection</button>
       </div>
       <div id="living-list"></div>
     </section>
@@ -612,6 +658,24 @@ window.__ftSettingsPage = true;
             <div class="summary-card"><div class="lbl">Still outstanding on debts</div><div class="num coral mono" id="nw-debts">0</div></div>
             <div class="summary-card"><div class="lbl">Investments (current value)</div><div class="num mono" id="nw-investments">0</div></div>
             <div class="summary-card"><div class="lbl">Other assets</div><div class="num mono" id="nw-assets">0</div></div>
+          </div>
+        </div>
+        <div class="trend-grid">
+          <div class="trend-mini-card">
+            <div class="trend-mini-head"><span class="trend-mini-label">📈 Net worth</span><span class="trend-mini-val" id="trend-networth-val">—</span></div>
+            <svg class="trend-mini-svg" id="trend-networth-svg"></svg>
+          </div>
+          <div class="trend-mini-card">
+            <div class="trend-mini-head"><span class="trend-mini-label">💸 Income</span><span class="trend-mini-val" id="trend-income-val">—</span></div>
+            <svg class="trend-mini-svg" id="trend-income-svg"></svg>
+          </div>
+          <div class="trend-mini-card">
+            <div class="trend-mini-head"><span class="trend-mini-label">🏠 Expenses</span><span class="trend-mini-val" id="trend-expenses-val">—</span></div>
+            <svg class="trend-mini-svg" id="trend-expenses-svg"></svg>
+          </div>
+          <div class="trend-mini-card">
+            <div class="trend-mini-head"><span class="trend-mini-label">🐷 Savings</span><span class="trend-mini-val" id="trend-savings-val">—</span></div>
+            <svg class="trend-mini-svg" id="trend-savings-svg"></svg>
           </div>
         </div>
         <div class="mvl-card" id="nw-trend-card">
@@ -795,8 +859,17 @@ window.__ftSettingsPage = true;
       <div class="section-head"><h2>🔐 Security</h2></div>
       <div class="toolbar">
         <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Set up quick-unlock PIN</button>
+        <button class="xl-btn" id="bio-setup-open" type="button" hidden title="Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader">🫆 Set up biometric unlock</button>
         <label class="xl-set">Sign me out after being idle for <select id="set-idle-timeout"></select></label>
       </div>
+
+      <div class="section-head" style="margin-top:20px;"><h3>💻 Trusted devices</h3></div>
+      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Every device that's signed in. Forgetting a device signs it out the next time it's opened — there's no live push for this, so it can take a moment rather than being instant.</p>
+      <div class="card-list" id="trusted-devices-list"></div>
+
+      <div class="section-head" style="margin-top:20px;"><h3>📜 Recent activity</h3></div>
+      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">The last 30 account security events — sign-ins and devices added or removed.</p>
+      <div class="card-list" id="security-log-list"></div>
     </div>
 
     <div class="settings-subpage" id="settings-page-notifications" data-settings-page="notifications" hidden>
@@ -804,8 +877,9 @@ window.__ftSettingsPage = true;
       <div class="section-head"><h2>🔔 Notifications</h2></div>
       <div class="toolbar">
         <button class="xl-btn reminder-toggle" id="reminder-toggle-btn" type="button" title="Turn on notifications">🔕</button>
-        <span class="xl-status" style="width:auto;margin:0;">Shows a notification for your daily reminder (if you haven't logged anything yet today), leveling up, unlocking an achievement, or fully clearing a debt. Needs your browser's notification permission. Your daily reminder, level-ups, and debt-cleared alerts now arrive even with the app fully closed — checked roughly every 15 minutes, so it's instant-ish rather than exact. Achievement unlocks still only notify while the app is open.</span>
+        <span class="xl-status" style="width:auto;margin:0;">Needs your browser's notification permission. Most of the types below now arrive even with the app fully closed — checked roughly every 15 minutes, so it's instant-ish rather than exact. Achievements &amp; quests still only notify while the app is open.</span>
       </div>
+      <div class="notify-pref-list" id="notify-pref-list"></div>
     </div>
 
     <div class="settings-subpage" id="settings-page-data" data-settings-page="data" hidden>

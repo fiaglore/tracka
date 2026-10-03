@@ -31,7 +31,10 @@
 
 import admin from "firebase-admin";
 import webpush from "web-push";
-import { debtSeriesList, hasLoggedToday, computeLevel, isBirthdayToday, localDateParts } from "./lib/notify-logic.mjs";
+import {
+  debtSeriesList, hasLoggedToday, computeLevel, isBirthdayToday, localDateParts,
+  upcomingDebtInstalments, budgetThresholdAlerts
+} from "./lib/notify-logic.mjs";
 
 const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
 
@@ -40,6 +43,22 @@ const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBF
 // delayed/skipped GitHub Actions run doesn't just silently miss the day
 // entirely — cron timing on free runners isn't exact.
 const REMINDER_HOUR = 19;
+
+// How many days ahead of a debt instalment's due date (the end of its
+// billing period) this starts warning about it — see
+// upcomingDebtInstalments() in notify-logic.mjs.
+const BILL_DUE_DAYS_AHEAD = 3;
+
+// Settings → Notifications used to be a single on/off switch
+// (data.remindersEnabled, checked above); it's now a master switch plus a
+// per-type breakdown (data.notifyPrefs). An account that hasn't touched the
+// new per-type checkboxes yet has no notifyPrefs field at all, which means
+// "everything the master switch already covers" — not "everything off".
+function prefEnabled(data, key) {
+  const prefs = data.notifyPrefs;
+  if (!prefs || typeof prefs !== "object") return true;
+  return prefs[key] !== false;
+}
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -88,6 +107,7 @@ async function processUser(doc) {
   try {
     const { dateStr, hour } = localDateParts(timeZone);
     if (
+      prefEnabled(data, "dailyReminder") &&
       hour >= REMINDER_HOUR &&
       notifyState.lastReminderDate !== dateStr &&
       !hasLoggedToday(state, N, dateStr)
@@ -109,7 +129,7 @@ async function processUser(doc) {
     // baseline silently — otherwise everyone gets a "you reached level 7!"
     // notification the moment they turn reminders on, however long they've
     // actually been level 7.
-    if (notifyState.lastLevel !== undefined && level > notifyState.lastLevel) {
+    if (prefEnabled(data, "levelUp") && notifyState.lastLevel !== undefined && level > notifyState.lastLevel) {
       subs = await sendToUser(uid, subs, "🌟 Level up!", `You reached Level ${level} in Trakka.`);
     }
     if (notifyState.lastLevel !== level) updates["notifyState.lastLevel"] = level;
@@ -125,7 +145,7 @@ async function processUser(doc) {
     const newlyCleared = clearedKeys.filter((k) => !knownCleared.has(k));
     // Same first-run baseline reasoning as level-up above — don't fire for
     // every debt that happened to already be cleared before this shipped.
-    if (notifyState.lastClearedDebtKeys !== undefined && newlyCleared.length > 0) {
+    if (prefEnabled(data, "debtCleared") && notifyState.lastClearedDebtKeys !== undefined && newlyCleared.length > 0) {
       const labels = newlyCleared.map((k) => series.find((s) => s.key === k)?.label).filter(Boolean);
       subs = await sendToUser(
         uid, subs,
@@ -144,7 +164,7 @@ async function processUser(doc) {
     if (dob) {
       const { dateStr } = localDateParts(timeZone);
       const year = dateStr.slice(0, 4);
-      if (isBirthdayToday(dob, dateStr) && notifyState.lastBirthdayYear !== year) {
+      if (prefEnabled(data, "birthday") && isBirthdayToday(dob, dateStr) && notifyState.lastBirthdayYear !== year) {
         const name = data.profile.firstName ? `, ${data.profile.firstName}` : "";
         subs = await sendToUser(
           uid, subs, "🎂 Happy Birthday!",
@@ -155,6 +175,69 @@ async function processUser(doc) {
     }
   } catch (e) {
     console.error(`Birthday check failed for ${uid}:`, e.message);
+  }
+
+  // ---- 5. Bill due soon ----
+  try {
+    const monthLabels = state.monthLabels, yearTags = state.yearTags;
+    if (prefEnabled(data, "billDue") && Array.isArray(monthLabels) && monthLabels.length === N) {
+      const { dateStr } = localDateParts(timeZone);
+      const [y, mo, da] = dateStr.split("-").map(Number);
+      const now = new Date(y, mo - 1, da);
+      const payStart = Number(data.payStart) >= 1 && Number(data.payStart) <= 28 ? Number(data.payStart) : 1;
+      const due = upcomingDebtInstalments(state, monthLabels, yearTags, payStart, now, BILL_DUE_DAYS_AHEAD);
+      const knownDue = new Set(notifyState.billDueNotified || []);
+      const newlyDue = due.filter((d) => !knownDue.has(d.key));
+      // Same first-run baseline reasoning as debt-cleared above — an
+      // existing account can easily have old overdue instalments sitting
+      // around; the first time this check ever runs for them, it should
+      // just learn what's already due rather than firing a pile of alerts
+      // for bills that have been sitting there for months.
+      if (notifyState.billDueNotified !== undefined && newlyDue.length > 0) {
+        const labels = newlyDue.map((d) => d.label);
+        subs = await sendToUser(
+          uid, subs,
+          newlyDue.length === 1 ? "💳 Bill due soon" : `💳 ${newlyDue.length} bills due soon`,
+          labels.join(" · ") + (newlyDue.length === 1 ? " is due soon." : " are due soon.")
+        );
+      }
+      // Keep every instalment still outstanding (not just the newly-due
+      // ones) so a bill doesn't fall out of "known" and re-notify next
+      // check just because it's still within the window.
+      updates["notifyState.billDueNotified"] = due.map((d) => d.key);
+    }
+  } catch (e) {
+    console.error(`Bill-due check failed for ${uid}:`, e.message);
+  }
+
+  // ---- 6. Budget threshold crossed ----
+  try {
+    const monthLabels = state.monthLabels, yearTags = state.yearTags;
+    if (prefEnabled(data, "budgetThreshold") && Array.isArray(monthLabels) && monthLabels.length === N) {
+      const { dateStr } = localDateParts(timeZone);
+      const [y, mo, da] = dateStr.split("-").map(Number);
+      const now = new Date(y, mo - 1, da);
+      const payStart = Number(data.payStart) >= 1 && Number(data.payStart) <= 28 ? Number(data.payStart) : 1;
+      const alerts = budgetThresholdAlerts(state, monthLabels, yearTags, payStart, now);
+      const knownAlerts = new Set(notifyState.budgetAlertsNotified || []);
+      const newAlerts = alerts.filter((a) => !knownAlerts.has(a.key));
+      // Same first-run baseline reasoning again — don't flood an existing,
+      // already-over-budget account the moment this check ships.
+      if (notifyState.budgetAlertsNotified !== undefined && newAlerts.length > 0) {
+        for (const a of newAlerts) {
+          subs = await sendToUser(
+            uid, subs,
+            a.threshold >= 100 ? `🏠 ${a.catName} over budget` : `🏠 ${a.catName} nearly at budget`,
+            a.threshold >= 100
+              ? `You've spent ${a.spent.toLocaleString()} of your ${a.budget.toLocaleString()} ${a.catName} budget this period.`
+              : `You're at ${Math.round((a.spent / a.budget) * 100)}% of your ${a.catName} budget this period.`
+          );
+        }
+      }
+      updates["notifyState.budgetAlertsNotified"] = alerts.map((a) => a.key);
+    }
+  } catch (e) {
+    console.error(`Budget-threshold check failed for ${uid}:`, e.message);
   }
 
   if (subs.length !== subscriptions.length) updates.pushSubscriptions = subs;

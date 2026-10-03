@@ -35,14 +35,35 @@
 //                       "Quick-unlock PIN" section below for the full
 //                       design and its security trade-off; auto-logout.js
 //                       and app.js's auth IIFE are the other two pieces.
+//     notifyPrefs   — { dailyReminder, levelUp, debtCleared, billDue,
+//                       budgetThreshold, birthday, achievements } booleans,
+//                       each defaulting to true when absent — the per-type
+//                       breakdown of the single remindersEnabled master
+//                       switch above. Read by app.js's notifyPrefEnabled()
+//                       and mirrored in notifications/scripts/send-notifications.mjs's
+//                       prefEnabled().
+//     trustedDevices — [{ id, label, addedAt, lastSeen }], one entry per
+//                       device that's ever signed in (see registerDevice()/
+//                       forgetDevice() below) — Settings → Security's
+//                       "Trusted devices" list. `id` is a random UUID this
+//                       device generates for itself once and keeps in its
+//                       own localStorage, not anything derived from
+//                       hardware. Removing a device from this list signs it
+//                       out the next time IT loads (app.js's begin() checks
+//                       its own id is still present) — there's no live push
+//                       for this, so it isn't instant.
+//     securityLog   — [{ ts, event, detail }], newest first, capped to 30 —
+//                       Settings → Security's "Recent activity" list. Purely
+//                       informational, nothing reads it back for logic.
 //
 // One document per signed-in user, and Firestore security rules (see
 // firestore.rules) only let a user read/write the document whose ID matches
 // their own auth uid — so this is also what makes "everyone only sees their
-// own data" actually enforced, not just a client-side convention. pinAuth
-// needs no rule changes beyond that: it's just another field on the same
-// per-owner document, not a new collection or a field with different access
-// needs.
+// own data" actually enforced, not just a client-side convention. None of
+// the fields above need any rule changes beyond that: they're all just more
+// fields on the same per-owner document, not a new collection or a field
+// with different access needs. (Biometric unlock is the one exception that
+// stores nothing server-side at all — see "Biometric unlock" below for why.)
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
@@ -160,6 +181,13 @@ function userDocRef(uid) {
 // long "eventually" takes.
 const PIN_KDF_ITERATIONS = 600000;
 const PIN_LOCAL_KEY = "trakkaPinAuth"; // single device-level slot — see loadUserDoc() below
+// Biometric unlock's local slot — see the "Biometric unlock" section below.
+// Unlike pinAuth, this one is never written to Firestore: a WebAuthn
+// platform-authenticator credential (Face ID/Touch ID/Windows Hello/Android
+// fingerprint) is physically tied to the device that created it, so there's
+// nothing another device could do with a synced copy anyway. Each device
+// that wants biometric unlock sets it up for itself.
+const BIO_LOCAL_KEY = "trakkaBioAuth";
 
 function bufToBase64(buf) {
   return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
@@ -309,6 +337,154 @@ window.Trakka = {
       await setDoc(userDocRef(user.uid), { pinAuth: deleteField() }, { merge: true }).catch(function (e) { console.error("Save failed:", e); });
     }
     try { localStorage.removeItem(PIN_LOCAL_KEY); } catch (e) {}
+  },
+
+  // ============================================================
+  // Biometric unlock (WebAuthn platform authenticator)
+  //
+  // Same shape as the PIN above — the lock screen has no live session left
+  // to "just unlock" (auto-logout.js really signs out), so this also has to
+  // recover the real password and replay signIn() with it. The difference
+  // is what gates the decryption: instead of a PIN, it's a successful
+  // `navigator.credentials.get()` against a platform authenticator (Face
+  // ID/Touch ID/Windows Hello/Android fingerprint) this device registered.
+  //
+  // SECURITY TRADE-OFF — same honesty as the PIN comment above applies
+  // here: there's no backend relying-party verifying the WebAuthn
+  // attestation/assertion (this app has no auth server beyond Firebase
+  // itself), so this isn't a cryptographic second factor — it's the browser
+  // mediating a real OS biometric check before this code ever runs, which a
+  // page can't forge, but isn't attestation-verified either. The AES key
+  // that actually decrypts the stored password lives in this device's
+  // localStorage either way (there's no WebAuthn PRF support to derive one
+  // from the assertion widely enough yet to depend on); the biometric
+  // prompt is the UX gate against casual/opportunistic access, exactly like
+  // the PIN already is by its own documented trade-off.
+  async setupBiometric(password) {
+    if (!(window.PublicKeyCredential)) throw new Error("This browser doesn't support biometric unlock.");
+    const user = auth.currentUser;
+    if (!user) throw new Error("You need to be signed in to set up biometric unlock.");
+    const username = user.displayName;
+    if (!username) throw new Error("Could not determine your username — try signing in again.");
+    const email = user.email || usernameToEmail(username);
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(email, password));
+
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: "Trakka" },
+        user: { id: new TextEncoder().encode(user.uid), name: username, displayName: username },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+        timeout: 60000
+      }
+    });
+    if (!cred) throw new Error("Biometric setup was cancelled.");
+
+    const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+    const rawKey = await crypto.subtle.exportKey("raw", aesKey);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, aesKey, new TextEncoder().encode(password));
+
+    const blob = {
+      username: username,
+      credentialId: bufToBase64(cred.rawId),
+      key: bufToBase64(rawKey),
+      iv: bufToBase64(iv),
+      ciphertext: bufToBase64(ciphertext)
+    };
+    try { localStorage.setItem(BIO_LOCAL_KEY, JSON.stringify(blob)); } catch (e) { throw new Error("Could not save biometric unlock on this device."); }
+  },
+
+  hasBiometricConfigured() {
+    try { return !!localStorage.getItem(BIO_LOCAL_KEY); } catch (e) { return false; }
+  },
+
+  async biometricSupported() {
+    if (!(window.PublicKeyCredential && window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable)) return false;
+    try { return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { return false; }
+  },
+
+  async unlockWithBiometric() {
+    let blob;
+    try { blob = JSON.parse(localStorage.getItem(BIO_LOCAL_KEY) || "null"); } catch (e) { blob = null; }
+    if (!blob) return { ok: false, reason: "no-biometric" };
+    try {
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: [{ id: base64ToBuf(blob.credentialId), type: "public-key" }],
+          userVerification: "required",
+          timeout: 60000
+        }
+      });
+      const key = await crypto.subtle.importKey("raw", base64ToBuf(blob.key), "AES-GCM", false, ["decrypt"]);
+      const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBuf(blob.iv) }, key, base64ToBuf(blob.ciphertext));
+      const password = new TextDecoder().decode(plainBuf);
+      await window.Trakka.signIn(blob.username, password, true);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: "failed" };
+    }
+  },
+
+  clearBiometric() {
+    try { localStorage.removeItem(BIO_LOCAL_KEY); } catch (e) {}
+  },
+
+  // ----- trusted devices + security activity log -----
+  // Both live as plain fields on the same per-user doc (not a subcollection)
+  // so this needs no firestore.rules change to ship — the existing
+  // "only the owner can read/write their own users/{uid} doc" rule already
+  // covers them.
+  //
+  // A device's trust entry is written the moment it signs in successfully
+  // (see registerDevice() below, called from app.js's post-sign-in flow) and
+  // is only ever removed by an explicit "Forget this device" in Settings on
+  // ANY device — there is no live push to a revoked device, so it keeps
+  // working until its own next reload/sign-in, at which point app.js finds
+  // its deviceId missing from the list and signs it out. That's the same
+  // "instant-ish, not exact" trade-off the rest of the notification system
+  // already makes.
+  deviceId() {
+    const KEY = "trakkaDeviceId";
+    try {
+      let id = localStorage.getItem(KEY);
+      if (!id) { id = crypto.randomUUID(); localStorage.setItem(KEY, id); }
+      return id;
+    } catch (e) { return "unknown-device"; }
+  },
+  deviceLabel() {
+    const ua = navigator.userAgent || "";
+    const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
+    const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
+    return os ? browser + " on " + os : browser;
+  },
+  // Adds/refreshes this device's entry (idempotent — safe to call on every
+  // sign-in). Returns the up-to-date list so the caller doesn't need a
+  // second read.
+  async registerDevice(uid) {
+    const data = (await getDoc(userDocRef(uid))).data() || {};
+    const id = window.Trakka.deviceId();
+    const list = Array.isArray(data.trustedDevices) ? data.trustedDevices.filter(function (d) { return d.id !== id; }) : [];
+    list.push({ id: id, label: window.Trakka.deviceLabel(), addedAt: Date.now(), lastSeen: Date.now() });
+    await setDoc(userDocRef(uid), { trustedDevices: list }, { merge: true });
+    return list;
+  },
+  async forgetDevice(uid, id) {
+    const data = (await getDoc(userDocRef(uid))).data() || {};
+    const list = (Array.isArray(data.trustedDevices) ? data.trustedDevices : []).filter(function (d) { return d.id !== id; });
+    await setDoc(userDocRef(uid), { trustedDevices: list }, { merge: true });
+    return list;
+  },
+  // Capped to the most recent 30 entries (oldest dropped), same trim-on-
+  // write pattern app.js's in-app notification log already uses — this is
+  // a glanceable recent-activity list, not a permanent audit trail.
+  async logSecurityEvent(uid, event, detail) {
+    const data = (await getDoc(userDocRef(uid))).data() || {};
+    const list = Array.isArray(data.securityLog) ? data.securityLog.slice() : [];
+    list.unshift({ ts: Date.now(), event: event, detail: detail || "" });
+    await setDoc(userDocRef(uid), { securityLog: list.slice(0, 30) }, { merge: true }).catch(function (e) { console.error("Save failed:", e); });
   },
 
   // ----- push notifications (see notifications/scripts/send-notifications.mjs — the
