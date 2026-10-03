@@ -57,6 +57,13 @@
           <p>No — that's the whole idea behind Trakka. It's one continuous log, not a fresh sheet every month. Recurring income and debts you've already added simply carry forward; what resets is only which checkboxes are ticked, since a new month's payments haven't happened yet.</p>
         </div>
       </details>
+
+      <details class="faq-item">
+        <summary>How do I search for something, and can I narrow down the results?</summary>
+        <div class="faq-body">
+          <p>The search box on the Overview tab matches against everything you've ever logged — income, debts, gifts, and expenses — by name. Next to it, an "⚙️ Filters" button narrows results further by date range, a minimum/maximum amount, or which kinds to include, instead of only a plain text match.</p>
+        </div>
+      </details>
     </section>
 
     <!-- ============ INCOME ============ -->
@@ -92,7 +99,7 @@
       <details class="faq-item">
         <summary>What's the "🏁 Payoff plan," and what can I do from it?</summary>
         <div class="faq-body">
-          <p>The Payoff plan groups every instalment by debt and shows, for each one: how much has been repaid, how much is left, and when the last payment is due. From there you can:</p>
+          <p>The Payoff plan groups every instalment by debt and shows each one as a boss-style health bar: how much has been repaid, how much is left, and when the last payment is due. From there you can:</p>
           <ul>
             <li><b>Pay extra</b> — put down more than a single instalment; it knocks months off the end instead of just prepaying the next one.</li>
             <li><b>Clear it all</b> — pay off everything remaining on that debt in one go.</li>
@@ -100,6 +107,14 @@
             <li><b>Skip [month] — already paid</b> — mark next month's instalment as handled without touching the current month, for when you've paid ahead.</li>
           </ul>
           <p>Once a debt is fully cleared, a "Hide cleared" link appears so old, finished debts don't clutter the list.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I pick a payoff strategy, like Snowball or Avalanche?</summary>
+        <div class="faq-body">
+          <p>Yes — above the payoff list, three buttons let you pick how Trakka prioritizes multiple debts: "🧘 My own pace" (no suggested order — the default, exactly as before), "⛄ Snowball" (pay every debt's minimum, then throw whatever's extra at your smallest remaining balance first, for quick motivational wins), or "⚡ Avalanche" (the same idea, but targeting your highest interest rate first, for the cheapest route overall).</p>
+          <p>Give a debt an optional interest rate (a small field on its row) to get the most out of either strategy. Once one is picked, the list reorders itself with a badge on whichever debt to focus on first, and shows roughly how many months sooner you'd be debt-free by rolling payments forward versus paying each debt separately.</p>
         </div>
       </details>
 
@@ -198,7 +213,14 @@
       <details class="faq-item">
         <summary>What does the Net Worth tab add up?</summary>
         <div class="faq-body">
-          <p>Your cumulative cash balance (income received minus debts, living expenses and gifts, across every month), plus everything in savings (the ledger and every savings app, converted to your primary currency), plus the current value of every investment, plus any manually-added asset (a property, a vehicle) — minus whatever's still outstanding on your debts. A month-by-month trend sits underneath so you can see it move over time. It's also mirrored in the "📈 Net worth" chip in the top bar, visible from any tab.</p>
+          <p>Your cumulative cash balance (income received minus debts, living expenses and gifts, across every month), plus everything in savings (the ledger and every savings app, converted to your primary currency), plus the current value of every investment, plus any manually-added asset (a property, a vehicle) — minus whatever's still outstanding on your debts. It's also mirrored in the "📈 Net worth" chip in the top bar, visible from any tab.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I see how my net worth, income, expenses, or savings have trended over time, not just this month?</summary>
+        <div class="faq-body">
+          <p>Yes — the Net Worth tab has four small trend charts (net worth, income, expenses, and savings) plotted across every month you've tracked, with the exact figure for each point on hover. The month-by-month net worth list underneath still has the precise numbers too.</p>
         </div>
       </details>
     </section>
@@ -223,9 +245,24 @@
       </details>
 
       <details class="faq-item">
+        <summary>What's the "💰 Monthly budget plan," and what does "Rollover" do?</summary>
+        <div class="faq-body">
+          <p>The Monthly budget plan card lays your expected income for the month against everything already spoken for — living expense budgets, debt instalments due, and gift contributions due — down to what's still unassigned.</p>
+          <p>Turning on "Rollover" for a category (in "Categories & budget," right next to its budget field) carries over whatever's left unspent — or overspent — in that category at the end of the period into next period's budget, instead of resetting to the same flat number every time. Leave it off for a category you'd rather keep at a fixed budget no matter what happened last period.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
         <summary>Can I hide my expense history from view?</summary>
         <div class="faq-body">
           <p>Yes — click "🙈 Hide daily log" above the daily log list to collapse every entry into a placeholder message, handy if someone's looking over your shoulder. Click "👁️ Show daily log" to bring it back exactly as it was, including which days were expanded. This is separate from the app-wide "Hide data" button described below.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I edit or delete several daily log entries at once?</summary>
+        <div class="faq-body">
+          <p>Yes — each entry in the daily log has its own checkbox. Select more than one and a bar appears at the bottom of the list letting you recategorize or delete everything selected in one tap, instead of handling entries one at a time.</p>
         </div>
       </details>
     </section>
@@ -268,6 +305,41 @@
           <p>With 100+ achievements now available, showing every locked one on Overview turned into a long wall of greyed-out icons. Overview now only shows the ones you've actually earned — hover or tap one to see its name. To see everything, including what's still locked and what it takes to unlock it, visit the dedicated 🌟 XP tab, which groups the full list by category.</p>
         </div>
       </details>
+
+      <details class="faq-item">
+        <summary>What are the weekly and monthly mini-quests?</summary>
+        <div class="faq-body">
+          <p>The Overview tab has a small quests card with one weekly and one monthly goal — things like logging a certain number of expenses, or making a savings top-up — each worth bonus XP on top of whatever you'd already earn from the items themselves. They reroll on their own schedule, so there's always a fresh one to aim for.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's the shareable milestone card?</summary>
+        <div class="faq-body">
+          <p>Fully clearing a debt or hitting a savings goal offers a downloadable, shareable image card celebrating it. It won't appear while "🙈 Hide data" privacy mode is on, since the card bakes your real amount right into the image — showing it blurred wouldn't stop it still being downloadable or shareable with the real figure inside.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's the trophy for "beating" a past month?</summary>
+        <div class="faq-body">
+          <p>The "This month vs last month" panel on Overview also compares against the same month a year ago where that data exists, and awards a trophy if you beat it — a second way to measure progress beyond just last month.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What's the second companion next to my pet?</summary>
+        <div class="faq-body">
+          <p>A growing garden sits alongside your pet in the bottom-right corner and grows as your net worth does — a second, slower-moving way to see progress at a glance.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What happens when I reach Level 100?</summary>
+        <div class="faq-body">
+          <p>Level 100 unlocks Prestige: an option to reset back to Level 1 in exchange for a permanent crown marking that you've done it. Every badge, streak, and achievement you've already earned stays exactly as it was — Prestige only resets your level and XP progress, as a way to keep leveling meaningful even after reaching the top.</p>
+        </div>
+      </details>
     </section>
 
     <!-- ============ NOTIFICATIONS ============ -->
@@ -277,7 +349,7 @@
       <details class="faq-item">
         <summary>What do notifications actually alert me about?</summary>
         <div class="faq-body">
-          <p>A daily reminder if you haven't logged anything yet that day, leveling up, unlocking an achievement, fully clearing a debt, and — if you've added a date of birth in Settings → Profile — a "🎂 Happy Birthday" shoutout on the day. Turn on push notifications from the 🔔 button in Settings — your browser will ask for notification permission the first time.</p>
+          <p>A daily reminder if you haven't logged anything yet that day, leveling up, unlocking an achievement, fully clearing a debt, a debt instalment due within 3 days, a living-expense category crossing 90%/100% of its budget, and — if you've added a date of birth in Settings → Profile — a "🎂 Happy Birthday" shoutout on the day. Turn on push notifications from the 🔔 button in Settings — your browser will ask for notification permission the first time.</p>
         </div>
       </details>
 
@@ -299,6 +371,34 @@
         <summary>Why did an older notification disappear, and can I keep one around?</summary>
         <div class="faq-body">
           <p>The dropdown only holds your 6 most recent notifications by default — anything older clears automatically to keep the list useful rather than an ever-growing pile. If there's one you want to hold onto, tap 📍 on it to pin it; pinned notifications (marked 📌) are exempt from that 6-notification limit and stick around no matter how many new ones arrive, until you unpin or delete them. Tap 🗑️ on any notification, pinned or not, to delete it outright.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I turn off just one kind of notification, like the daily reminder, without losing the rest?</summary>
+        <div class="faq-body">
+          <p>Yes — Settings → "🔔 Notifications" has a separate checkbox for each kind: daily reminder, level up, debt cleared, bill due, budget alerts, birthday, and achievements & quests. Switch off whichever ones you don't want; the rest keep working exactly as before.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ SECURITY ============ -->
+    <section class="faq-section">
+      <h2>🔐 Security</h2>
+
+      <details class="faq-item">
+        <summary>What's biometric unlock, and how is it different from the PIN?</summary>
+        <div class="faq-body">
+          <p>Settings → "🔐 Security" lets you set up biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative to typing your quick-unlock PIN. It's set up separately on each device, since it's tied to that device's own hardware, and once configured it shows up both on the "you were signed out, enter your PIN" screen and right on the sign-in page itself, so even a normal fresh visit can skip typing a password.</p>
+          <p>Like the PIN, it's a convenience layer on a device you already trust, not a replacement for your actual account password.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What are "Trusted devices" and the "Recent activity" log?</summary>
+        <div class="faq-body">
+          <p>Settings → "🔐 Security" → "💻 Trusted devices" lists every device that's ever signed in to your account. Forgetting one signs it out the next time it's opened — handy if you signed in somewhere you no longer use or recognize.</p>
+          <p>"📜 Recent activity" underneath it logs the last 30 sign-ins, PIN/biometric changes, and device removals, so you can check nothing unexpected has happened on your account.</p>
         </div>
       </details>
     </section>
@@ -379,6 +479,7 @@
         <summary>Why is everything blurred when I sign in?</summary>
         <div class="faq-body">
           <p>Every figure, chip, and log entry across the app is blurred by default the moment you sign in — no setup needed, and nothing to remember to turn on. Click "👁️ Show data" in the top bar whenever you want to actually see your numbers; click "🙈 Hide data" to blur it all again. This choice is just for the current visit and resets to hidden again the next time you sign in, so it can't accidentally stay switched off on a shared or public device.</p>
+          <p>This also covers your greeting banner at the top of the page and the 🔔 bell's notification history, since both can mention a real amount in plain sentence text — and the shareable milestone card (see the XP section above) is skipped entirely rather than shown blurred, since it would otherwise still be downloadable/shareable with the real figure baked in.</p>
           <p>It's separate from (and in addition to) the daily-log-only hide toggle and the gift goals' "Hide past" toggle described above.</p>
         </div>
       </details>
@@ -386,7 +487,7 @@
       <details class="faq-item">
         <summary>Can I change the color theme or turn on sounds?</summary>
         <div class="faq-body">
-          <p>Settings' "🎨 Appearance" section has a full set of color themes, a pet companion you can swap, weather effects (Temperate: snow, autumn leaves, rain, thunderstorm, windy day, spring blossom, summer fireflies; Tropical: harmattan haze, tropical rain, sandstorm, sunny), a light/dark mode toggle, weather sounds, and sound effects — mix and match whatever you like.</p>
+          <p>Settings' "🎨 Appearance" section has a full set of color themes, a pet companion you can swap, weather effects (Temperate: snow, autumn leaves, rain, thunderstorm, windy day, spring blossom, summer fireflies; Tropical: harmattan haze, tropical rain, sandstorm, sunny), a light/dark mode toggle, weather sounds, and sound effects — mix and match whatever you like. Some of the themes are unlocked by reaching a level or a specific achievement (clearing your first debt, hitting your savings goal, and more) rather than available from day one — a locked one shows a 🔒 and explains what it takes to unlock it.</p>
         </div>
       </details>
 
