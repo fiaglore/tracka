@@ -890,7 +890,7 @@ window.__ftStart = function(){
     return {months, extra:[], giftGoals: [], giftProgress: {}, savings: [], savingsGoal: 0,
       livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {},
       skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {}, currencyRates: {},
-      investments: [], investmentPrices: []};
+      investments: [], investmentPrices: [], debtPayoffStrategy: 'none', debtInterestRates: {}};
   }
 
   function mergeItems(defaultItems, savedItems){
@@ -958,6 +958,8 @@ window.__ftStart = function(){
         currencyRates: (saved.currencyRates && typeof saved.currencyRates === 'object') ? saved.currencyRates : {},
         investments: Array.isArray(saved.investments) ? saved.investments : [],
         investmentPrices: Array.isArray(saved.investmentPrices) ? saved.investmentPrices : [],
+        debtPayoffStrategy: ['snowball','avalanche'].includes(saved.debtPayoffStrategy) ? saved.debtPayoffStrategy : 'none',
+        debtInterestRates: (saved.debtInterestRates && typeof saved.debtInterestRates === 'object') ? saved.debtInterestRates : {},
       };
     }catch(e){ return defaults; }
   }
@@ -3690,6 +3692,10 @@ window.__ftStart = function(){
       if(cat){ cat.rollover = e.target.checked; }
       save();
     }
+    if(e.target.matches('.ds-rate-input')){
+      setDebtInterestRate(e.target.dataset.series, e.target.value);
+      save();
+    }
     if(e.target.matches('.checkbox[data-gift-key]')){
       const key = e.target.dataset.giftKey;
       if(!state.giftProgress[key]) state.giftProgress[key] = {};
@@ -4093,6 +4099,81 @@ window.__ftStart = function(){
     return out;
   }
 
+  // ===== Debt payoff strategy (snowball / avalanche / own pace) =====
+  // An optional per-debt interest rate (state.debtInterestRates, keyed by
+  // series key like debtInterestRates) is the only extra data this needs —
+  // everything else (remaining, paymentsLeft) already comes from
+  // debtSeriesList() above. A rate is only ever used for ranking/projecting
+  // here; it changes nothing about what's actually scheduled or owed.
+  function debtInterestRate(key){ return Number(state.debtInterestRates[key])||0; }
+  function setDebtInterestRate(key, value){
+    const rate = Number(value);
+    if(!(rate>0)) delete state.debtInterestRates[key];
+    else state.debtInterestRates[key] = rate;
+  }
+  // Every still-open debt, ordered by the given strategy — 'none' just
+  // returns them in debtSeriesList()'s own order. Avalanche ranks by
+  // highest interest rate first (ties broken by smaller balance, since
+  // that one would clear soonest anyway); snowball ranks by smallest
+  // balance first (ties broken by higher rate). Used both to badge the
+  // "pay extra here" row in the payoff list and to order the simulation
+  // below — kept as one function so the two can never disagree about
+  // what "first" means.
+  function debtPriorityOrder(strategy){
+    const active = debtSeriesList().filter(s=>s.remaining>0.01);
+    if(strategy!=='snowball' && strategy!=='avalanche') return active;
+    const rate = s=>debtInterestRate(s.key);
+    return active.slice().sort((a,b)=>
+      strategy==='avalanche'
+        ? (rate(b)-rate(a)) || (a.remaining-b.remaining)
+        : (a.remaining-b.remaining) || (rate(b)-rate(a))
+    );
+  }
+  // A series' own flat monthly instalment, approximated as its remaining
+  // balance split evenly across however many payments are still scheduled
+  // — true for every debt added through the normal "amount + duration" or
+  // "repeat monthly" flow, which is the overwhelming common case.
+  function debtMinimumPayment(s){ return s.paymentsLeft>0 ? s.remaining/s.paymentsLeft : 0; }
+  // The actual snowball/avalanche mechanic: pay every open debt's own
+  // minimum each month, and ALSO pour the combined minimums of every
+  // debt that's already been cleared into whichever open debt is
+  // currently first in `order` — not split evenly, all of it, same as the
+  // real method. `rolling:false` instead simulates paying each debt's own
+  // minimum ONLY, with no rolling, as the "no strategy, own pace" baseline
+  // — both paths accrue the same optional interest, so comparing their
+  // month counts is a fair like-for-like comparison rather than one side
+  // silently getting an interest-free advantage.
+  function simulateDebtPayoffMonths(order, rolling){
+    const n = order.length;
+    if(n===0) return 0;
+    const balances = order.map(s=>s.remaining);
+    const minimums = order.map(s=>debtMinimumPayment(s));
+    const monthlyRates = order.map(s=>debtInterestRate(s.key)/100/12);
+    let months = 0;
+    while(balances.some(b=>b>0.01) && months<1200){ // 100-year safety cap
+      months++;
+      for(let i=0;i<n;i++){ if(balances[i]>0.01) balances[i] *= (1+monthlyRates[i]); }
+      let freed = 0;
+      if(rolling){ for(let i=0;i<n;i++){ if(balances[i]<=0.01) freed += minimums[i]; } }
+      const firstOpen = rolling ? balances.findIndex(b=>b>0.01) : -1;
+      for(let i=0;i<n;i++){
+        if(balances[i]<=0.01) continue;
+        const pay = minimums[i] + (i===firstOpen ? freed : 0);
+        balances[i] = Math.max(0, balances[i]-pay);
+      }
+    }
+    return months;
+  }
+  // null when there's nothing to accelerate (no strategy picked, or fewer
+  // than 2 open debts with a real schedule — rolling payments between
+  // debts means nothing with only one).
+  function simulateAcceleratedPayoff(strategy){
+    if(strategy!=='snowball' && strategy!=='avalanche') return null;
+    const ordered = debtPriorityOrder(strategy).filter(s=>s.paymentsLeft>0);
+    if(ordered.length<2) return null;
+    return { months: simulateDebtPayoffMonths(ordered, true), baselineMonths: simulateDebtPayoffMonths(ordered, false) };
+  }
+
   // Instalments can be deleted or merged by an extra payment, so "Month 3 of 12" would go stale.
   // This re-labels a whole series from scratch after any change to it.
   function renumberSeries(key){
@@ -4332,12 +4413,46 @@ window.__ftStart = function(){
   let hideClearedDebts = false;
   try{ hideClearedDebts = localStorage.getItem(HIDE_CLEARED_DEBTS_KEY) === '1'; }catch(e){}
 
+  // Settings → Security's style of "one small, self-contained panel" —
+  // this one lives right in the payoff panel itself since the strategy
+  // only means anything in the context of the debts it's ranking. Called
+  // from renderDebtOverview() below, and also whenever a strategy button
+  // is clicked, so the note/projection update without waiting on a full
+  // save()-triggered render().
+  function renderPayoffStrategyPicker(){
+    const wrap = document.getElementById('payoff-strategy');
+    if(!wrap) return;
+    const strategy = state.debtPayoffStrategy || 'none';
+    wrap.querySelectorAll('.payoff-strategy-btn').forEach(b=>{
+      b.classList.toggle('active', b.dataset.strategy===strategy);
+    });
+    const noteEl = document.getElementById('payoff-strategy-note');
+    if(noteEl){
+      const notes = {
+        none: 'Pay whatever you like, however you like — no suggested order, no pressure.',
+        snowball: 'Pay the minimum on everything, then throw every extra at your SMALLEST balance first. Clearing a whole debt sooner is the point — a quick motivational win, even if it isn’t the cheapest route on paper.',
+        avalanche: 'Pay the minimum on everything, then throw every extra at your HIGHEST interest rate first. Costs the least overall, though the first debt cleared can take longer to feel.'
+      };
+      noteEl.textContent = notes[strategy] || notes.none;
+    }
+    const projEl = document.getElementById('payoff-strategy-projection');
+    if(!projEl) return;
+    const sim = simulateAcceleratedPayoff(strategy);
+    if(!sim){ projEl.hidden = true; return; }
+    const saved = sim.baselineMonths - sim.months;
+    projEl.hidden = false;
+    const label = strategy==='snowball' ? 'Snowball' : 'Avalanche';
+    projEl.innerHTML = saved>0
+      ? `🚀 Rolling every freed-up payment forward with <b>${label}</b>: debt-free in about <b>${sim.months} month${sim.months===1?'':'s'}</b> — <b>${saved} month${saved===1?'':'s'} sooner</b> than paying each debt at its own separate pace (about ${sim.baselineMonths}).`
+      : `Rolling payments forward with <b>${label}</b> comes out to about ${sim.months} month${sim.months===1?'':'s'} — roughly the same as paying each debt separately once minimums are accounted for.`;
+  }
   function renderDebtOverview(){
     const list = debtSeriesList();
     const head = document.getElementById('payoff-head');
     const body = document.getElementById('payoff-list');
     const toggleBtn = document.getElementById('payoff-hide-cleared-toggle');
     if(!head || !body) return;
+    renderPayoffStrategyPicker();
 
     const clearedCount = list.filter(d=>d.remaining<=0).length;
     if(toggleBtn){
@@ -4369,10 +4484,21 @@ window.__ftStart = function(){
       <div class="n"><div class="lbl">Months still to run</div><div class="val">${lastIdx===-1 ? '0' : (lastIdx - activeMonth + 1 > 0 ? lastIdx - activeMonth + 1 : 0)}</div></div>
     `;
 
-    const visibleList = hideClearedDebts ? list.filter(d=>d.remaining>0) : list;
+    let visibleList = hideClearedDebts ? list.filter(d=>d.remaining>0) : list;
     if(visibleList.length===0){
       body.innerHTML = '<div class="empty-msg">Every debt is fully cleared 🎉</div>';
       return;
+    }
+
+    // With a strategy picked, the list itself reorders to match it (cleared
+    // debts just sink to the end in whatever order they were already in) —
+    // the row you should actually be focusing on sits at the top rather
+    // than making someone hunt for the 🎯 badge further down.
+    const strategy = state.debtPayoffStrategy || 'none';
+    const priorityKeys = strategy!=='none' ? debtPriorityOrder(strategy).map(s=>s.key) : null;
+    if(priorityKeys){
+      const rankOf = k => { const i = priorityKeys.indexOf(k); return i===-1 ? priorityKeys.length : i; };
+      visibleList = visibleList.slice().sort((a,b)=>rankOf(a.key)-rankOf(b.key));
     }
 
     body.innerHTML = visibleList.map(d=>{
@@ -4394,6 +4520,21 @@ window.__ftStart = function(){
       const hpHue = Math.round((100-hpPct)*1.15); // 0 (red, full HP) -> ~115 (green, defeated)
       const totalPrimary = convertToPrimary(d.total, d.currency);
       const bossIcon = totalPrimary>=ct(5000000) ? '🐉' : totalPrimary>=ct(1000000) ? '👹' : totalPrimary>=ct(250000) ? '🧌' : totalPrimary>=ct(50000) ? '👺' : '🐺';
+      // ===== Payoff strategy: priority badge + optional interest rate =====
+      // Only meaningful with 2+ still-open debts and an actual strategy
+      // picked — with just one debt (or "My own pace"), there's nothing to
+      // rank it against.
+      const rank = priorityKeys ? priorityKeys.indexOf(d.key) : -1;
+      let priorityBadge = '';
+      if(!done && priorityKeys && priorityKeys.length>1){
+        priorityBadge = rank===0
+          ? '<span class="ds-priority-badge">🎯 Focus extra payments here</span>'
+          : '<span class="ds-priority-rank">#'+(rank+1)+' in line — minimum for now</span>';
+      }
+      const rateRow = done ? '' : `<div class="ds-rate-row">
+        <label class="ds-rate-label">Interest rate <input type="number" min="0" step="0.1" class="ds-rate-input" data-series="${d.key}" value="${debtInterestRate(d.key)||''}" placeholder="0">% APR</label>
+        ${priorityBadge}
+      </div>`;
       return `<div class="ds-row">
         <div class="ds-boss-row">
           <span class="ds-boss-icon">${done ? '💀' : bossIcon}</span>
@@ -4409,6 +4550,7 @@ window.__ftStart = function(){
             <button class="del ds-del-btn" data-series="${d.key}" title="Delete this debt entirely">✕</button>
           </span>
         </div>
+        ${rateRow}
         <div class="ds-meta">${fmtIn(d.paid, d.currency)} of ${fmtIn(d.total, d.currency)} repaid (${pct.toFixed(0)}%) · ${d.paymentsLeft} payment${d.paymentsLeft===1?'':'s'} left · last due ${lastLabel}${extraNote}${convertedNote}</div>
         ${done ? '' : `<div class="ds-pay">
           <input type="number" min="0" class="ds-extra-input" data-series="${d.key}" placeholder="Extra payment ${symbolForCode(d.currency)}">
@@ -4603,6 +4745,13 @@ window.__ftStart = function(){
     if(e.target.matches('#payoff-hide-cleared-toggle')){
       hideClearedDebts = !hideClearedDebts;
       try{ localStorage.setItem(HIDE_CLEARED_DEBTS_KEY, hideClearedDebts ? '1' : '0'); }catch(err){}
+      renderDebtOverview();
+      return;
+    }
+    const strategyBtn = e.target.closest ? e.target.closest('.payoff-strategy-btn') : null;
+    if(strategyBtn){
+      state.debtPayoffStrategy = strategyBtn.dataset.strategy;
+      save();
       renderDebtOverview();
       return;
     }
@@ -6143,6 +6292,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '⛄ Pick a debt payoff strategy — Snowball, Avalanche, or your own pace', body: 'The Debts tab\'s payoff plan now offers three ways to tackle multiple debts: "🧘 My own pace" (no suggested order, exactly as before), "⛄ Snowball" (pay minimums on everything, then throw every extra at your smallest balance first, for quick motivational wins), or "⚡ Avalanche" (same idea, but targeting your highest interest rate first, for the cheapest route overall). Each debt can have an optional interest rate set on it — the picked strategy reorders the list, badges the one to focus on first, and shows roughly how many months sooner you\'d be debt-free by rolling payments forward versus paying each debt separately.' },
     { title: '🫆 Biometric unlock, trusted devices & a security activity log', body: 'Settings → "🔐 Security" now offers biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative to the PIN, set up separately on each device since it\'s tied to that device\'s own hardware. It shows up both on the usual "you were signed out, enter your PIN" screen and, once it\'s set up, right on the sign-in page itself — so a normal fresh visit can skip typing a password too. The same Settings page also lists every device that\'s ever signed in under "💻 Trusted devices" (forgetting one signs it out the next time it\'s opened) and a "📜 Recent activity" log of the last 30 sign-ins, PIN/biometric changes, and device removals.' },
     { title: "💰 A zero-based monthly budget plan", body: 'The Expenses tab has a new "💰 Monthly budget plan" card: your expected income for the month against everything already spoken for — living expense budgets, debt instalments due, and gift contributions due — down to what\'s still unassigned. Each expense category can also turn on "Rollover" (in "Categories & budget" below it), which carries whatever\'s left unspent, or overspent, in that category into next month\'s budget instead of resetting to the flat number every period.' },
     { title: '🔎 Filter your search, and bulk-edit the expense log', body: 'The search box on Overview now has a "⚙️ Filters" button — narrow results by date range, minimum/maximum amount, or which kinds (income, debt, gift, expense) to include, instead of only a plain text match. Separately, the Expenses tab\'s daily log can select several entries at once with a checkbox on each row, for a one-tap bulk recategorize or bulk delete instead of handling them one at a time.' },

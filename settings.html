@@ -435,6 +435,15 @@ window.__ftSettingsPage = true;
           <h3>🏁 Payoff plan — every debt you've added</h3>
           <button type="button" class="link-btn" id="payoff-hide-cleared-toggle" hidden>Hide cleared</button>
         </div>
+        <div class="payoff-strategy" id="payoff-strategy">
+          <div class="payoff-strategy-picker">
+            <button type="button" class="payoff-strategy-btn" data-strategy="none">🧘 My own pace</button>
+            <button type="button" class="payoff-strategy-btn" data-strategy="snowball">⛄ Snowball</button>
+            <button type="button" class="payoff-strategy-btn" data-strategy="avalanche">⚡ Avalanche</button>
+          </div>
+          <p class="payoff-strategy-note" id="payoff-strategy-note"></p>
+          <p class="payoff-strategy-projection" id="payoff-strategy-projection" hidden></p>
+        </div>
         <div class="payoff-head" id="payoff-head"></div>
         <div id="payoff-list"></div>
       </div>
