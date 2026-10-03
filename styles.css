@@ -845,6 +845,13 @@ body.ft-locked #auth-overlay{display:flex;}
 .auth-submit:hover{filter:brightness(.95);}
 .auth-link{display:block; margin:12px auto 0; background:none; border:none; color:var(--muted); font-size:12px; text-decoration:underline; cursor:pointer;}
 .auth-note{font-size:11px; color:var(--muted); text-align:center; margin:16px 0 0; line-height:1.5;}
+/* Biometric shortcut on the plain sign-in form (#auth-biometric-btn) —
+   secondary-styled (outline, not the solid accent fill) so it reads as the
+   quick option, not a replacement for the real submit button below it. */
+.auth-biometric-btn{margin-bottom:14px; background:transparent; border:1.5px solid var(--accent); color:var(--accent-ink);}
+.auth-biometric-btn:hover{background:color-mix(in srgb, var(--accent) 10%, transparent); filter:none;}
+.auth-divider{display:flex; align-items:center; gap:10px; margin:0 0 14px; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em;}
+.auth-divider::before,.auth-divider::after{content:''; flex:1; height:1px; background:var(--line);}
 .auth-loading-box{display:flex; flex-direction:column; align-items:center; gap:14px; padding:48px 26px;}
 .auth-loading-spin{line-height:1; display:inline-block; animation:authSpin 1s linear infinite;}
 .auth-loading-spin img{width:38px; height:38px; display:block; border-radius:9px;}
