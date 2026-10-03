@@ -6474,6 +6474,19 @@ window.__ftStart = function(){
     if(pinCard && !pinCard.hidden) return;
     var card = $('auth-form-card');
     if(card) card.hidden = false;
+    updateAuthBiometricButton();
+  }
+  // Device-level, same check the PIN-unlock card's own biometric shortcut
+  // uses — whether THIS device has biometric unlock set up at all, for
+  // whichever account last set it up here. Shown on a normal fresh visit
+  // (not just after an auto sign-out), since there's no reason to make
+  // someone type a password when their face/fingerprint already proves who
+  // they are on this device.
+  function updateAuthBiometricButton(){
+    var btn = $('auth-biometric-btn'), divider = $('auth-biometric-divider');
+    var configured = !!(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+    if(btn) btn.hidden = !configured;
+    if(divider) divider.hidden = !configured;
   }
 
   function friendlyAuthError(e){
@@ -6786,27 +6799,41 @@ window.__ftStart = function(){
     }
   });
   $('pin-unlock-fallback').addEventListener('click', function(){ showPlainSignInForm(); });
-  var bioUnlockBtn = $('pin-unlock-biometric-btn');
-  if(bioUnlockBtn) bioUnlockBtn.addEventListener('click', async function(){
-    var errEl = $('pin-unlock-error');
-    errEl.textContent = '';
-    bioUnlockBtn.disabled = true;
+  // Shared by both places biometric unlock can be triggered from: the
+  // PIN-unlock card (after an auto sign-out) and the plain sign-in form's
+  // own shortcut (a normal fresh visit — see #auth-biometric-btn below).
+  // Either way, a successful unlockWithBiometric() fires the same
+  // onAuthChange listener below as a normal sign-in — begin() takes it from
+  // there, so this never needs to do anything on success itself.
+  async function attemptBiometricUnlock(btn, errEl, fallbackLabel){
+    if(errEl) errEl.textContent = '';
+    btn.disabled = true;
     try{
       var result = await window.Trakka.unlockWithBiometric();
       if(!result || !result.ok){
-        errEl.textContent = result && result.reason==='no-biometric'
+        var msg = result && result.reason==='no-biometric'
           ? 'Biometric unlock isn’t set up on this device.'
-          : 'Biometric check failed or was cancelled — try your PIN or password instead.';
+          : 'Biometric check failed or was cancelled — try your '+fallbackLabel+' instead.';
+        if(errEl) errEl.textContent = msg; else setError(msg);
       }
-      // On success, unlockWithBiometric()'s signIn() fires the same
-      // onAuthChange listener below as a normal sign-in — begin() takes it
-      // from here, same as the PIN path above.
     }catch(e){
       console.error(e);
-      errEl.textContent = 'Something went wrong — try your PIN or password instead.';
+      var failMsg = 'Something went wrong — try your '+fallbackLabel+' instead.';
+      if(errEl) errEl.textContent = failMsg; else setError(failMsg);
     }finally{
-      bioUnlockBtn.disabled = false;
+      btn.disabled = false;
     }
+  }
+  var bioUnlockBtn = $('pin-unlock-biometric-btn');
+  if(bioUnlockBtn) bioUnlockBtn.addEventListener('click', function(){
+    attemptBiometricUnlock(bioUnlockBtn, $('pin-unlock-error'), 'PIN or password');
+  });
+  // The plain sign-in form's own shortcut — shown whenever this device has
+  // biometric unlock set up (see revealSignInGate()), not just after an
+  // auto sign-out, so it's available on a perfectly normal fresh visit too.
+  var authBioBtn = $('auth-biometric-btn');
+  if(authBioBtn) authBioBtn.addEventListener('click', function(){
+    attemptBiometricUnlock(authBioBtn, null, 'email and password');
   });
 
   // ----- quick-unlock PIN: setup/remove overlay (from the signed-in app) -----
