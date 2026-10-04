@@ -330,22 +330,22 @@ window.__ftStart = function(){
               onTrackSpeech:"You're on track this month — great job!",
               overBudgetSpeech:'A bit tight this month — check off more when you can.',
               milestoneSpeech:'Yesss! New milestone — look at you go! 🎉' },
-    dog:    { name:'Dog',    neutral:'🐶', onTrack:'🐕', overBudget:'🐩', milestone:'🦮', blink:'🐶',
+    dog:    { name:'Dog',    requires:{premium:true}, neutral:'🐶', onTrack:'🐕', overBudget:'🐩', milestone:'🦮', blink:'🐶',
               neutralSpeech:"Tail's waiting to wag — nothing checked yet this month!",
               onTrackSpeech:"Good human — you're on track this month!",
               overBudgetSpeech:'Ruff month — check off more when you can.',
               milestoneSpeech:'WOOF! New milestone unlocked! 🎉' },
-    fox:    { name:'Fox',    neutral:'🦊', onTrack:'✨', overBudget:'🥀', milestone:'🔥', blink:'🦊',
+    fox:    { name:'Fox',    requires:{premium:true}, neutral:'🦊', onTrack:'✨', overBudget:'🥀', milestone:'🔥', blink:'🦊',
               neutralSpeech:"Lying low — nothing checked yet this month!",
               onTrackSpeech:'Sly and on track — nicely done this month.',
               overBudgetSpeech:'Tight month — check off more when you can.',
               milestoneSpeech:'A new milestone! Foxes love a win. 🎉' },
-    owl:    { name:'Owl',    neutral:'🦉', onTrack:'🌟', overBudget:'😵‍💫', milestone:'🌙', blink:'🦉',
+    owl:    { name:'Owl',    requires:{premium:true}, neutral:'🦉', onTrack:'🌟', overBudget:'😵‍💫', milestone:'🌙', blink:'🦉',
               neutralSpeech:"Wide awake — nothing checked yet this month!",
               onTrackSpeech:"Wise choice — you're on track this month.",
               overBudgetSpeech:'A tough month — check off more when you can.',
               milestoneSpeech:'Hoo hoo! New milestone reached! 🎉' },
-    rabbit: { name:'Rabbit', neutral:'🐰', onTrack:'🐇', overBudget:'😔', milestone:'🥕', blink:'🐰',
+    rabbit: { name:'Rabbit', requires:{premium:true}, neutral:'🐰', onTrack:'🐇', overBudget:'😔', milestone:'🥕', blink:'🐰',
               neutralSpeech:"Ears up — nothing checked yet this month!",
               onTrackSpeech:"Hop hop, you're on track this month!",
               overBudgetSpeech:'A bit thin this month — check off more when you can.',
@@ -355,7 +355,7 @@ window.__ftStart = function(){
               onTrackSpeech:'Growing nicely — you’re on track this month!',
               overBudgetSpeech:'Needs some water — check off more when you can.',
               milestoneSpeech:'In full bloom — new milestone reached! 🎉' },
-    panda:  { name:'Panda',  neutral:'🐼', onTrack:'🐼', overBudget:'😮‍💨', milestone:'🎋', blink:'🐼',
+    panda:  { name:'Panda',  requires:{premium:true}, neutral:'🐼', onTrack:'🐼', overBudget:'😮‍💨', milestone:'🎋', blink:'🐼',
               neutralSpeech:"Chilling — nothing checked yet this month!",
               onTrackSpeech:"Bamboo and budgets — you're on track this month!",
               overBudgetSpeech:'A rough patch — check off more when you can.',
@@ -365,7 +365,7 @@ window.__ftStart = function(){
               onTrackSpeech:"Bear necessities covered — you're on track this month!",
               overBudgetSpeech:'A grizzly month — check off more when you can.',
               milestoneSpeech:'Roar! New milestone reached! 🎉' },
-    koala:  { name:'Koala',  neutral:'🐨', onTrack:'🐨', overBudget:'😴', milestone:'🌳', blink:'🐨',
+    koala:  { name:'Koala',  requires:{premium:true}, neutral:'🐨', onTrack:'🐨', overBudget:'😴', milestone:'🌳', blink:'🐨',
               neutralSpeech:"Napping — nothing checked yet this month!",
               onTrackSpeech:"Easygoing and on track this month!",
               overBudgetSpeech:'A sleepy, tight month — check off more when you can.',
@@ -395,11 +395,32 @@ window.__ftStart = function(){
               onTrackSpeech:"Flying high — you're on track this month!",
               overBudgetSpeech:'Wings feeling heavy — check off more when you can.',
               milestoneSpeech:'New milestone — a beautiful transformation! 🎉' },
-    unicorn:{ name:'Unicorn',neutral:'🦄', onTrack:'🦄', overBudget:'😵', milestone:'🌈', blink:'🦄',
+    unicorn:{ name:'Unicorn',requires:{premium:true}, neutral:'🦄', onTrack:'🦄', overBudget:'😵', milestone:'🌈', blink:'🦄',
               neutralSpeech:"Waiting to sparkle — nothing checked yet this month!",
               onTrackSpeech:"Magic budgeting — you're on track this month!",
               overBudgetSpeech:'A little less magical this month — check off more when you can.',
-              milestoneSpeech:'New milestone — pure magic! 🎉' }
+              milestoneSpeech:'New milestone — pure magic! 🎉' },
+    // Three achievement-unlocked companions — not Premium, earned the same
+    // way the gamification theme unlocks above are (requires:{badge}/
+    // {level}, checked by petUnlocked() below).
+    dragon: { name:'Dragon',  requires:{badge:'millionbalance'}, requiresText:'Reach a ₦1,000,000 cumulative balance',
+              neutral:'🐉', onTrack:'🐉', overBudget:'😤', milestone:'💎', blink:'🐉',
+              neutralSpeech:"Guarding the hoard — nothing checked yet this month!",
+              onTrackSpeech:"Hoard secured — you're on track this month!",
+              overBudgetSpeech:'The hoard took a hit — check off more when you can.',
+              milestoneSpeech:'New milestone — the dragon roars in approval! 🎉' },
+    wolf:   { name:'Wolf',    requires:{badge:'streak100'}, requiresText:'Hit a 100-day streak',
+              neutral:'🐺', onTrack:'🐺', overBudget:'😣', milestone:'🌕', blink:'🐺',
+              neutralSpeech:"Scanning the horizon — nothing checked yet this month!",
+              onTrackSpeech:"Running with the pack — you're on track this month!",
+              overBudgetSpeech:'A lean month for the pack — check off more when you can.',
+              milestoneSpeech:'New milestone — the pack howls! 🎉' },
+    peacock:{ name:'Peacock', requires:{level:40}, requiresText:'Reach Level 40',
+              neutral:'🦚', onTrack:'🦚', overBudget:'😮‍💨', milestone:'✨', blink:'🦚',
+              neutralSpeech:"Feathers folded — nothing checked yet this month!",
+              onTrackSpeech:"Feathers on full display — you're on track this month!",
+              overBudgetSpeech:'Feathers a little dull this month — check off more when you can.',
+              milestoneSpeech:'New milestone — what a display! 🎉' }
   };
   function loadPetSpecies(){ return PET_SPECIES[cloud.petSpecies] ? cloud.petSpecies : 'cat'; }
   let petSpeciesId = loadPetSpecies();
@@ -3722,6 +3743,8 @@ window.__ftStart = function(){
     window.__ftEarnedBadgeIds = badgeDefs.filter(b=>b.earned).map(b=>b.id);
     window.__ftPremium = !!(cloud.entitlements && cloud.entitlements.premium);
     if(window.__refreshThemeLocks) window.__refreshThemeLocks();
+    if(window.__refreshWeatherLocks) window.__refreshWeatherLocks();
+    if(window.__refreshPetLocks) window.__refreshPetLocks();
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
       // Icon-only on Overview, and only the ones actually earned — with 100+
@@ -6852,6 +6875,32 @@ window.__ftStart = function(){
   })();
 
   // ===== Pet species picker (same swatch-row look as the theme picker) =====
+  // 'cat' is the mandatory fallback loadPetSpecies() defaults everyone to —
+  // it (and several others) stays free on purpose, so nobody's existing
+  // companion is ever locked out from under them. Premium gates about half
+  // of the roster, the most popular picks, same requires:{premium:true}
+  // shape (and locked-swatch/notification treatment) themes already use.
+  function petUnlocked(id){
+    const sp = PET_SPECIES[id];
+    if(!sp || !sp.requires) return true;
+    if('level' in sp.requires) return (Number(window.__ftLevel)||0) >= sp.requires.level;
+    if('badge' in sp.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(sp.requires.badge)!==-1;
+    if('premium' in sp.requires) return !!(cloud.entitlements && cloud.entitlements.premium);
+    return true;
+  }
+  function refreshPetLocks(){
+    const wrap = document.getElementById('pet-swatches');
+    if(!wrap) return;
+    Array.prototype.forEach.call(wrap.children, function(btn){
+      const id = btn.getAttribute('data-pet-id');
+      const sp = PET_SPECIES[id];
+      if(!sp) return;
+      const locked = !petUnlocked(id);
+      btn.classList.toggle('locked', locked);
+      btn.title = locked ? sp.name+' — locked: '+(sp.requires.premium ? '💎 Premium' : sp.requiresText) : sp.name;
+    });
+  }
+  window.__refreshPetLocks = refreshPetLocks;
   (function(){
     const wrap = document.getElementById('pet-swatches');
     if(!wrap) return;
@@ -6866,6 +6915,13 @@ window.__ftStart = function(){
       b.classList.toggle('active', id === petSpeciesId);
       b.addEventListener('click', function(){
         if(petSpeciesId === id) return;
+        if(!petUnlocked(id)){
+          const msg = sp.requires.premium
+            ? sp.name+' is a Premium pet — unlock Premium in Settings → "💎 Go Premium" to use it.'
+            : sp.name+' — '+sp.requiresText+' to unlock.';
+          showAppNotification('🔒 Locked pet', msg);
+          return;
+        }
         petSpeciesId = id;
         saveCloudField('petSpecies', id);
         Array.prototype.forEach.call(wrap.children, function(btn){
@@ -6876,6 +6932,7 @@ window.__ftStart = function(){
       });
       wrap.appendChild(b);
     });
+    refreshPetLocks();
   })();
 
   // ===== Daily visit streak =====
@@ -7107,6 +7164,8 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🌌 3 new pets and weather effects — unlocked by achievements', body: 'Three new pet companions — 🐉 Dragon (reach a ₦1,000,000 cumulative balance), 🐺 Wolf (hit a 100-day streak) and 🦚 Peacock (reach Level 40) — and three new weather effects with matching ambient sounds — 🌌 Aurora (reach Level 60), 🌈 Rainbow (complete every tracked month) and ✨ Starry night (hit a 200-day streak) — join the picker in Settings, each unlocked the same way themes already are: by playing, not paying.' },
+    { title: '💎 Weather, sounds, dark mode and some pets are now Premium', body: 'Half of the weather effects — ❄️ Snow, ⛈️ Thunderstorm, 🌸 Spring, ☀️ Summer, 🌴 Tropical rain, 🏜️ Sandstorm — along with their matching ambient sounds, are now Premium, picked for being the most elaborate ones. 🌙 Dark mode is now Premium too. And 7 of the pet companions — 🐶 Dog, 🦊 Fox, 🦉 Owl, 🐰 Rabbit, 🐼 Panda, 🐨 Koala, 🦄 Unicorn — join them, while your default 🐱 Cat and 7 others stay free. Nothing already picked gets taken away — this only affects switching to a locked one going forward.' },
     { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources and 3 gift goals — anything you already have stays exactly as it is, this only limits adding more. The daily log caps at 100 free entries, 300 on Premium, or truly unlimited with a one-time ₦3,500 payment (Settings → "💎 Go Premium") on top of Premium.' },
     { title: '🐛 Fixed: Kuda statement import still failing for some real statements', body: 'The previous fix only covered statements secretly saved as HTML — Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
     { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
@@ -8548,6 +8607,14 @@ window.__ftStart = function(){
   }
   window.setThemeMode = function(mode){
     if(mode!=='light' && mode!=='dark') return;
+    // Dark mode is Premium — same "switching stays locked, an already-set
+    // preference keeps working" precedent as a Premium theme: loadThemeMode()
+    // above never re-checks this, so losing Premium never force-reverts
+    // anyone already using dark mode, only blocks switching INTO it fresh.
+    if(mode==='dark' && !window.__ftPremium){
+      showAppNotificationSafe('🔒 Premium feature', 'Dark mode needs Premium — unlock it in Settings → "💎 Go Premium".');
+      return;
+    }
     applyThemeMode(mode);
     saveThemeMode(mode);
   };
@@ -8712,23 +8779,35 @@ window.__ftStart = function(){
    separate settings.
    ================================================================ */
 (function(){
+  // Premium gates about half of these (the most elaborate ones — the ones
+  // with a scripted event in their ambient-audio.js scene, like thunder or
+  // birdsong, rather than just filtered wind noise) — see
+  // window.setWeatherEffect below. The sound follows automatically, since
+  // ambient-audio.js keys its scene off this same weather id, not a
+  // separate pick.
   var WEATHER_EFFECTS = [
     { id:'none',         name:'None (off)',      icon:'🚫', group:'season' },
-    { id:'snow',         name:'Snow',             icon:'❄️', group:'season' },
+    { id:'snow',         name:'Snow',             icon:'❄️', group:'season', requires:{premium:true} },
     { id:'autumn',       name:'Autumn leaves',    icon:'🍂', group:'season' },
     { id:'rain',         name:'Rain',             icon:'🌧️', group:'season' },
-    { id:'thunderstorm', name:'Thunderstorm',     icon:'🌩️', group:'season' },
+    { id:'thunderstorm', name:'Thunderstorm',     icon:'🌩️', group:'season', requires:{premium:true} },
     { id:'windy',        name:'Windy day',        icon:'💨', group:'season' },
-    { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season' },
-    { id:'summer',       name:'Summer fireflies', icon:'🌻', group:'season' },
+    { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season', requires:{premium:true} },
+    { id:'summer',       name:'Summer fireflies', icon:'🌻', group:'season', requires:{premium:true} },
     { id:'harmattan',    name:'Harmattan haze',   icon:'🌫️', group:'tropical' },
-    { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical' },
-    { id:'sandstorm',    name:'Sandstorm',        icon:'🏜️', group:'tropical' },
-    { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' }
+    { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical', requires:{premium:true} },
+    { id:'sandstorm',    name:'Sandstorm',        icon:'🏜️', group:'tropical', requires:{premium:true} },
+    { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' },
+    // Three more, achievement-unlocked rather than Premium — same
+    // requires:{badge}/{level} shape the gamification theme unlocks use,
+    // checked by weatherUnlocked() below.
+    { id:'aurora',       name:'Aurora',           icon:'🌌', group:'season', requires:{level:60}, requiresText:'Reach Level 60' },
+    { id:'rainbow',      name:'Rainbow',          icon:'🌈', group:'tropical', requires:{badge:'allmonths'}, requiresText:'Complete every tracked month' },
+    { id:'starryNight',  name:'Starry night',     icon:'✨', group:'season', requires:{badge:'streak200'}, requiresText:'Hit a 200-day streak' }
   ];
   var AUTUMN_COLORS = ['#C1592F', '#D98E2B', '#B8860B', '#8B3A1F', '#C6752F'];
   var SPRING_COLORS = ['#F5C6D6', '#FBEAF0', '#E8A9C0', '#FFFFFF', '#F0D9E4'];
-  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, summer:45, thunderstorm:170, windy:36, sandstorm:230, harmattan:90, sunny:32 };
+  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, summer:45, thunderstorm:170, windy:36, sandstorm:230, harmattan:90, sunny:32, aurora:16, rainbow:55, starryNight:90 };
 
   function loadWeatherEffect(){
     var cloud = window.__ftCloudData;
@@ -8810,6 +8889,21 @@ window.__ftStart = function(){
         vy:-(0.2+Math.random()*0.35), vx:(Math.random()-0.5)*0.2,
         alpha:0.18+Math.random()*0.32, twinkle:Math.random()*Math.PI*2
       };
+      case 'aurora': return {
+        x:Math.random()*w, y:Math.random()*h*0.55, r:50+Math.random()*70,
+        vx:(Math.random()-0.5)*0.12, hue:140+Math.random()*140,
+        alpha:0.05+Math.random()*0.05, pulse:Math.random()*Math.PI*2, pulseSpeed:0.004+Math.random()*0.004
+      };
+      case 'rainbow': return {
+        x:Math.random()*w, y:h+Math.random()*40, r:1.6+Math.random()*2.2,
+        vy:-(0.25+Math.random()*0.4), vx:(Math.random()-0.5)*0.25,
+        hue:Math.random()*360, alpha:0.4+Math.random()*0.3,
+        twinkle:Math.random()*Math.PI*2, twinkleSpeed:0.02+Math.random()*0.03
+      };
+      case 'starryNight': return {
+        x:Math.random()*w, y:Math.random()*h*0.75, r:0.6+Math.random()*1.4,
+        alpha:0.3+Math.random()*0.5, twinkle:Math.random()*Math.PI*2, twinkleSpeed:0.015+Math.random()*0.025
+      };
       default: return null;
     }
   }
@@ -8830,6 +8924,7 @@ window.__ftStart = function(){
   }
 
   var flashAlpha = 0;
+  var shootingStar = { alpha:0 };
   function step(effect){
     ctx.clearRect(0,0,w,h);
     // Thunderstorm: a rare, quick lightning flash that fades out.
@@ -8848,6 +8943,22 @@ window.__ftStart = function(){
     // soft warm haze wash under the particles.
     if(effect === 'harmattan'){
       ctx.save(); ctx.globalAlpha=0.05; ctx.fillStyle='#D9A056'; ctx.fillRect(0,0,w,h); ctx.restore();
+    }
+    // Starry night: a dark-sky wash under the twinkling stars, plus a rare
+    // shooting star streaking across — same "rare event, fades on its own"
+    // shape as thunderstorm's lightning flash above.
+    if(effect === 'starryNight'){
+      ctx.save(); ctx.globalAlpha=0.08; ctx.fillStyle='#0A1128'; ctx.fillRect(0,0,w,h); ctx.restore();
+      if(shootingStar.alpha<=0 && Math.random()<0.004){
+        shootingStar = { x:Math.random()*w*0.6, y:Math.random()*h*0.3, vx:8+Math.random()*6, vy:3+Math.random()*3, len:60+Math.random()*40, alpha:1 };
+      }
+      if(shootingStar.alpha>0){
+        ctx.save(); ctx.globalAlpha=shootingStar.alpha; ctx.strokeStyle='#FFFFFF'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(shootingStar.x,shootingStar.y);
+        ctx.lineTo(shootingStar.x-shootingStar.len, shootingStar.y-shootingStar.len*0.4);
+        ctx.stroke(); ctx.restore();
+        shootingStar.x += shootingStar.vx; shootingStar.y += shootingStar.vy; shootingStar.alpha -= 0.02;
+      }
     }
     particles.forEach(function(p){
       switch(effect){
@@ -8912,6 +9023,26 @@ window.__ftStart = function(){
           if(p.y < -5){ p.y=h+5; p.x=Math.random()*w; }
           drawDot(p, '#FFE7A8');
           break;
+        case 'aurora':
+          p.pulse += p.pulseSpeed; p.x += p.vx;
+          if(p.x < -p.r){ p.x = w+p.r; } else if(p.x > w+p.r){ p.x = -p.r; }
+          ctx.save(); ctx.globalAlpha = p.alpha * (0.6 + 0.4*Math.sin(p.pulse));
+          ctx.fillStyle = 'hsl(' + p.hue + ',90%,60%)';
+          ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r*0.35, 0, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+          break;
+        case 'rainbow':
+          p.twinkle += p.twinkleSpeed; p.x += p.vx; p.y += p.vy;
+          p.alpha = 0.25 + 0.45*((Math.sin(p.twinkle)+1)/2);
+          if(p.y < -5){ p.y=h+5; p.x=Math.random()*w; }
+          ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = 'hsl(' + p.hue + ',85%,65%)';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+          break;
+        case 'starryNight':
+          p.twinkle += p.twinkleSpeed;
+          drawDot({ x:p.x, y:p.y, r:p.r, alpha: p.alpha * (0.4 + 0.6*((Math.sin(p.twinkle)+1)/2)) }, '#FFFFFF');
+          break;
       }
     });
     ctx.globalAlpha = 1;
@@ -8922,6 +9053,7 @@ window.__ftStart = function(){
     if(ctx && canvas) ctx.clearRect(0,0,canvas.width,canvas.height);
     particles = [];
     flashAlpha = 0;
+    shootingStar = { alpha:0 };
   }
 
   function updateSwatchActive(id){
@@ -8943,8 +9075,33 @@ window.__ftStart = function(){
     seedParticles(id);
     step(id);
   }
+  // Same three `requires` shapes themes use (level/badge/premium) — see
+  // window.__ftLevel/__ftEarnedBadgeIds/__ftPremium, all set from the main
+  // IIFE on every render() since this IIFE has no access to its locals.
+  function weatherUnlocked(w){
+    if(!w.requires) return true;
+    if('level' in w.requires) return (Number(window.__ftLevel)||0) >= w.requires.level;
+    if('badge' in w.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(w.requires.badge)!==-1;
+    if('premium' in w.requires) return !!window.__ftPremium;
+    return true;
+  }
+  // showAppNotification lives in the main IIFE (only defined post-sign-in);
+  // this weather IIFE runs on every page, signed in or not, same fallback
+  // the theme picker's showAppNotificationSafe() already uses.
+  function showWeatherNotificationSafe(title, body){
+    if(typeof window.__ftShowNotification === 'function') window.__ftShowNotification(title, body);
+    else alert(title+' — '+body);
+  }
   window.setWeatherEffect = function(id){
-    if(!WEATHER_EFFECTS.some(function(w){ return w.id === id; })) return;
+    var w = WEATHER_EFFECTS.filter(function(x){ return x.id === id; })[0];
+    if(!w) return;
+    if(!weatherUnlocked(w)){
+      var msg = (w.requires && w.requires.premium)
+        ? w.name+' is a Premium weather effect — unlock Premium in Settings → "💎 Go Premium" to use it.'
+        : w.name+' — '+w.requiresText+' to unlock.';
+      showWeatherNotificationSafe('🔒 Locked weather effect', msg);
+      return;
+    }
     applyWeatherEffect(id);
     saveWeatherEffectPref(id);
   };
@@ -8959,7 +9116,7 @@ window.__ftStart = function(){
     b.type = 'button';
     b.className = 'pet-swatch weather-swatch';
     b.textContent = w.icon;
-    b.title = w.name;
+    b.title = w.requires ? w.name+' — locked: '+(w.requires.premium ? '💎 Premium' : w.requiresText) : w.name;
     b.setAttribute('data-weather-id', w.id);
     b.addEventListener('click', function(){ window.setWeatherEffect(w.id); });
     return b;
@@ -8973,7 +9130,27 @@ window.__ftStart = function(){
     if(tropicalWrap && !tropicalWrap.children.length){
       WEATHER_EFFECTS.filter(function(w){ return w.group === 'tropical'; }).forEach(function(w){ tropicalWrap.appendChild(makeWeatherBtn(w)); });
     }
+    refreshWeatherLocks();
   }
+  // Re-applied every main render() (see window.__refreshWeatherLocks below) —
+  // same "toggle a class + the title, never rebuild the buttons" shape as
+  // refreshThemeLocks(), so a level/badge reached mid-session unlocks its
+  // weather effect instantly.
+  function refreshWeatherLocks(){
+    ['weather-swatches', 'tropical-weather-swatches'].forEach(function(containerId){
+      var wrap = document.getElementById(containerId);
+      if(!wrap) return;
+      Array.prototype.forEach.call(wrap.children, function(btn){
+        if(!btn.hasAttribute('data-weather-id')) return;
+        var w = WEATHER_EFFECTS.filter(function(x){ return x.id===btn.getAttribute('data-weather-id'); })[0];
+        if(!w) return;
+        var locked = !weatherUnlocked(w);
+        btn.classList.toggle('locked', locked);
+        btn.title = locked ? w.name+' — locked: '+(w.requires.premium ? '💎 Premium' : w.requiresText) : w.name;
+      });
+    });
+  }
+  window.__refreshWeatherLocks = refreshWeatherLocks;
 
   function refreshWeatherForCurrentUser(){
     buildWeatherSwatches();
