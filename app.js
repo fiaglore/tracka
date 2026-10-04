@@ -3524,12 +3524,14 @@ window.__ftStart = function(){
     });
     // Exposed for the theme-unlock gating in the separate theming IIFE
     // further down this file (it has no access to this render()'s locals) —
-    // it checks a theme's `requires:{level}`/`requires:{badge}` against
-    // these two globals, refreshed on every render. Lifetime `level` is
-    // used (not prestigeLevel) so prestiging can never re-lock a theme.
+    // it checks a theme's `requires:{level}`/`requires:{badge}`/
+    // `requires:{premium}` against these globals, refreshed on every
+    // render. Lifetime `level` is used (not prestigeLevel) so prestiging
+    // can never re-lock a theme.
     window.__ftLevel = level;
     window.__ftTotalXP = totalXP;
     window.__ftEarnedBadgeIds = badgeDefs.filter(b=>b.earned).map(b=>b.id);
+    window.__ftPremium = !!(cloud.entitlements && cloud.entitlements.premium);
     if(window.__refreshThemeLocks) window.__refreshThemeLocks();
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
@@ -6767,6 +6769,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 Two Premium-exclusive themes: Obsidian & Champagne', body: 'Settings → Appearance now has two new themes reserved for Premium — a sleek near-black "Obsidian" and a warm gold "Champagne". They unlock the moment Premium does, same as every other Premium feature.' },
     { title: '🐛 Fixed: couldn\'t sign in on a second device', body: 'Signing in on any device beyond your first was wrongly treated as "forgotten" and signed straight back out — a real bug, not a limit. That\'s fixed, and Settings → Security → "💻 Trusted devices" now supports up to 6 devices at once, with a running count. Signing in on a 7th device asks you to pick one of the existing 6 to sign out first, instead of silently failing.' },
     { title: '💎 Go Premium — bank transfer now live', body: 'Settings → "💎 Go Premium" shows AnchorTrakk\'s bank account for a one-time transfer — upload a receipt as proof and it\'s reviewed by hand, usually within a day. No card payments yet, but this is the first real way to actually unlock Premium features like 🏦 Bank statement import and 📈 Net Worth.' },
     { title: '✨ Bank statement import is now a Premium feature', body: 'Importing an OPay, Moniepoint or Kuda statement (Settings → "📁 Data") now needs a Premium subscription. Premium billing isn\'t live yet, so the feature is locked for everyone for the moment — this is groundwork ahead of Premium actually launching, not something you can unlock yet.' },
@@ -7996,7 +7999,12 @@ window.__ftStart = function(){
     { id:'galaxy',      name:'Galaxy (gradient)', requires:{level:50}, requiresText:'Reach Level 50' },
     { id:'matcha',      name:'Matcha' },
     { id:'vaporwave',   name:'Vaporwave (gradient)' },
-    { id:'cozycabin',   name:'Cozy Cabin', requires:{badge:'debtfree'}, requiresText:'Go totally debt-free' }
+    { id:'cozycabin',   name:'Cozy Cabin', requires:{badge:'debtfree'}, requiresText:'Go totally debt-free' },
+    // Premium-exclusive — unlocked by entitlements.premium rather than any
+    // level/badge, see themeUnlocked() below. These two unlock the moment
+    // Premium does and never re-lock, same as every other premium feature.
+    { id:'obsidian',    name:'Obsidian',   requires:{premium:true}, requiresText:'💎 Premium' },
+    { id:'champagne',   name:'Champagne',  requires:{premium:true}, requiresText:'💎 Premium' }
   ];
   // ===== Gamification: theme unlocks =====
   // 10 of the 30 presets above are gated behind a level or a specific
@@ -8007,6 +8015,7 @@ window.__ftStart = function(){
     if(!t.requires) return true;
     if('level' in t.requires) return (Number(window.__ftLevel)||0) >= t.requires.level;
     if('badge' in t.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(t.requires.badge)!==-1;
+    if('premium' in t.requires) return !!window.__ftPremium;
     return true;
   }
   // A flat hex works as a swatch's background for the 10 plain-color
@@ -8034,7 +8043,9 @@ window.__ftStart = function(){
     galaxy:    'linear-gradient(135deg, #2A1458 0%, #6E4FE8 50%, #0A0618 100%)',
     matcha:    'linear-gradient(135deg, #B5C99A 0%, #6B8E4E 100%)',
     vaporwave: 'linear-gradient(135deg, #FF9DE2 0%, #8A7FFB 50%, #7FD8FF 100%)',
-    cozycabin: 'linear-gradient(135deg, #D9A066 0%, #8B5A2B 100%)'
+    cozycabin: 'linear-gradient(135deg, #D9A066 0%, #8B5A2B 100%)',
+    obsidian:  'linear-gradient(135deg, #2B2B33 0%, #0A0A0D 100%)',
+    champagne: 'linear-gradient(135deg, #F3E5C8 0%, #C9A227 100%)'
   };
   // The emoji every page already hard-codes (nav tabs' .ic spans, and each
   // tracker section's <h2> — see the .section-ic spans sign-in.html/
@@ -8107,7 +8118,10 @@ window.__ftStart = function(){
   window.setThemePreset = function(id){
     var theme = THEMES.filter(function(t){ return t.id===id; })[0];
     if(theme && !themeUnlocked(theme)){
-      showAppNotificationSafe('🔒 Locked theme', theme.name+' — '+theme.requiresText+' to unlock.');
+      var msg = (theme.requires && theme.requires.premium)
+        ? theme.name+' is a Premium theme — unlock Premium in Settings → "💎 Go Premium" to use it.'
+        : theme.name+' — '+theme.requiresText+' to unlock.';
+      showAppNotificationSafe('🔒 Locked theme', msg);
       return;
     }
     applyThemePreset(id);
