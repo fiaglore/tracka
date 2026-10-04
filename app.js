@@ -64,10 +64,14 @@ window.__ftStart = function(){
   // Billing PR: entitlements/{uid}.premium, read here as cloud.entitlements) is routed through
   // this one check instead of being wired up directly, even while it's free for everyone. Moving
   // a feature behind the paywall later is then a one-line change here — add its key to
-  // PREMIUM_FEATURE_KEYS below — rather than hunting down every place it's used. Nothing in
-  // PREMIUM_FEATURE_KEYS today, so isFeatureUnlocked() always returns true; once billing lands,
-  // a key added there starts checking cloud.entitlements.premium instead.
-  const PREMIUM_FEATURE_KEYS = [];
+  // PREMIUM_FEATURE_KEYS below — rather than hunting down every place it's used.
+  //
+  // 'bankStatementImport' is the first real entry — there's still no actual billing flow (no
+  // Paystack/Play integration exists yet), so cloud.entitlements.premium can currently only ever
+  // be set by hand, directly in Firestore, not through any in-app purchase. Until that exists,
+  // this gate is "on" in the sense that it locks the feature for everyone, with no self-serve way
+  // to unlock it — that's expected for now, not a bug.
+  const PREMIUM_FEATURE_KEYS = ['bankStatementImport'];
   function isFeatureUnlocked(key){
     if(!PREMIUM_FEATURE_KEYS.includes(key)) return true;
     return !!(cloud.entitlements && cloud.entitlements.premium);
@@ -5888,6 +5892,18 @@ window.__ftStart = function(){
     if(txns.length===0) stmtSetStatus('No transactions found in that file.', 'warn');
   }
 
+  // Same locked/content toggle pattern as renderNetWorth() above — called
+  // once here since nothing in this session changes isFeatureUnlocked()'s
+  // answer after load (there's no in-app purchase flow yet to react to).
+  (function(){
+    const content = document.getElementById('stmt-import-content');
+    const locked = document.getElementById('stmt-import-locked');
+    if(!content) return;
+    const unlocked = isFeatureUnlocked('bankStatementImport');
+    content.hidden = !unlocked;
+    if(locked) locked.hidden = unlocked;
+  })();
+
   document.getElementById('stmt-choose-file-btn').addEventListener('click', function(){
     document.getElementById('stmt-file-input').click();
   });
@@ -6610,6 +6626,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '✨ Bank statement import is now a Premium feature', body: 'Importing an OPay, Moniepoint or Kuda statement (Settings → "📁 Data") now needs a Premium subscription. Premium billing isn\'t live yet, so the feature is locked for everyone for the moment — this is groundwork ahead of Premium actually launching, not something you can unlock yet.' },
     { title: '🌱 A new name: AnchorTrakk', body: 'Trakka is now AnchorTrakk — same app, same account, same data, same logo. Nothing about how it works has changed, just what it\'s called.' },
     { title: '🏦 Import a bank statement from OPay, Moniepoint or Kuda', body: 'Settings → "📁 Data" now has an "🏦 Import a bank statement" section — download a statement from your own OPay, Moniepoint or Kuda app (Excel works best; .csv also works) and import it straight in. Nothing is sent to a third party or linked to your bank account; the file is read right in your browser. Each transaction becomes a normal expense (money out) or extra-income entry (money in), exactly as if typed in by hand, with a preview to check before anything is actually added and an "↩️ Undo this import" button right after. Re-importing the same statement twice skips whatever it already added instead of duplicating it.' },
     { title: '📧 Add a real recovery email, so password resets actually arrive', body: 'If you signed up with a plain username instead of a real email address, "Forgot password?" had nowhere real to deliver a reset link to — it would still show its usual success message (so as not to reveal whether an account exists), but nothing ever landed in an inbox. Settings → "🔐 Security" now has a "📧 Recovery email" section showing the address actually on file, with an "✏️ Update recovery email" button to add or change it. A verification link goes to the new address first — your account keeps using the old one for sign-in and password resets until you click it, so a typo can\'t lock you out.' },
