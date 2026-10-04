@@ -71,7 +71,7 @@ window.__ftStart = function(){
   // be set by hand, directly in Firestore, not through any in-app purchase. Until that exists,
   // this gate is "on" in the sense that it locks the feature for everyone, with no self-serve way
   // to unlock it — that's expected for now, not a bug.
-  const PREMIUM_FEATURE_KEYS = ['bankStatementImport'];
+  const PREMIUM_FEATURE_KEYS = ['bankStatementImport', 'autoFxRates'];
   // Kept in sync by hand with the same-named constant in the sign-in IIFE
   // further down (a separate top-level scope — see begin()'s trusted-device
   // check) — this copy is only for the "X of 6 devices" count below.
@@ -898,6 +898,7 @@ window.__ftStart = function(){
     return {months, extra:[], giftGoals: [], giftProgress: {}, savings: [], savingsGoal: 0,
       livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {},
       skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {}, currencyRates: {},
+      currencyRatesUpdatedAt: 0,
       investments: [], investmentPrices: [], debtPayoffStrategy: 'none', debtInterestRates: {}};
   }
 
@@ -964,6 +965,7 @@ window.__ftStart = function(){
         assets: Array.isArray(saved.assets) ? saved.assets : [],
         accountCurrency: (saved.accountCurrency && typeof saved.accountCurrency === 'object') ? saved.accountCurrency : {},
         currencyRates: (saved.currencyRates && typeof saved.currencyRates === 'object') ? saved.currencyRates : {},
+        currencyRatesUpdatedAt: Number(saved.currencyRatesUpdatedAt) || 0,
         investments: Array.isArray(saved.investments) ? saved.investments : [],
         investmentPrices: Array.isArray(saved.investmentPrices) ? saved.investmentPrices : [],
         debtPayoffStrategy: ['snowball','avalanche'].includes(saved.debtPayoffStrategy) ? saved.debtPayoffStrategy : 'none',
@@ -1554,6 +1556,16 @@ window.__ftStart = function(){
     const list = document.getElementById('currency-rates-list');
     if(!list) return;
     const codes = currenciesInUse();
+    const statusEl = document.getElementById('fx-autoupdate-status');
+    if(statusEl){
+      if(!isFeatureUnlocked('autoFxRates')){
+        statusEl.textContent = '💎 Rates auto-updating live is a Premium feature — enter your own below, or upgrade in Settings → "💎 Go Premium".';
+      } else if(state.currencyRatesUpdatedAt){
+        statusEl.textContent = '🔄 Auto-updates roughly every 6 hours while this page is open. Last updated '+fmtSecurityTs(state.currencyRatesUpdatedAt)+'.';
+      } else {
+        statusEl.textContent = '🔄 Auto-updates roughly every 6 hours while this page is open. Fetching live rates…';
+      }
+    }
     if(codes.length===0){
       list.innerHTML = '<div class="empty-msg">No foreign currency in use yet — pick one on an Income, Debt, Gift or Savings account row and its rate will show up here.</div>';
       return;
@@ -1564,12 +1576,58 @@ window.__ftStart = function(){
         ${currencyCode()}
       </label>
     `).join('');
+    maybeAutoUpdateFxRates();
   }
   document.addEventListener('change', function(e){
     if(!e.target.matches('.currency-rate-input')) return;
     setCurrencyRate(e.target.dataset.code, e.target.value);
     save();
   });
+
+  // ===== Premium: auto-updating FX rates =====
+  // Fetches live rates (via the Worker's /api/fxrates — see worker.js,
+  // which proxies open.er-api.com so no API key ever reaches the browser)
+  // instead of leaving every foreign-currency rate purely hand-typed.
+  // Called from renderCurrencyRates() on every render(), but FX_AUTO_UPDATE_
+  // INTERVAL_MS + fxAutoUpdateInFlight below mean it only actually reaches
+  // the network at most once every few hours per currency — render() itself
+  // fires far too often (any state change) to hit a live API from directly.
+  const FX_AUTO_UPDATE_INTERVAL_MS = 6*60*60*1000;
+  let fxAutoUpdateInFlight = false;
+  function applyFxRates(data, codes){
+    let anyApplied = false;
+    codes.forEach(function(code){
+      const perBase = Number(data.rates && data.rates[code]);
+      // open.er-api.com expresses rates as "how much of `code` 1 unit of
+      // the base currency buys" — state.currencyRates wants the inverse,
+      // "how many of the primary currency 1 unit of `code` is worth".
+      if(perBase>0){ setCurrencyRate(code, 1/perBase); anyApplied = true; }
+    });
+    if(anyApplied){
+      state.currencyRatesUpdatedAt = data.updatedAt || Date.now();
+      saveCloudField('trackerState', state);
+      renderCurrencyRates();
+    }
+  }
+  function fetchFxRates(base){
+    return fetch('/api/fxrates?base='+encodeURIComponent(base)).then(function(res){
+      return res.json().then(function(data){
+        if(!res.ok || !data || !data.rates) throw new Error((data && data.error) || 'Could not fetch live rates.');
+        return data;
+      });
+    });
+  }
+  function maybeAutoUpdateFxRates(){
+    if(!isFeatureUnlocked('autoFxRates') || fxAutoUpdateInFlight) return;
+    const codes = currenciesInUse();
+    if(codes.length===0) return;
+    if(Date.now() - (state.currencyRatesUpdatedAt||0) < FX_AUTO_UPDATE_INTERVAL_MS) return;
+    fxAutoUpdateInFlight = true;
+    fetchFxRates(currencyCode())
+      .then(function(data){ applyFxRates(data, codes); })
+      .catch(function(e){ console.warn('FX auto-update failed:', e); })
+      .finally(function(){ fxAutoUpdateInFlight = false; });
+  }
 
   // Picking a foreign currency on an Income/Debt/Gift/Investment row or a
   // savings app (.item-currency-select / .acct-currency-select) used to
@@ -1581,11 +1639,10 @@ window.__ftStart = function(){
   // for the rate the moment a foreign currency is first picked — the
   // "inline wherever a foreign currency is first chosen" this file's
   // currency-rate comment already described — closes that gap at the
-  // source, for every total that reads from state.currencyRates.
-  document.addEventListener('change', function(e){
-    if(!e.target.matches('.item-currency-select, .acct-currency-select')) return;
-    const code = e.target.value;
-    if(!code || code===currencyCode() || Number(state.currencyRates[code])>0) return;
+  // source, for every total that reads from state.currencyRates. Premium
+  // tries a live rate first and only falls back to the prompt if that
+  // fails (offline, API hiccup, or an unrecognized currency code).
+  function promptForFxRate(code){
     const input = window.prompt('1 '+code+' = how many '+currencyCode()+'? (You can change this later in Settings → "🌍 Currency rates".)');
     const rate = Number(input);
     if(rate>0){
@@ -1593,6 +1650,20 @@ window.__ftStart = function(){
       save();
       renderCurrencyRates();
     }
+  }
+  document.addEventListener('change', function(e){
+    if(!e.target.matches('.item-currency-select, .acct-currency-select')) return;
+    const code = e.target.value;
+    if(!code || code===currencyCode() || Number(state.currencyRates[code])>0) return;
+    if(isFeatureUnlocked('autoFxRates')){
+      fetchFxRates(currencyCode()).then(function(data){
+        const perBase = Number(data.rates[code]);
+        if(perBase>0){ applyFxRates(data, [code]); return; }
+        promptForFxRate(code);
+      }).catch(function(){ promptForFxRate(code); });
+      return;
+    }
+    promptForFxRate(code);
   });
 
   function sumChecked(items){ return items.filter(i=>i.checked).reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0); }
@@ -6796,6 +6867,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
     { title: '🐛 Fixed: Kuda statement import failing to read the file', body: 'Kuda\'s "Excel" export is actually an HTML table wearing an .xlsx extension — Microsoft Excel opens it fine, but AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. It now detects this and reads the table correctly.' },
     { title: '💎 Two Premium-exclusive themes: Obsidian & Champagne', body: 'Settings → Appearance now has two new themes reserved for Premium — a sleek near-black "Obsidian" and a warm gold "Champagne". They unlock the moment Premium does, same as every other Premium feature.' },
     { title: '🐛 Fixed: couldn\'t sign in on a second device', body: 'Signing in on any device beyond your first was wrongly treated as "forgotten" and signed straight back out — a real bug, not a limit. That\'s fixed, and Settings → Security → "💻 Trusted devices" now supports up to 6 devices at once, with a running count. Signing in on a 7th device asks you to pick one of the existing 6 to sign out first, instead of silently failing.' },
