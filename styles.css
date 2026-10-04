@@ -1510,6 +1510,14 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 #password-change-overlay .auth-submit{margin-top:6px;}
 #password-change-overlay .auth-link{margin-top:10px;}
 
+/* Same fixed-overlay pattern as #password-change-overlay above — Settings →
+   Security's "Update recovery email" form. See updateRecoveryEmail() in
+   app.js. */
+#recovery-email-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.4);}
+#recovery-email-overlay .auth-card{max-width:380px;}
+#recovery-email-overlay .auth-submit{margin-top:6px;}
+#recovery-email-overlay .auth-link{margin-top:10px;}
+
 #onboarding-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.4);}
 .onboarding-card{max-width:400px; text-align:center;}
 .onboarding-icon{font-size:40px; line-height:1; margin-bottom:6px;}

@@ -78,6 +78,7 @@ import {
   browserSessionPersistence,
   updateProfile,
   updatePassword,
+  verifyBeforeUpdateEmail,
   EmailAuthProvider,
   reauthenticateWithCredential
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -269,6 +270,40 @@ window.Trakka = {
     const email = user.email || usernameToEmail(username);
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(email, currentPassword));
     await updatePassword(user, newPassword);
+  },
+
+  // Account email shown in Settings → Security's "📧 Recovery email" — the
+  // address Firebase Auth actually has on file. See usernameToEmail()'s
+  // comment above: this is only a REAL, reachable address if the user
+  // happened to type one into the username field at signup; otherwise it's
+  // the auto-generated username@tracka-users.app placeholder, which is
+  // exactly why "Forgot password?" can show its generic success message
+  // and still never deliver anything.
+  myAccountEmail() {
+    const user = auth.currentUser;
+    return user ? user.email : null;
+  },
+  hasRealRecoveryEmail() {
+    const email = auth.currentUser && auth.currentUser.email;
+    return !!email && !email.toLowerCase().endsWith("@" + EMAIL_DOMAIN);
+  },
+  // Lets someone whose account has no real email (see above) add one, or
+  // change an existing one, so "Forgot password?" and "Reset password by
+  // email" actually have somewhere to deliver to. Uses
+  // verifyBeforeUpdateEmail rather than the older updateEmail — Firebase
+  // sends a verification link to the NEW address first, and the account's
+  // email on file only actually changes once that link is clicked, so a
+  // typo or someone else's address can't silently take over the account or
+  // quietly break sign-in.
+  async updateRecoveryEmail(currentPassword, newEmail) {
+    const trimmed = String(newEmail || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) throw new Error("Enter a valid email address.");
+    const user = auth.currentUser;
+    if (!user) throw new Error("You need to be signed in to do this.");
+    const username = user.displayName;
+    const currentEmail = user.email || usernameToEmail(username || "");
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(currentEmail, currentPassword));
+    await verifyBeforeUpdateEmail(user, trimmed);
   },
   onAuthChange(cb) {
     return onAuthStateChanged(auth, cb);

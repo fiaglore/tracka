@@ -6335,6 +6335,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '📧 Add a real recovery email, so password resets actually arrive', body: 'If you signed up with a plain username instead of a real email address, "Forgot password?" had nowhere real to deliver a reset link to — it would still show its usual success message (so as not to reveal whether an account exists), but nothing ever landed in an inbox. Settings → "🔐 Security" now has a "📧 Recovery email" section showing the address actually on file, with an "✏️ Update recovery email" button to add or change it. A verification link goes to the new address first — your account keeps using the old one for sign-in and password resets until you click it, so a typo can\'t lock you out.' },
     { title: '🔑 Change your password, or reset it by email, right from Settings', body: 'Settings → "🔐 Security" now has a "🔑 Change password" button (needs your current password, same as before) and a "✉️ Reset password by email" button — the same reset-link flow the signed-out "Forgot password?" link already used, now usable without signing out first. If a security PIN or biometric unlock is set up on this device, changing your password clears them automatically, since each holds an encrypted copy of the old one — set them back up with your new password whenever you like.' },
     { title: '🔢 Your PIN is now a security PIN, not just a quick-unlock shortcut', body: 'The PIN set up in Settings → "🔐 Security" used to only skip retyping your password after an auto sign-out. It now also confirms three more sensitive moments: finishing a plain password sign-in (an extra step right after your password, like a second factor), clicking "👁️ Show data" to reveal anything hidden by "🙈 Hide data" mode, and deleting any logged entry — a debt, income source, gift goal, savings entry, investment, or expense. Biometric unlock works as a faster alternative everywhere the PIN is asked, including these new spots. None of this applies until a PIN is actually set up — on a device with no PIN configured, everything works exactly as before.' },
     { title: '🙈 Hide data now blurs your greeting and notification history too', body: 'Turning on "🙈 Hide data" used to leave two spots showing real figures in plain sentences: the time-of-day greeting at the top of the page ("You\'ve logged ₦X in expenses so far today") and the 🔔 bell\'s notification history (debt-cleared, budget-threshold and badge entries that mention an amount). Both are now blurred along with everything else while privacy mode is on. The shareable milestone card (the one offered when a debt is cleared or a savings goal is hit) is also skipped entirely while hiding data is on, instead of showing a blurred-but-still-downloadable image.' },
@@ -6901,6 +6902,7 @@ window.__ftStart = function(){
     // design — that's what makes it a nag rather than a one-time tip.
     updatePinSetupOpenButton();
     updateBioSetupOpenButton();
+    renderRecoveryEmailStatus();
     // Skipped this one time if the onboarding tour just opened instead —
     // two full-screen overlays fighting for the same spot isn't a choice
     // anyone needs to make. Nothing here remembers that skip, so the PIN
@@ -6945,7 +6947,7 @@ window.__ftStart = function(){
     const name = $('auth-user').value.trim();
     if(name.length < 2){ setError('Type your email above first, then press "Forgot password?".'); return; }
     try{ await window.Trakka.resetPassword(name); }catch(e){ /* deliberately ignored, see above */ }
-    setError('If that\'s the email address on your account, a reset link is on its way.');
+    setError('If that\'s a real, accessible email address on your account, a reset link is on its way. Signed up with just a username instead? Sign in, then add a real one from Settings → Security → "📧 Recovery email" first.');
   }
 
   $('auth-tab-in').addEventListener('click', () => setMode('signin'));
@@ -7201,6 +7203,55 @@ window.__ftStart = function(){
   $('bio-setup-remove').addEventListener('click', function(){
     if(window.Trakka && window.Trakka.clearBiometric) window.Trakka.clearBiometric();
     closeBioSetup();
+  });
+
+  // ----- recovery email (the address password resets actually go to) -----
+  // See myAccountEmail()/hasRealRecoveryEmail()/updateRecoveryEmail() in
+  // firebase-init.js — "Forgot password?" and "Reset password by email"
+  // below both deliver here, and until this IS a real address, neither one
+  // has anywhere to actually send to, no matter what message they show.
+  function renderRecoveryEmailStatus(){
+    var el = $('recovery-email-status');
+    if(!el || !window.Trakka || !window.Trakka.myAccountEmail) return;
+    var email = window.Trakka.myAccountEmail();
+    var real = !!(window.Trakka.hasRealRecoveryEmail && window.Trakka.hasRealRecoveryEmail());
+    if(!email){ el.textContent = ''; el.className = 'xl-status'; return; }
+    if(real){ el.textContent = 'On file: ' + email; el.className = 'xl-status ok'; }
+    else { el.textContent = 'On file: ' + email + ' — not a real address, password resets can\'t reach it.'; el.className = 'xl-status warn'; }
+  }
+  function openRecoveryEmail(){
+    $('recovery-email-new').value = '';
+    $('recovery-email-password').value = '';
+    $('recovery-email-error').textContent = '';
+    $('recovery-email-overlay').hidden = false;
+    setTimeout(function(){ $('recovery-email-new').focus(); }, 50);
+  }
+  function closeRecoveryEmail(){ $('recovery-email-overlay').hidden = true; }
+  var recoveryEmailOpenBtn = $('recovery-email-open');
+  if(recoveryEmailOpenBtn) recoveryEmailOpenBtn.addEventListener('click', openRecoveryEmail);
+  var recoveryEmailCloseBtn = $('recovery-email-close');
+  if(recoveryEmailCloseBtn) recoveryEmailCloseBtn.addEventListener('click', closeRecoveryEmail);
+  var recoveryEmailForm = $('recovery-email-form');
+  if(recoveryEmailForm) recoveryEmailForm.addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('recovery-email-error');
+    errEl.textContent = '';
+    var newEmail = $('recovery-email-new').value.trim();
+    var password = $('recovery-email-password').value;
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)){ errEl.textContent = 'Enter a valid email address.'; return; }
+    if(!password){ errEl.textContent = 'Enter your current password.'; return; }
+    var btn = $('recovery-email-save');
+    btn.disabled = true;
+    try{
+      await window.Trakka.updateRecoveryEmail(password, newEmail);
+      closeRecoveryEmail();
+      alert('Check ' + newEmail + ' for a verification link — your account keeps using its old address for sign-in and password resets until you click it.');
+    }catch(e){
+      console.error(e);
+      errEl.textContent = friendlyAuthError(e);
+    }finally{
+      btn.disabled = false;
+    }
   });
 
   // ----- account password: change / reset-by-email -----

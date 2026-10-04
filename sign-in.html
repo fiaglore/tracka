@@ -157,6 +157,24 @@
   </div>
 </div>
 
+<!-- Update recovery email — opened from the "✏️ Update recovery email"
+     button in Settings → Security. Sends a verification link to the NEW
+     address; the account's email on file only actually changes once that
+     link is clicked — see updateRecoveryEmail() in firebase-init.js. -->
+<div id="recovery-email-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="recovery-email-title">
+  <div class="auth-card" id="recovery-email-card">
+    <h2 id="recovery-email-title">Update recovery email</h2>
+    <p class="auth-sub">A verification link goes to the new address first — your account keeps using the old one for sign-in and password resets until you click it.</p>
+    <form id="recovery-email-form" autocomplete="off" novalidate>
+      <label class="auth-field">New email address<input id="recovery-email-new" type="email" autocomplete="email"></label>
+      <label class="auth-field">Current password<input id="recovery-email-password" type="password" autocomplete="current-password"></label>
+      <div class="auth-error" id="recovery-email-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="recovery-email-save">Send verification link</button>
+    </form>
+    <button type="button" class="auth-link" id="recovery-email-close">Cancel</button>
+  </div>
+</div>
+
 <!-- Guided first-time tour — see openOnboarding()/closeOnboarding() in
      app.js. Shown automatically once per account (cloud.onboardingSeen),
      and replayable any time from Settings ("🧭 Take the tour"). Purely
@@ -892,7 +910,14 @@
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>🔐 Security</h2></div>
 
-      <div class="section-head"><h3>🔑 Account password</h3></div>
+      <div class="section-head"><h3>📧 Recovery email</h3></div>
+      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">The address both password-reset options below actually deliver to. If you signed up with a plain username instead of a real email, there's nothing real on file yet — add one here first, or neither option can reach you.</p>
+      <div class="toolbar">
+        <div class="xl-status" id="recovery-email-status" style="width:auto;margin:0;"></div>
+        <button class="xl-btn" id="recovery-email-open" type="button" title="Add or change the email your password resets are sent to">✏️ Update recovery email</button>
+      </div>
+
+      <div class="section-head" style="margin-top:20px;"><h3>🔑 Account password</h3></div>
       <div class="toolbar">
         <button class="xl-btn primary" id="password-change-open" type="button" title="Change your password (you'll need your current one)">🔑 Change password</button>
         <button class="xl-btn" id="password-reset-email-btn" type="button" title="Email yourself a link to set a new password">✉️ Reset password by email</button>
