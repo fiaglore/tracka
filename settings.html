@@ -145,6 +145,20 @@ window.__ftSettingsPage = true;
   </div>
 </div>
 
+<!-- Device limit gate — opened mid-sign-in from begin() in app.js when a
+     brand-new device tries to sign in and every one of the 6 trusted-device
+     slots is already taken (see Settings → Security → "💻 Trusted
+     devices"). Lists the existing devices so the person can pick one to
+     sign out and free up a slot, or cancel this sign-in instead. -->
+<div id="device-limit-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="device-limit-title">
+  <div class="auth-card" id="device-limit-card">
+    <h2 id="device-limit-title">Too many devices signed in</h2>
+    <p class="auth-sub">You're already signed in on 6 devices — AnchorTrakk's limit. Choose one below to sign out and continue on this device, or cancel to leave things as they are.</p>
+    <div class="card-list" id="device-limit-list"></div>
+    <button type="button" class="auth-link" id="device-limit-cancel">Cancel sign-in</button>
+  </div>
+</div>
+
 <!-- Change password — opened from the "🔑 Change password" button in
      Settings → Security. Requires the current password (re-verified against
      Firebase) before accepting a new one — see changePassword() in
@@ -947,7 +961,8 @@ window.__ftSettingsPage = true;
       </div>
 
       <div class="section-head" style="margin-top:20px;"><h3>💻 Trusted devices</h3></div>
-      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Every device that's signed in. Forgetting a device signs it out the next time it's opened — there's no live push for this, so it can take a moment rather than being instant.</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 6px;max-width:600px;">Every device that's signed in, up to 6 at a time. Forgetting a device signs it out the next time it's opened — there's no live push for this, so it can take a moment rather than being instant. Signing in on a 7th device asks you to pick one of these to sign out first.</p>
+      <p class="xl-status" id="trusted-devices-count" style="width:auto;margin:0 0 10px;"></p>
       <div class="card-list" id="trusted-devices-list"></div>
 
       <div class="section-head" style="margin-top:20px;"><h3>📜 Recent activity</h3></div>
