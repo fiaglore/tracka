@@ -227,6 +227,19 @@
   <div class="growth-tree-face" id="growth-tree-face">🌱</div>
   <div class="growth-tree-label" id="growth-tree-label">Seedling</div>
 </div>
+<!-- Side promo banner — a narrower, always-on-screen companion to the top
+     one above, docked to the edge of wide screens only (see the
+     max-width:1100px rule in styles.css) since there's no room for it
+     alongside the single-column phone layout. See initPremiumPromo() in
+     app.js — hidden/shown by the exact same rules as the top banner. -->
+<div class="premium-promo-side" id="premium-promo-side" hidden>
+  <button type="button" class="premium-promo-side-dismiss" id="premium-promo-side-dismiss" title="Dismiss" aria-label="Dismiss">✕</button>
+  <div class="premium-promo-side-icon" id="premium-promo-side-icon">💎</div>
+  <div class="premium-promo-side-eyebrow">💎 Premium</div>
+  <div class="premium-promo-side-title" id="premium-promo-side-title">Go Premium</div>
+  <div class="premium-promo-side-desc" id="premium-promo-side-desc">Unlock the full AnchorTrakk experience.</div>
+  <button type="button" class="premium-promo-side-cta" id="premium-promo-side-cta">Unlock →</button>
+</div>
 <!-- Shareable milestone card modal — see showMilestoneCard()/drawMilestoneCard() in app.js. -->
 <div class="milestone-modal-overlay" id="milestone-modal-overlay" hidden>
   <div class="milestone-modal">
@@ -275,6 +288,24 @@
         <div class="time-message" id="time-message">🌅 Loading...</div>
         <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
       </div>
+    </div>
+
+    <!-- Hidden by default (see initPremiumPromo() in app.js) — only shown
+         to a signed-in, non-premium account that hasn't dismissed it this
+         session, same "nothing for a Premium account to see" rule the
+         side banner below follows too. -->
+    <div class="premium-promo-banner" id="premium-promo-banner" hidden>
+      <button type="button" class="premium-promo-dismiss" id="premium-promo-dismiss" title="Dismiss" aria-label="Dismiss">✕</button>
+      <div class="premium-promo-content">
+        <div class="premium-promo-icon" id="premium-promo-icon">💎</div>
+        <div class="premium-promo-text">
+          <div class="premium-promo-eyebrow">💎 Premium</div>
+          <div class="premium-promo-title" id="premium-promo-title">Go Premium</div>
+          <div class="premium-promo-desc" id="premium-promo-desc">Unlock the full AnchorTrakk experience.</div>
+        </div>
+        <button type="button" class="premium-promo-cta" id="premium-promo-cta">💎 Go Premium</button>
+      </div>
+      <div class="premium-promo-dots" id="premium-promo-dots"></div>
     </div>
 
     <div class="meta-chips">

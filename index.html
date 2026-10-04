@@ -63,6 +63,22 @@
       </div>
     </section>
 
+    <section class="landing-premium" id="landing-premium">
+      <div class="landing-premium-inner">
+        <span class="landing-eyebrow">💎 Premium</span>
+        <h2>Unlock the full AnchorTrakk experience</h2>
+        <div class="landing-premium-rotator">
+          <span class="landing-premium-icon" id="landing-premium-icon">🌍</span>
+          <div class="landing-premium-rotator-text">
+            <div class="landing-premium-title" id="landing-premium-title">Auto-updating FX rates</div>
+            <div class="landing-premium-desc" id="landing-premium-desc">Live exchange rates, fetched automatically — never type one in by hand.</div>
+          </div>
+        </div>
+        <div class="landing-premium-dots" id="landing-premium-dots"></div>
+        <a class="landing-cta-primary" href="sign-in.html?mode=create">Create a free account</a>
+      </div>
+    </section>
+
     <section class="landing-final-cta">
       <div class="landing-final-cta-inner">
         <img class="landing-final-cta-photo" src="images/final-cta-planner.jpg" alt="" title="Photo by engin akyurt on Unsplash" loading="lazy" width="700" height="700">
@@ -78,5 +94,42 @@
 </div>
 
 <script src="pwa.js"></script>
+<script>
+// Rotates the "💎 Premium" section's feature callout — a miniature,
+// hard-coded copy of PREMIUM_PROMO_FEATURES from app.js, since this
+// landing page never loads app.js itself (it's the signed-out marketing
+// page, not the tracker).
+(function(){
+  "use strict";
+  var FEATURES = [
+    { icon:'🌍', title:'Auto-updating FX rates', desc:'Live exchange rates, fetched automatically — never type one in by hand.' },
+    { icon:'📈', title:'Net Worth tracking', desc:'Cash, savings, investments and debts rolled into one running number.' },
+    { icon:'💹', title:'Investments tab', desc:'Track holdings and watch their value over time.' },
+    { icon:'🎨', title:'Exclusive themes & dark mode', desc:'Two Premium-only themes, plus a proper dark mode for the whole app.' },
+    { icon:'🐾', title:'7 exclusive companions', desc:'Dog, Fox, Owl, Rabbit, Panda, Koala and Unicorn, unlocked instantly.' },
+    { icon:'🌦️', title:'6 exclusive weather effects', desc:'Snow, Thunderstorm, Spring, Summer, Tropical rain and Sandstorm, with matching sounds.' },
+    { icon:'🏦', title:'Bank statement import', desc:'Import an OPay, Moniepoint or Kuda statement straight in.' }
+  ];
+  var icon = document.getElementById('landing-premium-icon');
+  var title = document.getElementById('landing-premium-title');
+  var desc = document.getElementById('landing-premium-desc');
+  var dots = document.getElementById('landing-premium-dots');
+  if(!icon || !title || !desc || !dots) return;
+  var idx = 0;
+  function paint(){
+    var f = FEATURES[idx % FEATURES.length];
+    icon.textContent = f.icon; title.textContent = f.title; desc.textContent = f.desc;
+    Array.prototype.forEach.call(dots.children, function(d,i){ d.classList.toggle('active', i===(idx % FEATURES.length)); });
+  }
+  FEATURES.forEach(function(_,i){
+    var d = document.createElement('button');
+    d.type = 'button'; d.className = 'landing-premium-dot'; d.setAttribute('aria-label','Feature '+(i+1));
+    d.addEventListener('click', function(){ idx = i; paint(); });
+    dots.appendChild(d);
+  });
+  paint();
+  setInterval(function(){ idx++; paint(); }, 5000);
+})();
+</script>
 </body>
 </html>
