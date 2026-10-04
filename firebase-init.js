@@ -77,6 +77,7 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   updateProfile,
+  updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -239,6 +240,35 @@ window.Trakka = {
   },
   async resetPassword(username) {
     await sendPasswordResetEmail(auth, usernameToEmail(username));
+  },
+  // Settings → Security's "Reset password by email" — same reset email as
+  // the signed-out "Forgot password?" link, just usable from inside the app
+  // without re-typing a username, since the signed-in user is already known.
+  // Same delivery caveat as usernameToEmail() documents above: this only
+  // actually arrives if the account's "username" is a real email address.
+  async resetMyPassword() {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You need to be signed in to reset your password.");
+    const username = user.displayName;
+    const email = user.email || usernameToEmail(username || "");
+    await sendPasswordResetEmail(auth, email);
+  },
+  // Settings → Security's "Change password" — requires the CURRENT password
+  // (re-verified against Firebase itself, same reauthenticateWithCredential
+  // pattern setupPin()/setupBiometric() already use above) before Firebase
+  // will accept a new one. Anyone with a quick-unlock PIN or biometric unlock
+  // set up on this device should change THOSE too afterward — they each hold
+  // an independent encrypted copy of the OLD password (see the PIN/biometric
+  // design comments), which this does not touch.
+  async changePassword(currentPassword, newPassword) {
+    if (!newPassword || newPassword.length < 6) throw new Error("New password must be at least 6 characters.");
+    const user = auth.currentUser;
+    if (!user) throw new Error("You need to be signed in to change your password.");
+    const username = user.displayName;
+    if (!username) throw new Error("Could not determine your username — try signing in again.");
+    const email = user.email || usernameToEmail(username);
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(email, currentPassword));
+    await updatePassword(user, newPassword);
   },
   onAuthChange(cb) {
     return onAuthStateChanged(auth, cb);
