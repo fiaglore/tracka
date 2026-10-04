@@ -72,6 +72,10 @@ window.__ftStart = function(){
   // this gate is "on" in the sense that it locks the feature for everyone, with no self-serve way
   // to unlock it — that's expected for now, not a bug.
   const PREMIUM_FEATURE_KEYS = ['bankStatementImport'];
+  // Kept in sync by hand with the same-named constant in the sign-in IIFE
+  // further down (a separate top-level scope — see begin()'s trusted-device
+  // check) — this copy is only for the "X of 6 devices" count below.
+  const MAX_TRUSTED_DEVICES = 6;
   function isFeatureUnlocked(key){
     if(!PREMIUM_FEATURE_KEYS.includes(key)) return true;
     return !!(cloud.entitlements && cloud.entitlements.premium);
@@ -2383,6 +2387,8 @@ window.__ftStart = function(){
     if(devicesEl){
       const devices = Array.isArray(cloud.trustedDevices) ? cloud.trustedDevices.slice().sort((a,b)=>b.lastSeen-a.lastSeen) : [];
       const thisId = window.Trakka && window.Trakka.deviceId ? window.Trakka.deviceId() : null;
+      const countEl = document.getElementById('trusted-devices-count');
+      if(countEl) countEl.textContent = devices.length+' of '+MAX_TRUSTED_DEVICES+' devices used';
       devicesEl.innerHTML = devices.length===0
         ? '<div class="empty-msg">No devices recorded yet.</div>'
         : devices.map(d=>`<div class="item-row">
@@ -2505,8 +2511,14 @@ window.__ftStart = function(){
       window.Trakka.logSecurityEvent(window.__ftUid, 'device_removed', '').catch(function(){});
       // Forgetting the device you're sitting at right now doesn't need to
       // wait for the next-load trust-check above — sign it out immediately.
-      if(isThisDevice) window.Trakka.signOutUser();
-      else renderSecurityPanel();
+      if(isThisDevice){
+        // Clears this device's own "ever trusted" flag too, so signing
+        // back in right here afterward is treated as a fresh device again
+        // (free to re-register) rather than wrongly flagged as "forgotten
+        // remotely" — see begin()'s trusted-device check.
+        try{ localStorage.removeItem('trakkaDeviceTrustedFor_'+window.__ftUid); }catch(e){}
+        window.Trakka.signOutUser();
+      } else renderSecurityPanel();
     }).catch(function(err){ console.error('Forget device failed:', err); });
   });
 
@@ -6755,6 +6767,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🐛 Fixed: couldn\'t sign in on a second device', body: 'Signing in on any device beyond your first was wrongly treated as "forgotten" and signed straight back out — a real bug, not a limit. That\'s fixed, and Settings → Security → "💻 Trusted devices" now supports up to 6 devices at once, with a running count. Signing in on a 7th device asks you to pick one of the existing 6 to sign out first, instead of silently failing.' },
     { title: '💎 Go Premium — bank transfer now live', body: 'Settings → "💎 Go Premium" shows AnchorTrakk\'s bank account for a one-time transfer — upload a receipt as proof and it\'s reviewed by hand, usually within a day. No card payments yet, but this is the first real way to actually unlock Premium features like 🏦 Bank statement import and 📈 Net Worth.' },
     { title: '✨ Bank statement import is now a Premium feature', body: 'Importing an OPay, Moniepoint or Kuda statement (Settings → "📁 Data") now needs a Premium subscription. Premium billing isn\'t live yet, so the feature is locked for everyone for the moment — this is groundwork ahead of Premium actually launching, not something you can unlock yet.' },
     { title: '🌱 A new name: AnchorTrakk', body: 'Trakka is now AnchorTrakk — same app, same account, same data, same logo. Nothing about how it works has changed, just what it\'s called.' },
@@ -7034,6 +7047,9 @@ window.__ftStart = function(){
   'use strict';
   const $ = id => document.getElementById(id);
   let mode = 'signin', started = false;
+  // How many devices can be trusted at once per account — see begin()'s
+  // trusted-device check below and openDeviceLimitGate() further down.
+  const MAX_TRUSTED_DEVICES = 6;
   // Set right before a plain password sign-in, so begin() below knows to
   // challenge for the PIN as an extra security step — but NOT when the
   // auth-state change instead came from a PIN-unlock or biometric-unlock
@@ -7279,18 +7295,47 @@ window.__ftStart = function(){
     // A device "forgotten" from Settings → Security on another device finds
     // out here, the next time it actually loads — there's no live push for
     // this, same "instant-ish, not exact" trade-off the rest of the
-    // notification system already makes. An account with no trustedDevices
-    // list at all (nobody's ever opened Security, or this is a brand-new
-    // sign-in about to register itself below) is never blocked by this.
+    // notification system already makes.
+    //
+    // "Not in the trustedDevices list" alone can't mean "forgotten" — a
+    // brand-new SECOND device signing in for the first time looks exactly
+    // the same (it's never been added yet either), and treating both cases
+    // the same way was a real bug: nobody could ever sign in on a second
+    // device at all, since it got signed straight back out before
+    // registerDevice() below ever got a chance to add it. everTrustedHere
+    // (a per-account flag this one device sets for itself, see
+    // registerDevice()'s .then() below) is what actually distinguishes
+    // "forgotten" from "never registered yet".
     if(window.Trakka && window.Trakka.deviceId){
-      const trusted = window.__ftCloudData.trustedDevices;
-      if(Array.isArray(trusted) && trusted.length>0 && !trusted.some(function(d){ return d.id===window.Trakka.deviceId(); })){
+      const deviceId = window.Trakka.deviceId();
+      const trusted = Array.isArray(window.__ftCloudData.trustedDevices) ? window.__ftCloudData.trustedDevices : [];
+      const alreadyTrusted = trusted.some(function(d){ return d.id===deviceId; });
+      let everTrustedHere = false;
+      try{ everTrustedHere = localStorage.getItem('trakkaDeviceTrustedFor_'+user.uid) === '1'; }catch(e){}
+      if(!alreadyTrusted && everTrustedHere){
         await window.Trakka.signOutUser();
         setError('This device was signed out from Settings → Security on another device.');
         hideAuthLoading();
         started = false;
         window.__ftUid = null;
         return;
+      }
+      // A genuinely new device, but every slot up to MAX_TRUSTED_DEVICES is
+      // already taken — ask which existing device to sign out, rather than
+      // either silently bumping the oldest one or just blocking the sign-in
+      // outright.
+      if(!alreadyTrusted && trusted.length >= MAX_TRUSTED_DEVICES){
+        hideAuthLoading();
+        const chosenId = await new Promise(function(resolve){ openDeviceLimitGate(trusted, resolve); });
+        if(!chosenId){
+          await window.Trakka.signOutUser();
+          setError('You already have '+MAX_TRUSTED_DEVICES+' trusted devices. Remove one from Settings → Security, then sign in again.');
+          started = false;
+          window.__ftUid = null;
+          return;
+        }
+        await window.Trakka.forgetDevice(user.uid, chosenId).catch(function(){});
+        showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
       }
     }
     // ===== Post-password PIN challenge (extra security step) =====
@@ -7323,7 +7368,12 @@ window.__ftStart = function(){
     window.__ftStart();
     // Fire-and-forget — neither should ever block getting into the app.
     if(window.Trakka && window.Trakka.registerDevice){
-      window.Trakka.registerDevice(user.uid).catch(function(e){ console.warn('Device registration failed:', e); });
+      window.Trakka.registerDevice(user.uid).then(function(){
+        // Marks this device as legitimately registered for THIS account, so
+        // a future sign-in here can tell "forgotten remotely" apart from
+        // "never registered yet" — see begin()'s trusted-device check above.
+        try{ localStorage.setItem('trakkaDeviceTrustedFor_'+user.uid, '1'); }catch(e){}
+      }).catch(function(e){ console.warn('Device registration failed:', e); });
       window.Trakka.logSecurityEvent(user.uid, 'signin', window.Trakka.deviceLabel()).catch(function(){});
     }
     // Nudge toward setting up a security PIN — every sign-in, not just
@@ -7794,6 +7844,40 @@ window.__ftStart = function(){
     pinGateResolve = null;
     if(cb) cb(passed);
   }
+
+  // ===== Device limit gate =====
+  // Opened from begin() above when a genuinely new device tries to sign in
+  // and every one of MAX_TRUSTED_DEVICES slots is already taken. Resolves
+  // with the device id the person chose to sign out, or null if they
+  // cancelled instead — same open/resolve-callback shape as the PIN gate
+  // above, since this also has to pause mid-sign-in for a modal choice.
+  var deviceLimitResolve = null;
+  function escapeDeviceLabel(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function openDeviceLimitGate(devices, resolve){
+    var overlay = $('device-limit-overlay');
+    var listEl = $('device-limit-list');
+    if(!overlay || !listEl){ resolve(null); return; } // markup missing — fail closed, same as a cancelled sign-in
+    listEl.innerHTML = devices.slice().sort(function(a,b){ return a.lastSeen-b.lastSeen; }).map(function(d){
+      return '<div class="item-row"><div class="item-label">'+escapeDeviceLabel(d.label)+
+        '<span class="sub">Last seen '+new Date(d.lastSeen).toLocaleString()+'</span></div>'+
+        '<button type="button" class="xl-btn primary device-limit-choose-btn" data-device-id="'+escapeDeviceLabel(d.id)+'">Sign out &amp; use this device</button></div>';
+    }).join('');
+    deviceLimitResolve = resolve;
+    overlay.hidden = false;
+  }
+  function closeDeviceLimitGate(chosenId){
+    var overlay = $('device-limit-overlay');
+    if(overlay) overlay.hidden = true;
+    var cb = deviceLimitResolve;
+    deviceLimitResolve = null;
+    if(cb) cb(chosenId || null);
+  }
+  document.addEventListener('click', function(e){
+    var chooseBtn = e.target.closest ? e.target.closest('.device-limit-choose-btn') : null;
+    if(chooseBtn){ closeDeviceLimitGate(chooseBtn.dataset.deviceId); return; }
+    if(e.target && e.target.id === 'device-limit-cancel') closeDeviceLimitGate(null);
+  });
+
   window.__ftRequirePin = function(message){
     return new Promise(function(resolve){ openPinGate(message, resolve); });
   };
