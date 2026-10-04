@@ -207,6 +207,52 @@ async function handleReceiptGet(request, env, uid) {
   return new Response(object.body, { headers });
 }
 
+// ----- live FX rates (Premium "auto-updating FX rates" feature) -----
+// No auth needed — this is the same public exchange-rate data for every
+// caller, nothing account-specific, same trust level as fetching any other
+// public API. Cached per-isolate for a few minutes (mirroring the Google
+// signing-keys cache above) so a page with several foreign currencies
+// doesn't trigger a separate upstream call per currency, and so Premium
+// users opening Settings → Currency rates repeatedly within the same
+// warm isolate don't re-hit the upstream API every time.
+const FX_CACHE_MS = 5 * 60 * 1000;
+let fxCache = {}; // { [base]: { data, cachedAt } }
+
+async function handleFxRates(request, env) {
+  const url = new URL(request.url);
+  const base = (url.searchParams.get("base") || "USD").toUpperCase();
+  if (!/^[A-Z]{3}$/.test(base)) {
+    return jsonResponse({ error: "Invalid base currency code." }, 400);
+  }
+
+  const now = Date.now();
+  const cached = fxCache[base];
+  if (cached && now - cached.cachedAt < FX_CACHE_MS) {
+    return jsonResponse(cached.data);
+  }
+
+  let res;
+  try {
+    res = await fetch("https://open.er-api.com/v6/latest/" + base);
+  } catch (e) {
+    return jsonResponse({ error: "Could not reach the exchange-rate service." }, 502);
+  }
+  if (!res.ok) return jsonResponse({ error: "Could not reach the exchange-rate service." }, 502);
+
+  const raw = await res.json().catch(function () { return null; });
+  if (!raw || raw.result !== "success" || !raw.rates || typeof raw.rates !== "object") {
+    return jsonResponse({ error: "The exchange-rate service returned an unexpected response." }, 502);
+  }
+
+  const data = {
+    base: base,
+    rates: raw.rates,
+    updatedAt: raw.time_last_update_unix ? raw.time_last_update_unix * 1000 : now
+  };
+  fxCache[base] = { data: data, cachedAt: now };
+  return jsonResponse(data);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -225,6 +271,9 @@ export default {
     }
     if (url.pathname.startsWith("/api/receipt/") && request.method === "GET") {
       return handleReceiptGet(request, env, url.pathname.slice("/api/receipt/".length));
+    }
+    if (url.pathname === "/api/fxrates" && request.method === "GET") {
+      return handleFxRates(request, env);
     }
 
     return env.ASSETS.fetch(request);
