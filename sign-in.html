@@ -138,6 +138,25 @@
   </div>
 </div>
 
+<!-- Change password — opened from the "🔑 Change password" button in
+     Settings → Security. Requires the current password (re-verified against
+     Firebase) before accepting a new one — see changePassword() in
+     firebase-init.js. -->
+<div id="password-change-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="password-change-title">
+  <div class="auth-card" id="password-change-card">
+    <h2 id="password-change-title">Change password</h2>
+    <p class="auth-sub">If a quick-unlock PIN or biometric unlock is set up on this device, it'll be cleared afterward (each holds an encrypted copy of your OLD password) — set it up again with your new one if you'd like.</p>
+    <form id="password-change-form" autocomplete="off" novalidate>
+      <label class="auth-field">Current password<input id="password-change-current" type="password" autocomplete="current-password"></label>
+      <label class="auth-field">New password (6+ characters)<input id="password-change-new" type="password" autocomplete="new-password"></label>
+      <label class="auth-field">Confirm new password<input id="password-change-new2" type="password" autocomplete="new-password"></label>
+      <div class="auth-error" id="password-change-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="password-change-save">Save new password</button>
+    </form>
+    <button type="button" class="auth-link" id="password-change-close">Cancel</button>
+  </div>
+</div>
+
 <!-- Guided first-time tour — see openOnboarding()/closeOnboarding() in
      app.js. Shown automatically once per account (cloud.onboardingSeen),
      and replayable any time from Settings ("🧭 Take the tour"). Purely
@@ -872,6 +891,15 @@
     <div class="settings-subpage" id="settings-page-security" data-settings-page="security" hidden>
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>🔐 Security</h2></div>
+
+      <div class="section-head"><h3>🔑 Account password</h3></div>
+      <div class="toolbar">
+        <button class="xl-btn primary" id="password-change-open" type="button" title="Change your password (you'll need your current one)">🔑 Change password</button>
+        <button class="xl-btn" id="password-reset-email-btn" type="button" title="Email yourself a link to set a new password">✉️ Reset password by email</button>
+        <div class="xl-status" id="password-reset-status"></div>
+      </div>
+
+      <div class="section-head" style="margin-top:20px;"><h3>🔢 Security PIN &amp; biometrics</h3></div>
       <div class="toolbar">
         <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a PIN that unlocks the tracker after auto sign-out, confirms sign-in, deleting an entry, and revealing hidden data">🔢 Set up security PIN</button>
         <button class="xl-btn" id="bio-setup-open" type="button" hidden title="Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader">🫆 Set up biometric unlock</button>

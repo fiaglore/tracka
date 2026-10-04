@@ -2368,7 +2368,8 @@ window.__ftStart = function(){
   // settings list, refreshed on every render() the same as everything else.
   const SECURITY_EVENT_LABELS = {
     signin: '🔓 Signed in', pin_setup: '🔢 PIN set up', pin_removed: '🔢 PIN removed',
-    biometric_setup: '🫆 Biometric unlock set up', device_removed: '🗑️ Device removed'
+    biometric_setup: '🫆 Biometric unlock set up', device_removed: '🗑️ Device removed',
+    password_changed: '🔑 Password changed'
   };
   function fmtSecurityTs(ts){
     return new Date(ts).toLocaleString('en-GB', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -6334,6 +6335,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🔑 Change your password, or reset it by email, right from Settings', body: 'Settings → "🔐 Security" now has a "🔑 Change password" button (needs your current password, same as before) and a "✉️ Reset password by email" button — the same reset-link flow the signed-out "Forgot password?" link already used, now usable without signing out first. If a security PIN or biometric unlock is set up on this device, changing your password clears them automatically, since each holds an encrypted copy of the old one — set them back up with your new password whenever you like.' },
     { title: '🔢 Your PIN is now a security PIN, not just a quick-unlock shortcut', body: 'The PIN set up in Settings → "🔐 Security" used to only skip retyping your password after an auto sign-out. It now also confirms three more sensitive moments: finishing a plain password sign-in (an extra step right after your password, like a second factor), clicking "👁️ Show data" to reveal anything hidden by "🙈 Hide data" mode, and deleting any logged entry — a debt, income source, gift goal, savings entry, investment, or expense. Biometric unlock works as a faster alternative everywhere the PIN is asked, including these new spots. None of this applies until a PIN is actually set up — on a device with no PIN configured, everything works exactly as before.' },
     { title: '🙈 Hide data now blurs your greeting and notification history too', body: 'Turning on "🙈 Hide data" used to leave two spots showing real figures in plain sentences: the time-of-day greeting at the top of the page ("You\'ve logged ₦X in expenses so far today") and the 🔔 bell\'s notification history (debt-cleared, budget-threshold and badge entries that mention an amount). Both are now blurred along with everything else while privacy mode is on. The shareable milestone card (the one offered when a debt is cleared or a savings goal is hit) is also skipped entirely while hiding data is on, instead of showing a blurred-but-still-downloadable image.' },
     { title: '⛄ Pick a debt payoff strategy — Snowball, Avalanche, or your own pace', body: 'The Debts tab\'s payoff plan now offers three ways to tackle multiple debts: "🧘 My own pace" (no suggested order, exactly as before), "⛄ Snowball" (pay minimums on everything, then throw every extra at your smallest balance first, for quick motivational wins), or "⚡ Avalanche" (same idea, but targeting your highest interest rate first, for the cheapest route overall). Each debt can have an optional interest rate set on it — the picked strategy reorders the list, badges the one to focus on first, and shows roughly how many months sooner you\'d be debt-free by rolling payments forward versus paying each debt separately.' },
@@ -7199,6 +7201,77 @@ window.__ftStart = function(){
   $('bio-setup-remove').addEventListener('click', function(){
     if(window.Trakka && window.Trakka.clearBiometric) window.Trakka.clearBiometric();
     closeBioSetup();
+  });
+
+  // ----- account password: change / reset-by-email -----
+  function openPasswordChange(){
+    $('password-change-current').value = '';
+    $('password-change-new').value = '';
+    $('password-change-new2').value = '';
+    $('password-change-error').textContent = '';
+    $('password-change-overlay').hidden = false;
+    setTimeout(function(){ $('password-change-current').focus(); }, 50);
+  }
+  function closePasswordChange(){ $('password-change-overlay').hidden = true; }
+  var passwordChangeOpenBtn = $('password-change-open');
+  if(passwordChangeOpenBtn) passwordChangeOpenBtn.addEventListener('click', openPasswordChange);
+  var passwordChangeCloseBtn = $('password-change-close');
+  if(passwordChangeCloseBtn) passwordChangeCloseBtn.addEventListener('click', closePasswordChange);
+  var passwordChangeForm = $('password-change-form');
+  if(passwordChangeForm) passwordChangeForm.addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('password-change-error');
+    errEl.textContent = '';
+    var current = $('password-change-current').value;
+    var next = $('password-change-new').value;
+    var next2 = $('password-change-new2').value;
+    if(!current){ errEl.textContent = 'Enter your current password.'; return; }
+    if(next.length < 6){ errEl.textContent = 'New password must be at least 6 characters.'; return; }
+    if(next !== next2){ errEl.textContent = 'The two new passwords do not match.'; return; }
+    var btn = $('password-change-save');
+    btn.disabled = true;
+    try{
+      await window.Trakka.changePassword(current, next);
+      // Each holds an independent encrypted copy of the OLD password (see
+      // changePassword()'s comment in firebase-init.js), so both would
+      // otherwise silently try — and fail — to sign in with it next time.
+      var clearedPin = !!(window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
+      var clearedBio = !!(window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+      if(clearedPin && window.Trakka.clearPin) await window.Trakka.clearPin();
+      if(clearedBio && window.Trakka.clearBiometric) window.Trakka.clearBiometric();
+      if(window.__ftUid && window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(window.__ftUid, 'password_changed', window.Trakka.deviceLabel()).catch(function(){});
+      closePasswordChange();
+      updatePinSetupOpenButton();
+      updateBioSetupOpenButton();
+      var clearedWhat = [clearedPin && 'security PIN', clearedBio && 'biometric unlock'].filter(Boolean).join(' and ');
+      var note = clearedWhat ? ' Your '+clearedWhat+' on this device '+((clearedPin&&clearedBio)?'were':'was')+' cleared — set '+((clearedPin&&clearedBio)?'them':'it')+' up again if you\'d like.' : '';
+      alert('Password changed.'+note);
+    }catch(e){
+      console.error(e);
+      errEl.textContent = friendlyAuthError(e);
+    }finally{
+      btn.disabled = false;
+    }
+  });
+
+  var passwordResetBtn = $('password-reset-email-btn');
+  if(passwordResetBtn) passwordResetBtn.addEventListener('click', async function(){
+    var statusEl = $('password-reset-status');
+    if(!confirm('Send a password-reset link to the email address on this account?')) return;
+    passwordResetBtn.disabled = true;
+    if(statusEl){ statusEl.textContent = 'Sending…'; statusEl.className = 'xl-status'; }
+    try{
+      await window.Trakka.resetMyPassword();
+      // Deliberately the same non-revealing message as the signed-out
+      // "Forgot password?" link — see usernameToEmail()'s comment in
+      // firebase-init.js for why this doesn't always actually deliver.
+      if(statusEl){ statusEl.textContent = 'If your account has a real email address on file, a reset link is on its way.'; statusEl.className = 'xl-status ok'; }
+    }catch(e){
+      console.error(e);
+      if(statusEl){ statusEl.textContent = friendlyAuthError(e); statusEl.className = 'xl-status err'; }
+    }finally{
+      passwordResetBtn.disabled = false;
+    }
   });
 
   // ----- security PIN gate -----
