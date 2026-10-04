@@ -128,6 +128,76 @@ window.__ftStart = function(){
     showAppNotification('🔒 Daily log limit reached', msg);
   }
 
+  // ===== Premium promo banners (top + side, Overview only) =====
+  // One shared list of blurbs, cycled through by both the top banner and
+  // the side banner (see initPremiumPromo below) — kept here, next to the
+  // rest of the Premium gating, as the one place that describes what
+  // Premium actually includes.
+  const PREMIUM_PROMO_FEATURES = [
+    { icon:'🌍', title:'Auto-updating FX rates', desc:'Live exchange rates, fetched automatically — never type one in by hand.' },
+    { icon:'📈', title:'Net Worth tracking', desc:'Cash, savings, investments and debts rolled into one running number.' },
+    { icon:'💹', title:'Investments tab', desc:'Track holdings and watch their value over time.' },
+    { icon:'🌐', title:'Multi-currency accounts', desc:'Track any income, debt, gift, investment or savings account in a different currency.' },
+    { icon:'🎨', title:'Exclusive themes', desc:'Obsidian and Champagne — two themes reserved for Premium.' },
+    { icon:'🌙', title:'Dark mode', desc:'Switch the whole app to a proper dark theme.' },
+    { icon:'🐾', title:'7 exclusive companions', desc:'Dog, Fox, Owl, Rabbit, Panda, Koala and Unicorn, unlocked instantly.' },
+    { icon:'🌦️', title:'6 exclusive weather effects', desc:'Snow, Thunderstorm, Spring, Summer, Tropical rain and Sandstorm, with matching sounds.' },
+    { icon:'📝', title:'Higher daily log limits', desc:'300 entries a day instead of 100 — or truly unlimited with a one-time add-on.' },
+    { icon:'🏦', title:'Bank statement import', desc:'Import an OPay, Moniepoint or Kuda statement straight in.' }
+  ];
+  function initPremiumPromo(){
+    const top = document.getElementById('premium-promo-banner');
+    const side = document.getElementById('premium-promo-side');
+    if(!top && !side) return;
+    let topDismissed = false, sideDismissed = false;
+    try{ topDismissed = sessionStorage.getItem('trakkaPromoTopDismissedV1')==='1'; }catch(e){}
+    try{ sideDismissed = sessionStorage.getItem('trakkaPromoSideDismissedV1')==='1'; }catch(e){}
+    const goPremium = function(){ location.href = 'settings.html#premium'; };
+    let idx = 0, timer = null;
+    function paint(){
+      const f = PREMIUM_PROMO_FEATURES[idx % PREMIUM_PROMO_FEATURES.length];
+      ['premium-promo-icon','premium-promo-side-icon'].forEach(function(id){ const el=document.getElementById(id); if(el) el.textContent=f.icon; });
+      ['premium-promo-title','premium-promo-side-title'].forEach(function(id){ const el=document.getElementById(id); if(el) el.textContent=f.title; });
+      ['premium-promo-desc','premium-promo-side-desc'].forEach(function(id){ const el=document.getElementById(id); if(el) el.textContent=f.desc; });
+      const dots = document.getElementById('premium-promo-dots');
+      if(dots){
+        Array.prototype.forEach.call(dots.children, function(d,i){ d.classList.toggle('active', i===(idx % PREMIUM_PROMO_FEATURES.length)); });
+      }
+    }
+    function advance(){ idx++; paint(); }
+    // refreshPremiumPromo() is re-run every render() (see window.__refreshPremiumPromo
+    // below) purely to react to a premium status change mid-session — it never
+    // restarts the rotation if it's already running, same "idempotent toggle"
+    // shape as refreshThemeLocks()/refreshPetLocks() elsewhere.
+    function refresh(){
+      const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+      if(top) top.hidden = isPremium || topDismissed;
+      if(side) side.hidden = isPremium || sideDismissed;
+      const anyVisible = (top && !top.hidden) || (side && !side.hidden);
+      if(anyVisible && !timer){
+        const dots = document.getElementById('premium-promo-dots');
+        if(dots && !dots.children.length){
+          PREMIUM_PROMO_FEATURES.forEach(function(_,i){
+            const d = document.createElement('button');
+            d.type='button'; d.className='premium-promo-dot'; d.setAttribute('aria-label','Feature '+(i+1));
+            d.addEventListener('click', function(){ idx=i; paint(); });
+            dots.appendChild(d);
+          });
+        }
+        paint();
+        timer = setInterval(advance, 5000);
+      } else if(!anyVisible && timer){
+        clearInterval(timer); timer = null;
+      }
+    }
+    window.__refreshPremiumPromo = refresh;
+    [['premium-promo-dismiss', function(){ topDismissed=true; try{ sessionStorage.setItem('trakkaPromoTopDismissedV1','1'); }catch(e){} refresh(); }],
+     ['premium-promo-side-dismiss', function(){ sideDismissed=true; try{ sessionStorage.setItem('trakkaPromoSideDismissedV1','1'); }catch(e){} refresh(); }],
+     ['premium-promo-cta', goPremium], ['premium-promo-side-cta', goPremium]
+    ].forEach(function(pair){ const el=document.getElementById(pair[0]); if(el) el.addEventListener('click', pair[1]); });
+    refresh();
+  }
+
   // ===== Display settings (currency + the day each month starts) =====
   const CURRENCIES = [
     {sym:'$',code:'USD'},{sym:'£',code:'GBP'},{sym:'€',code:'EUR'},{sym:'₦',code:'NGN'},{sym:'GH₵',code:'GHS'},
@@ -3745,6 +3815,7 @@ window.__ftStart = function(){
     if(window.__refreshThemeLocks) window.__refreshThemeLocks();
     if(window.__refreshWeatherLocks) window.__refreshWeatherLocks();
     if(window.__refreshPetLocks) window.__refreshPetLocks();
+    if(window.__refreshPremiumPromo) window.__refreshPremiumPromo();
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
       // Icon-only on Overview, and only the ones actually earned — with 100+
@@ -7164,6 +7235,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 A Premium spotlight banner', body: 'A rotating banner now highlights what Premium actually includes — Auto FX rates, Net Worth, Investments, exclusive themes & dark mode, exclusive pets & weather effects, and more — at the top of the tracker, plus a smaller version docked to the side on a wide screen. Both disappear once you\'re Premium, and either can be dismissed for the rest of your visit with its ✕.' },
     { title: '🌌 3 new pets and weather effects — unlocked by achievements', body: 'Three new pet companions — 🐉 Dragon (reach a ₦1,000,000 cumulative balance), 🐺 Wolf (hit a 100-day streak) and 🦚 Peacock (reach Level 40) — and three new weather effects with matching ambient sounds — 🌌 Aurora (reach Level 60), 🌈 Rainbow (complete every tracked month) and ✨ Starry night (hit a 200-day streak) — join the picker in Settings, each unlocked the same way themes already are: by playing, not paying.' },
     { title: '💎 Weather, sounds, dark mode and some pets are now Premium', body: 'Half of the weather effects — ❄️ Snow, ⛈️ Thunderstorm, 🌸 Spring, ☀️ Summer, 🌴 Tropical rain, 🏜️ Sandstorm — along with their matching ambient sounds, are now Premium, picked for being the most elaborate ones. 🌙 Dark mode is now Premium too. And 7 of the pet companions — 🐶 Dog, 🦊 Fox, 🦉 Owl, 🐰 Rabbit, 🐼 Panda, 🐨 Koala, 🦄 Unicorn — join them, while your default 🐱 Cat and 7 others stay free. Nothing already picked gets taken away — this only affects switching to a locked one going forward.' },
     { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources and 3 gift goals — anything you already have stays exactly as it is, this only limits adding more. The daily log caps at 100 free entries, 300 on Premium, or truly unlimited with a one-time ₦3,500 payment (Settings → "💎 Go Premium") on top of Premium.' },
@@ -7441,6 +7513,8 @@ window.__ftStart = function(){
     saveCloudField('profileNudgeShown', true);
     logAppNotification('👤', 'Tell us about yourself', 'Add your name and birthday in Settings → Profile to personalize AnchorTrakk and get a birthday shoutout.');
   }
+
+  initPremiumPromo();
 };
 
 
@@ -8715,6 +8789,14 @@ window.__ftStart = function(){
       var backBtn = p.querySelector('.settings-back-btn');
       if(backBtn) backBtn.addEventListener('click', showSettingsMenu);
     });
+    // Deep link from the promo banners' "Go Premium" button (settings.html#premium)
+    // straight onto that subpage, instead of always landing on the menu first.
+    var hashId = (location.hash || '').replace('#','');
+    if(hashId && subpages.some(function(p){ return p.getAttribute('data-settings-page')===hashId; })){
+      menu.hidden = true;
+      subpages.forEach(function(p){ p.hidden = (p.getAttribute('data-settings-page') !== hashId); });
+      if(hashId==='premium' && typeof window.refreshPremiumAdminList==='function') window.refreshPremiumAdminList();
+    }
   })();
 
   /* ---------------- Page navigation ---------------- */
