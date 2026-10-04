@@ -1495,6 +1495,14 @@ footer{padding:26px 0 36px; color:var(--muted); font-size:11.5px; border-top:1px
 #pin-setup-overlay .auth-link{margin-top:10px;}
 #pin-unlock-card .auth-link{margin-top:10px;}
 
+/* Same fixed-overlay pattern as #pin-setup-overlay above — the security PIN
+   gate confirming a sensitive action (deleting an entry, revealing hidden
+   data, finishing a password sign-in). See openPinGate() in app.js. */
+#pin-gate-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.4);}
+#pin-gate-overlay .auth-card{max-width:380px;}
+#pin-gate-overlay .auth-submit{margin-top:6px;}
+#pin-gate-overlay .auth-link{margin-top:10px;}
+
 #onboarding-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.4);}
 .onboarding-card{max-width:400px; text-align:center;}
 .onboarding-icon{font-size:40px; line-height:1; margin-bottom:6px;}

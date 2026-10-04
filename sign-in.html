@@ -66,12 +66,12 @@
   </div>
   <!-- Shown instead of #auth-form-card right after an auto sign-out (idle
        timeout or session cap — never a manual "🔒 Sign out" click), when a
-       quick-unlock PIN is cached on this device. See auto-logout.js and
+       security PIN is cached on this device. See auto-logout.js and
        app.js's auth IIFE for how that's decided and this card gets swapped in. -->
   <div class="auth-card" id="pin-unlock-card" hidden>
     <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;"><img src="icon-192.png" alt="Trakka"></a>
     <h2>Welcome back</h2>
-    <p class="auth-sub" id="pin-unlock-sub">You were signed out. Enter your quick-unlock PIN to continue.</p>
+    <p class="auth-sub" id="pin-unlock-sub">You were signed out. Enter your security PIN to continue.</p>
     <form id="pin-unlock-form" autocomplete="off" novalidate>
       <label class="auth-field">PIN<input id="pin-unlock-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12"></label>
       <div class="auth-error" id="pin-unlock-error" role="alert"></div>
@@ -82,14 +82,14 @@
   </div>
 </div>
 
-<!-- Quick-unlock PIN setup/change/remove — opened from the "🔢 Quick-unlock
-     PIN" button in the Settings page's "Security" section, not part of the
+<!-- Security PIN setup/change/remove — opened from the "🔢 Security PIN"
+     button in the Settings page's "Security" section, not part of the
      sign-in gate above (this only ever opens while already signed in).
      Same fixed-overlay/.auth-card pattern as #idle-warning-overlay. -->
 <div id="pin-setup-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pin-setup-title">
   <div class="auth-card" id="pin-setup-card">
-    <h2 id="pin-setup-title">Quick-unlock PIN</h2>
-    <p class="auth-sub">A short PIN to get back in after you're auto signed-out, without retyping your password on this device. It doesn't replace your account password as what actually secures your account — think of it as a shortcut, not a stronger lock.</p>
+    <h2 id="pin-setup-title">Security PIN</h2>
+    <p class="auth-sub">A short PIN, set up on this device, used to: get back in after you're auto signed-out without retyping your password, confirm a plain password sign-in as an extra step, reveal anything hidden by "🙈 Hide data," and confirm deleting a logged entry. It doesn't replace your account password as what actually secures your account — think of it as an extra, device-level check, not a cryptographic second factor.</p>
     <form id="pin-setup-form" autocomplete="off" novalidate>
       <label class="auth-field">Current password<input id="pin-setup-password" type="password" autocomplete="current-password"></label>
       <label class="auth-field">New PIN (6+ digits)<input id="pin-setup-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12"></label>
@@ -108,7 +108,7 @@
 <div id="bio-setup-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="bio-setup-title">
   <div class="auth-card" id="bio-setup-card">
     <h2 id="bio-setup-title">Biometric unlock</h2>
-    <p class="auth-sub">Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader to get back in after you're auto signed-out — set up separately on each device, since it's tied to this device's own hardware.</p>
+    <p class="auth-sub">Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader anywhere the security PIN is asked — getting back in after you're auto signed-out, confirming a password sign-in, revealing hidden data, or deleting an entry — set up separately on each device, since it's tied to this device's own hardware.</p>
     <form id="bio-setup-form" autocomplete="off" novalidate>
       <label class="auth-field">Current password<input id="bio-setup-password" type="password" autocomplete="current-password"></label>
       <div class="auth-error" id="bio-setup-error" role="alert"></div>
@@ -116,6 +116,25 @@
     </form>
     <button type="button" class="auth-link" id="bio-setup-remove" hidden>Remove from this device</button>
     <button type="button" class="auth-link" id="bio-setup-close">Cancel</button>
+  </div>
+</div>
+
+<!-- Security PIN gate — confirms a sensitive action (revealing hidden data,
+     deleting an entry, or finishing a plain password sign-in) with the PIN,
+     or biometric unlock as a faster alternative. Opened by openPinGate() in
+     app.js; a no-op there if this device has no PIN configured, so this
+     overlay only ever actually appears for someone who's set one up. -->
+<div id="pin-gate-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="pin-gate-title">
+  <div class="auth-card" id="pin-gate-card">
+    <h2 id="pin-gate-title">Confirm with your PIN</h2>
+    <p class="auth-sub" id="pin-gate-message">Enter your PIN to continue.</p>
+    <form id="pin-gate-form" autocomplete="off" novalidate>
+      <label class="auth-field">PIN<input id="pin-gate-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12"></label>
+      <div class="auth-error" id="pin-gate-error" role="alert"></div>
+      <button type="submit" class="auth-submit" id="pin-gate-submit">Confirm</button>
+    </form>
+    <button type="button" class="auth-link" id="pin-gate-biometric-btn" hidden>🫆 Use biometric unlock instead</button>
+    <button type="button" class="auth-link" id="pin-gate-cancel">Cancel</button>
   </div>
 </div>
 
@@ -854,7 +873,7 @@
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>🔐 Security</h2></div>
       <div class="toolbar">
-        <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a short PIN to unlock the tracker after auto sign-out">🔢 Set up quick-unlock PIN</button>
+        <button class="xl-btn" id="pin-setup-open" type="button" title="Set up a PIN that unlocks the tracker after auto sign-out, confirms sign-in, deleting an entry, and revealing hidden data">🔢 Set up security PIN</button>
         <button class="xl-btn" id="bio-setup-open" type="button" hidden title="Use this device's Face ID, Touch ID, Windows Hello or fingerprint reader">🫆 Set up biometric unlock</button>
         <label class="xl-set">Sign me out after being idle for <select id="set-idle-timeout"></select></label>
       </div>
