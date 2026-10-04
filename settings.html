@@ -976,8 +976,10 @@ window.__ftSettingsPage = true;
         <div class="xl-status" id="xl-status"></div>
       </div>
 
-      <div class="section-head" style="margin-top:20px;"><h3>🏦 Import a bank statement</h3></div>
+      <div class="section-head" style="margin-top:20px;"><h3>🏦 Import a bank statement <span class="premium-badge">✨ Premium</span></h3></div>
       <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Download a statement from your own OPay, Moniepoint or Kuda app (Excel/.xlsx works best — .csv also works) and import it here. Nothing is sent anywhere — it's read right in your browser. Each transaction becomes a normal expense or income entry, exactly as if you'd typed it in yourself.</p>
+      <div id="stmt-import-locked" class="empty-msg" hidden>🏦 Bank statement import is a Premium feature. Upgrade in Settings to unlock it.</div>
+      <div id="stmt-import-content">
       <div class="toolbar">
         <select id="stmt-bank-select">
           <option value="opay">OPay</option>
@@ -1004,6 +1006,7 @@ window.__ftSettingsPage = true;
       </div>
       <div class="toolbar" id="stmt-undo-row" hidden>
         <button class="xl-btn" id="stmt-undo-btn" type="button">↩️ Undo this import</button>
+      </div>
       </div>
     </div>
 
