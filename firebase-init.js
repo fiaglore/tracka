@@ -91,7 +91,11 @@ import {
   deleteField,
   serverTimestamp,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  collection,
+  query,
+  where,
+  getDocs
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyCTwklrfnEsMat8WhkwWPHLHV-YfFl_ono",
@@ -111,6 +115,14 @@ const db = getFirestore(app);
 // repo). Public keys are safe to ship in client code, same trust level as
 // the Firebase apiKey above.
 const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
+
+// This one account always has every premium feature unlocked (see
+// app.js's begin()) and is the only one Firestore rules let review other
+// users' premiumRequest submissions (see firestore.rules, and
+// listPendingPremiumRequests()/approvePremiumRequest()/rejectPremiumRequest()
+// below) — kept in sync by hand with the matching constant in worker.js,
+// which can't import this file (it's a separate runtime, no bundler).
+const ADMIN_EMAIL = "lolafalobi@gmail.com";
 
 // PushManager.subscribe() wants the VAPID key as a raw Uint8Array, not the
 // URL-safe base64 string Firebase/web-push tooling hands you everywhere
@@ -681,6 +693,80 @@ window.Trakka = {
       const data = await res.json().catch(function () { return {}; });
       throw new Error(data.error || "Could not remove that photo.");
     }
+  },
+
+  // ----- Premium via manual bank transfer (see worker.js's /api/receipt
+  // route and firestore.rules' admin override) -----
+  // No payment processor is wired up yet, so unlocking Premium works like
+  // this: show the bank account, the person transfers outside the app and
+  // uploads a receipt as proof, then ADMIN_EMAIL reviews it by hand and
+  // approves or rejects. Unlike avatars, receipts never get a public URL —
+  // the Worker only hands one back to the uploader themselves or the admin.
+  ADMIN_EMAIL: ADMIN_EMAIL,
+  async uploadReceipt(uid, blob) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Sign in again to upload a receipt.");
+    const token = await user.getIdToken();
+    const res = await fetch("/api/receipt", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": blob.type || "image/jpeg"
+      },
+      body: blob
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || "Could not upload that receipt.");
+    return data.url;
+  },
+  // Receipts are never public (see worker.js's handleReceiptGet) — fetching
+  // one always needs this device's own fresh ID token, same as the upload
+  // above, whether it's the uploader checking their own or ADMIN_EMAIL
+  // reviewing someone else's.
+  async fetchReceiptBlob(uid) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Sign in again to view that receipt.");
+    const token = await user.getIdToken();
+    const res = await fetch("/api/receipt/" + uid, { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) {
+      const data = await res.json().catch(function () { return {}; });
+      throw new Error(data.error || "Could not load that receipt.");
+    }
+    return res.blob();
+  },
+  // Keeping receiptUrl (rather than re-fetching it) means Settings can show
+  // "receipt submitted" status without an extra authenticated round trip
+  // to the Worker just to check it still exists.
+  async submitPremiumRequest(uid, receiptUrl) {
+    await setDoc(
+      userDocRef(uid),
+      { premiumRequest: { status: "pending", receiptUrl: receiptUrl, submittedAt: serverTimestamp() } },
+      { merge: true }
+    );
+  },
+  // Admin-only in practice: firestore.rules only lets ADMIN_EMAIL read any
+  // uid besides its own, so this query comes back empty (not an error) for
+  // everyone else — app.js only shows the review UI to ADMIN_EMAIL anyway.
+  async listPendingPremiumRequests() {
+    const snap = await getDocs(query(collection(db, "users"), where("premiumRequest.status", "==", "pending")));
+    return snap.docs.map(function (d) { return Object.assign({ uid: d.id }, d.data()); });
+  },
+  async approvePremiumRequest(uid) {
+    await setDoc(
+      userDocRef(uid),
+      {
+        entitlements: { premium: true },
+        premiumRequest: { status: "approved", reviewedAt: serverTimestamp() }
+      },
+      { merge: true }
+    );
+  },
+  async rejectPremiumRequest(uid, reason) {
+    await setDoc(
+      userDocRef(uid),
+      { premiumRequest: { status: "rejected", reviewedAt: serverTimestamp(), reason: reason || "" } },
+      { merge: true }
+    );
   }
 };
 

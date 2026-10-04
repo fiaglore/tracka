@@ -32,6 +32,10 @@
     {
       "binding": "AVATARS",
       "bucket_name": "tracka-avatars"
+    },
+    {
+      "binding": "RECEIPTS",
+      "bucket_name": "tracka-receipts"
     }
   ],
   "routes": [

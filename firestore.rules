@@ -13,6 +13,17 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // One admin account reviews manual bank-transfer receipts (Settings →
+      // "Go Premium") and approves/rejects them — see
+      // listPendingPremiumRequests()/approvePremiumRequest()/
+      // rejectPremiumRequest() in firebase-init.js. Checking the token's
+      // email claim (rather than a fixed uid) means this never needs to
+      // change even if that account is ever recreated. Kept in sync by
+      // hand with the ADMIN_EMAIL constant in firebase-init.js and worker.js
+      // — there's no shared config between a security-rules file and app
+      // code, so all three have to agree if this address ever changes.
+      allow read, write: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
     }
 
     // Everything else is denied by default (no matching rule = no access).

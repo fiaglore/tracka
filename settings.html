@@ -788,6 +788,7 @@ window.__ftSettingsPage = true;
       <button type="button" class="settings-menu-item" data-settings-page="rates"><span class="settings-menu-title">🌍 Currency rates</span><span class="settings-menu-chevron">›</span></button>
       <button type="button" class="settings-menu-item" data-settings-page="security"><span class="settings-menu-title">🔐 Security</span><span class="settings-menu-chevron">›</span></button>
       <button type="button" class="settings-menu-item" data-settings-page="notifications"><span class="settings-menu-title">🔔 Notifications</span><span class="settings-menu-chevron">›</span></button>
+      <button type="button" class="settings-menu-item" data-settings-page="premium"><span class="settings-menu-title">💎 Go Premium</span><span class="settings-menu-chevron">›</span></button>
       <button type="button" class="settings-menu-item" data-settings-page="data"><span class="settings-menu-title">📁 Data</span><span class="settings-menu-chevron">›</span></button>
       <button type="button" class="settings-menu-item" data-settings-page="app"><span class="settings-menu-title">📲 App</span><span class="settings-menu-chevron">›</span></button>
     </nav>
@@ -962,6 +963,33 @@ window.__ftSettingsPage = true;
         <span class="xl-status" style="width:auto;margin:0;">Needs your browser's notification permission. Most of the types below now arrive even with the app fully closed — checked roughly every 15 minutes, so it's instant-ish rather than exact. Achievements &amp; quests still only notify while the app is open.</span>
       </div>
       <div class="notify-pref-list" id="notify-pref-list"></div>
+    </div>
+
+    <div class="settings-subpage" id="settings-page-premium" data-settings-page="premium" hidden>
+      <button type="button" class="settings-back-btn">‹ Settings</button>
+      <div class="section-head"><h2>💎 Go Premium</h2></div>
+
+      <div id="premium-unlocked-msg" class="empty-msg" hidden>✅ Premium is active on this account — every Premium feature (like 🏦 Bank statement import and 📈 Net Worth) is unlocked.</div>
+
+      <div id="premium-request-wrap">
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">No card payments yet — unlock Premium with a one-time bank transfer, reviewed by hand. Transfer the amount below, then upload your receipt as proof. Most requests are reviewed within a day.</p>
+        <div class="payoff-panel" id="premium-bank-details">
+          <h3>🏦 Transfer ₦1,000 to:</h3>
+          <p style="font-size:14px;line-height:1.6;margin:8px 0 0;"><b>Bank:</b> Kuda<br><b>Account number:</b> 11000215370<br><b>Account name:</b> Ololade Opemipo Falobi</p>
+        </div>
+        <div class="toolbar" style="margin-top:14px;">
+          <input type="file" id="premium-receipt-input" accept="image/*,application/pdf" hidden>
+          <button type="button" class="xl-btn primary" id="premium-receipt-choose-btn">📎 Choose receipt</button>
+          <span class="xl-status" id="premium-receipt-status"></span>
+        </div>
+        <div id="premium-request-status" class="empty-msg" hidden></div>
+      </div>
+
+      <div id="premium-admin-wrap" hidden>
+        <div class="section-head" style="margin-top:20px;"><h3>🛠️ Pending premium requests (admin)</h3></div>
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">Visible only on the admin account. Approve unlocks Premium for that account immediately; reject leaves it as-is.</p>
+        <div class="card-list" id="premium-admin-list"></div>
+      </div>
     </div>
 
     <div class="settings-subpage" id="settings-page-data" data-settings-page="data" hidden>
