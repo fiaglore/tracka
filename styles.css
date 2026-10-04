@@ -749,6 +749,8 @@ button,input,select,textarea{font-family:inherit;}
 .weather-swatches{display:flex; gap:5px; flex-wrap:wrap;}
 .pet-swatch{width:24px; height:24px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--line); cursor:pointer; padding:0; position:relative; background:var(--bg-soft); font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center;}
 .pet-swatch.active{box-shadow:0 0 0 2px var(--accent);}
+.pet-swatch.locked{opacity:.4; filter:grayscale(.6);}
+.pet-swatch.locked::after{content:'🔒'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px;}
 
 /* ============================================================
    MONTH PICKER + PERIOD BAR (persists above page nav)
