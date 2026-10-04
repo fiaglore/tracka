@@ -339,6 +339,28 @@ window.Trakka = {
     try { localStorage.removeItem(PIN_LOCAL_KEY); } catch (e) {}
   },
 
+  // Checks a PIN against the cached blob WITHOUT replaying signIn() —
+  // unlike unlockWithPin() above, this is for the security gates (deleting
+  // an entry, revealing hidden data, the post-sign-in PIN challenge) where
+  // the user is already in an active session and only needs to prove they
+  // still know the PIN, not get signed back in.
+  async verifyPin(pin) {
+    let blob;
+    try { blob = JSON.parse(localStorage.getItem(PIN_LOCAL_KEY) || "null"); } catch (e) { blob = null; }
+    if (!blob) return { ok: false, reason: "no-pin" };
+    try {
+      const salt = base64ToBuf(blob.salt);
+      const iv = base64ToBuf(blob.iv);
+      const key = await deriveAesKeyFromPin(pin, salt, blob.iterations || PIN_KDF_ITERATIONS);
+      // Decrypting at all (AES-GCM's auth tag check passing) is proof enough
+      // the PIN was right — the recovered password itself isn't needed here.
+      await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, base64ToBuf(blob.ciphertext));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: "wrong-pin" };
+    }
+  },
+
   // ============================================================
   // Biometric unlock (WebAuthn platform authenticator)
   //
@@ -430,6 +452,30 @@ window.Trakka = {
 
   clearBiometric() {
     try { localStorage.removeItem(BIO_LOCAL_KEY); } catch (e) {}
+  },
+
+  // Same idea as verifyPin() above: confirms the user's biometric WITHOUT
+  // replaying signIn(), for the security gates on an already-active
+  // session. A successful navigator.credentials.get() assertion against the
+  // registered platform authenticator is proof enough on its own — there's
+  // nothing to decrypt or recover here, unlike unlockWithBiometric().
+  async verifyBiometricPresence() {
+    let blob;
+    try { blob = JSON.parse(localStorage.getItem(BIO_LOCAL_KEY) || "null"); } catch (e) { blob = null; }
+    if (!blob) return { ok: false, reason: "no-biometric" };
+    try {
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: [{ id: base64ToBuf(blob.credentialId), type: "public-key" }],
+          userVerification: "required",
+          timeout: 60000
+        }
+      });
+      return assertion ? { ok: true } : { ok: false, reason: "failed" };
+    } catch (e) {
+      return { ok: false, reason: "failed" };
+    }
   },
 
   // ----- trusted devices + security activity log -----

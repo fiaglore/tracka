@@ -387,10 +387,24 @@
       <h2>🔐 Security</h2>
 
       <details class="faq-item">
+        <summary>What's the security PIN, and what does it actually protect?</summary>
+        <div class="faq-body">
+          <p>Set it up from Settings → "🔐 Security" → "🔢 Set up security PIN." It's short (6+ digits) and specific to this device. It's asked in four places:</p>
+          <ul>
+            <li>Getting back in after Trakka auto signs you out from inactivity — its original job, so you don't have to retype your full password every time on a device you already trust.</li>
+            <li>Right after a plain password sign-in, as one extra step before the tracker opens.</li>
+            <li>Clicking "👁️ Show data" to reveal anything hidden by "🙈 Hide data" mode.</li>
+            <li>Deleting any logged entry — a debt, income source, gift goal, savings entry, investment, or expense.</li>
+          </ul>
+          <p>None of this is forced on you: if you've never set up a PIN on a device, all four of these keep working exactly as they did before — signing in just needs your password, and showing data or deleting something happens immediately with no extra prompt. It only starts gating those moments once you actually set one up. It doesn't replace your actual account password as what secures your account at the server — think of it as an extra, device-level check standing between a short window of physical access to your unlocked device/browser and your real numbers, not a cryptographic second factor.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
         <summary>What's biometric unlock, and how is it different from the PIN?</summary>
         <div class="faq-body">
-          <p>Settings → "🔐 Security" lets you set up biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative to typing your quick-unlock PIN. It's set up separately on each device, since it's tied to that device's own hardware, and once configured it shows up both on the "you were signed out, enter your PIN" screen and right on the sign-in page itself, so even a normal fresh visit can skip typing a password.</p>
-          <p>Like the PIN, it's a convenience layer on a device you already trust, not a replacement for your actual account password.</p>
+          <p>Settings → "🔐 Security" lets you set up biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative everywhere the security PIN is asked. It's set up separately on each device, since it's tied to that device's own hardware, and once configured it shows up on the "you were signed out, enter your PIN" screen, right on the sign-in page itself, and on every PIN prompt described below (finishing a sign-in, showing hidden data, deleting an entry) — so even a normal fresh visit can skip typing a password.</p>
+          <p>Like the PIN, it's a check tied to a device you already trust, not a replacement for your actual account password.</p>
         </div>
       </details>
 
@@ -458,13 +472,6 @@
         <summary>What if my payday lands early or late just one month?</summary>
         <div class="faq-body">
           <p>Next to the month picker at the top of the app is a "This month starts on" dropdown. It overrides the start day for whichever month you're currently viewing only, without touching your usual default everywhere else — pick "Default" to go back to your normal start day for that month.</p>
-        </div>
-      </details>
-
-      <details class="faq-item">
-        <summary>What's a quick-unlock PIN, and how is it different from my password?</summary>
-        <div class="faq-body">
-          <p>Trakka automatically signs you out after a period of inactivity (adjustable in Settings). A quick-unlock PIN is a short, device-specific shortcut back in afterward, so you don't have to retype your full password every time on a device you already trust. It doesn't replace your actual account password as what secures your account — think of it as a convenience, not a stronger lock. You'll be prompted to set one up right after the welcome tour if you haven't already.</p>
         </div>
       </details>
 

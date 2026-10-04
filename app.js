@@ -1736,13 +1736,31 @@ window.__ftStart = function(){
   function netWorthForMonth(mi){
     return cumulativeBalanceUpTo(mi) + totalAppsBalanceUpToConverted(mi) - outstandingDebtsAsOf(mi) + manualAssetsTotal() + totalInvestmentsValue();
   }
+  // Confirms a destructive action with the security PIN gate (or biometric,
+  // as its faster alternative) before running it — see the "security PIN
+  // gate" section of the sign-in/auth IIFE in this file for openPinGate()
+  // itself, exposed here as window.__ftRequirePin since that's a separate
+  // top-level scope from this one. A no-op pass-through (action runs
+  // immediately) if this device has no PIN configured, same optionality the
+  // PIN has everywhere else — this REPLACES any plain confirm() a delete
+  // used to have, rather than stacking on top of it; entering the PIN is
+  // itself the confirmation.
+  function pinGated(message, action){
+    (window.__ftRequirePin ? window.__ftRequirePin(message) : Promise.resolve(true)).then(function(passed){
+      if(passed) action();
+    });
+  }
   function addAsset(label, amount){
     state.assets.push({id: makeCustomId('asset'), label, amount});
     save();
   }
   function deleteAsset(id){
-    state.assets = state.assets.filter(a=>a.id!==id);
-    save();
+    const asset = state.assets.find(a=>a.id===id);
+    if(!asset) return;
+    pinGated('Enter your PIN to delete "'+asset.label+'". This can\'t be undone.', function(){
+      state.assets = state.assets.filter(a=>a.id!==id);
+      save();
+    });
   }
 
   // ===== Investments =====
@@ -1777,10 +1795,11 @@ window.__ftStart = function(){
   function deleteInvestment(id){
     const inv = state.investments.find(i=>i.id===id);
     if(!inv) return;
-    if(!confirm('Delete "'+inv.name+'" and every price you\'ve logged for it? This can\'t be undone.')) return;
-    state.investments = state.investments.filter(i=>i.id!==id);
-    state.investmentPrices = state.investmentPrices.filter(p=>p.investmentId!==id);
-    save();
+    pinGated('Enter your PIN to delete "'+inv.name+'" and every price you\'ve logged for it. This can\'t be undone.', function(){
+      state.investments = state.investments.filter(i=>i.id!==id);
+      state.investmentPrices = state.investmentPrices.filter(p=>p.investmentId!==id);
+      save();
+    });
   }
   // One price per investment per day — logging again for a day already logged corrects it,
   // rather than piling up duplicate entries for the same date.
@@ -2589,10 +2608,12 @@ window.__ftStart = function(){
     }
     if(e.target.matches('#living-bulk-delete-btn')){
       const n = selectedLivingEntryIds.size;
-      if(!n || !confirm('Delete '+n+' selected expense'+(n===1?'':'s')+'? This can\'t be undone.')) return;
-      state.livingEntries = state.livingEntries.filter(e=>!selectedLivingEntryIds.has(e.id));
-      selectedLivingEntryIds.clear();
-      save();
+      if(!n) return;
+      pinGated('Enter your PIN to delete '+n+' selected expense'+(n===1?'':'s')+'. This can\'t be undone.', function(){
+        state.livingEntries = state.livingEntries.filter(e=>!selectedLivingEntryIds.has(e.id));
+        selectedLivingEntryIds.clear();
+        save();
+      });
       return;
     }
     if(e.target.matches('#living-bulk-recat-btn')){
@@ -3285,7 +3306,7 @@ window.__ftStart = function(){
       {id:'multisavingsapps', icon:'📲', category:'tools', label:'Multi-App Saver — 3+ savings apps tracked', earned: allSavingsAppIds().length>=3},
       {id:'budgetsetter', icon:'🏷️', category:'tools', label:'Budget Setter — set a living expense budget', earned: livingBudgetTotal>0},
       {id:'categorycustomizer', icon:'🎨', category:'tools', label:'Category Customizer — 5+ expense categories', earned: state.livingCategories.length>=5},
-      {id:'pinconfigured', icon:'🔢', category:'tools', label:'PIN Protected — set up a quick-unlock PIN', earned: !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())},
+      {id:'pinconfigured', icon:'🔢', category:'tools', label:'PIN Protected — set up a security PIN', earned: !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())},
       {id:'notificationsenabled', icon:'🔔', category:'tools', label:'Stay Notified — turned on notifications', earned: !!cloud.remindersEnabled},
       {id:'monthoverride', icon:'🗓️', category:'tools', label:'Calendar Tweaker — customized a month\'s start date', earned: Object.keys(state.monthStartOverrides||{}).length>=1},
       {id:'debtorganizer', icon:'📊', category:'tools', label:'Debt Organizer — tracking 3+ debts', earned: allDebtSeries.length>=3},
@@ -3790,29 +3811,35 @@ window.__ftStart = function(){
       // history stays honest.
       if(kind==='savingsApps' && item && item.appId && !item.withdrawal){
         const key = item.appId;
-        if(!confirm('Remove "'+item.label+'" from '+currentMonthTag()+' onward? Earlier months keep their record.')) return;
-        for(let i=activeMonth;i<N;i++){
-          state.months[i].savingsApps = state.months[i].savingsApps.filter(a=> !(appKeyOf(a)===key && !a.withdrawal));
-        }
-        // Mark the last surviving row as the end of the account. migrateSavingsApps() respects
-        // this; without it the account is refilled forward to N-1 on the next load and the
-        // deletion silently undoes itself. Stamped on the row so it survives export/import.
-        for(let i=activeMonth-1;i>=0;i--){
-          const last = (state.months[i].savingsApps||[]).find(a=>appKeyOf(a)===key && !a.withdrawal);
-          if(last){ last.discontinuedAfter = i; break; }
-        }
-        save();
+        pinGated('Enter your PIN to remove "'+item.label+'" from '+currentMonthTag()+' onward. Earlier months keep their record.', function(){
+          for(let i=activeMonth;i<N;i++){
+            state.months[i].savingsApps = state.months[i].savingsApps.filter(a=> !(appKeyOf(a)===key && !a.withdrawal));
+          }
+          // Mark the last surviving row as the end of the account. migrateSavingsApps() respects
+          // this; without it the account is refilled forward to N-1 on the next load and the
+          // deletion silently undoes itself. Stamped on the row so it survives export/import.
+          for(let i=activeMonth-1;i>=0;i--){
+            const last = (state.months[i].savingsApps||[]).find(a=>appKeyOf(a)===key && !a.withdrawal);
+            if(last){ last.discontinuedAfter = i; break; }
+          }
+          save();
+        });
         return;
       }
-      state.months[activeMonth][kind].splice(idx,1);
-      // Deleting one instalment out of a multi-month loan leaves the survivors' "Month 3 of 4"
-      // labels stale, so the run has to be renumbered against what's actually left.
-      if(kind==='debts' && item && item.seriesId) renumberSeries(item.seriesId);
-      save();
+      pinGated('Enter your PIN to delete this entry. This can\'t be undone.', function(){
+        state.months[activeMonth][kind].splice(idx,1);
+        // Deleting one instalment out of a multi-month loan leaves the survivors' "Month 3 of 4"
+        // labels stale, so the run has to be renumbered against what's actually left.
+        if(kind==='debts' && item && item.seriesId) renumberSeries(item.seriesId);
+        save();
+      });
     }
     if(e.target.matches('.entry-del[data-living-entry-id]')){
-      state.livingEntries = state.livingEntries.filter(x=>x.id!==e.target.dataset.livingEntryId);
-      save();
+      const livingEntryId = e.target.dataset.livingEntryId;
+      pinGated('Enter your PIN to delete this expense entry. This can\'t be undone.', function(){
+        state.livingEntries = state.livingEntries.filter(x=>x.id!==livingEntryId);
+        save();
+      });
     }
     if(e.target.matches('.living-cat-del')){
       if(state.livingCategories.length<=1) return;
@@ -4403,13 +4430,14 @@ window.__ftStart = function(){
   function deleteDebtSeries(key){
     const series = debtSeriesList().find(s=>s.key===key);
     if(!series) return;
-    if(!confirm('Delete "'+series.label+'" entirely? This removes every instalment for this debt across all months, paid or not, and can’t be undone.')) return;
-    for(let i=0;i<N;i++){
-      const m = state.months[i];
-      if(!m || !m.debts) continue;
-      m.debts = m.debts.filter(it=> seriesKeyOf(it)!==key);
-    }
-    save();
+    pinGated('Enter your PIN to delete "'+series.label+'" entirely. This removes every instalment for this debt across all months, paid or not, and can’t be undone.', function(){
+      for(let i=0;i<N;i++){
+        const m = state.months[i];
+        if(!m || !m.debts) continue;
+        m.debts = m.debts.filter(it=> seriesKeyOf(it)!==key);
+      }
+      save();
+    });
   }
 
   // Whether fully-cleared debts are hidden from the payoff plan list — a
@@ -4920,9 +4948,11 @@ window.__ftStart = function(){
   document.getElementById('goal-list').addEventListener('click', function(e){
     if(e.target.matches('.del')){
       const goalId = e.target.dataset.goalId;
-      state.giftGoals = state.giftGoals.filter(g=>g.id!==goalId);
-      Object.keys(state.giftProgress).forEach(k=>{ if(k.startsWith(goalId+'_')) delete state.giftProgress[k]; });
-      save();
+      pinGated('Enter your PIN to delete this gift goal. This can\'t be undone.', function(){
+        state.giftGoals = state.giftGoals.filter(g=>g.id!==goalId);
+        Object.keys(state.giftProgress).forEach(k=>{ if(k.startsWith(goalId+'_')) delete state.giftProgress[k]; });
+        save();
+      });
     }
   });
 
@@ -4947,8 +4977,10 @@ window.__ftStart = function(){
   document.getElementById('savings-list').addEventListener('click', function(e){
     if(e.target.matches('.del')){
       const idx = +e.target.dataset.savingsIdx;
-      state.savings.splice(idx,1);
-      save();
+      pinGated('Enter your PIN to delete this savings entry. This can\'t be undone.', function(){
+        state.savings.splice(idx,1);
+        save();
+      });
     }
   });
 
@@ -4995,9 +5027,10 @@ window.__ftStart = function(){
   });
 
   document.getElementById('extra-reset-btn').addEventListener('click', function(){
-    if(!confirm('Delete all extra income entries logged for '+currentMonthTag()+'? This cannot be undone.')) return;
-    state.extra = state.extra.filter(e=>e.monthIndex!==activeMonth);
-    save();
+    pinGated('Enter your PIN to delete all extra income entries logged for '+currentMonthTag()+'. This cannot be undone.', function(){
+      state.extra = state.extra.filter(e=>e.monthIndex!==activeMonth);
+      save();
+    });
   });
 
   document.getElementById('savingsapps-select-btn').addEventListener('click', function(){
@@ -5007,9 +5040,10 @@ window.__ftStart = function(){
   });
 
   document.getElementById('savings-reset-btn').addEventListener('click', function(){
-    if(!confirm('Delete all savings top-ups added in '+currentMonthTag()+'? This cannot be undone.')) return;
-    state.savings = state.savings.filter(s=>s.monthIndex!==activeMonth);
-    save();
+    pinGated('Enter your PIN to delete all savings top-ups added in '+currentMonthTag()+'. This cannot be undone.', function(){
+      state.savings = state.savings.filter(s=>s.monthIndex!==activeMonth);
+      save();
+    });
   });
 
   // =====================================================================================
@@ -6300,6 +6334,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🔢 Your PIN is now a security PIN, not just a quick-unlock shortcut', body: 'The PIN set up in Settings → "🔐 Security" used to only skip retyping your password after an auto sign-out. It now also confirms three more sensitive moments: finishing a plain password sign-in (an extra step right after your password, like a second factor), clicking "👁️ Show data" to reveal anything hidden by "🙈 Hide data" mode, and deleting any logged entry — a debt, income source, gift goal, savings entry, investment, or expense. Biometric unlock works as a faster alternative everywhere the PIN is asked, including these new spots. None of this applies until a PIN is actually set up — on a device with no PIN configured, everything works exactly as before.' },
     { title: '🙈 Hide data now blurs your greeting and notification history too', body: 'Turning on "🙈 Hide data" used to leave two spots showing real figures in plain sentences: the time-of-day greeting at the top of the page ("You\'ve logged ₦X in expenses so far today") and the 🔔 bell\'s notification history (debt-cleared, budget-threshold and badge entries that mention an amount). Both are now blurred along with everything else while privacy mode is on. The shareable milestone card (the one offered when a debt is cleared or a savings goal is hit) is also skipped entirely while hiding data is on, instead of showing a blurred-but-still-downloadable image.' },
     { title: '⛄ Pick a debt payoff strategy — Snowball, Avalanche, or your own pace', body: 'The Debts tab\'s payoff plan now offers three ways to tackle multiple debts: "🧘 My own pace" (no suggested order, exactly as before), "⛄ Snowball" (pay minimums on everything, then throw every extra at your smallest balance first, for quick motivational wins), or "⚡ Avalanche" (same idea, but targeting your highest interest rate first, for the cheapest route overall). Each debt can have an optional interest rate set on it — the picked strategy reorders the list, badges the one to focus on first, and shows roughly how many months sooner you\'d be debt-free by rolling payments forward versus paying each debt separately.' },
     { title: '🫆 Biometric unlock, trusted devices & a security activity log', body: 'Settings → "🔐 Security" now offers biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative to the PIN, set up separately on each device since it\'s tied to that device\'s own hardware. It shows up both on the usual "you were signed out, enter your PIN" screen and, once it\'s set up, right on the sign-in page itself — so a normal fresh visit can skip typing a password too. The same Settings page also lists every device that\'s ever signed in under "💻 Trusted devices" (forgetting one signs it out the next time it\'s opened) and a "📜 Recent activity" log of the last 30 sign-ins, PIN/biometric changes, and device removals.' },
@@ -6481,7 +6516,7 @@ window.__ftStart = function(){
       { icon:'🎁', title:'Gifts & Savings', body:"Gift goals split what you need across the months leading up to a target date. Savings apps track running balances for each account you're building up, separate from one-off deposits." },
       { icon:'🏠', title:'Living expenses', body:'Log day-to-day spending under your own categories, each with its own monthly budget. The daily log collapses by day so a busy month stays easy to scan.' },
       { icon:'🌟', title:'XP, achievements & streaks', body:"Checking things off earns XP and levels you up. The XP page tracks every achievement you can unlock, and the streak chip up top counts consecutive days you've opened Trakka." },
-      { icon:'⚙️', title:"You're all set", body:'The gear icon opens Settings — currency, a quick-unlock PIN, notifications, themes, and data import/export all live there. Come back to this tour any time from "🧭 Take the tour."' }
+      { icon:'⚙️', title:"You're all set", body:'The gear icon opens Settings — currency, a security PIN, notifications, themes, and data import/export all live there. Come back to this tour any time from "🧭 Take the tour."' }
     ];
     const overlay = document.getElementById('onboarding-overlay');
     if(!overlay) return;
@@ -6572,6 +6607,16 @@ window.__ftStart = function(){
   'use strict';
   const $ = id => document.getElementById(id);
   let mode = 'signin', started = false;
+  // Set right before a plain password sign-in, so begin() below knows to
+  // challenge for the PIN as an extra security step — but NOT when the
+  // auth-state change instead came from a PIN-unlock or biometric-unlock
+  // (those already ARE that same proof; re-challenging would be circular),
+  // nor from signUp() (a brand-new account can't have a PIN yet), nor from
+  // a session Firebase simply resumed on page load (never set in the first
+  // place). Reset to false in submit()'s catch so a failed password attempt
+  // can never leak into triggering a stray challenge after a later,
+  // unrelated PIN/biometric unlock.
+  let pendingPasswordSignIn = false;
 
   // Matches the device's last light/dark choice even before the tracker
   // itself has started, so the sign-in screen doesn't flash light then
@@ -6607,7 +6652,7 @@ window.__ftStart = function(){
   // connection, and with nothing shown the sign-in card just looked frozen.
   function showAuthLoading(msg){
     // Hides whichever card was up — the plain sign-in form OR the PIN-unlock
-    // card (see the "quick-unlock PIN" section below) — since begin() calls
+    // card (see the "security PIN" section below) — since begin() calls
     // this on every successful sign-in, PIN unlock included. Missing the PIN
     // card here used to leave it showing underneath the loading box instead
     // of being replaced by it.
@@ -6813,6 +6858,27 @@ window.__ftStart = function(){
         return;
       }
     }
+    // ===== Post-password PIN challenge (extra security step) =====
+    // Only after a plain password sign-in — see pendingPasswordSignIn's
+    // declaration above for why a PIN/biometric unlock never re-triggers
+    // this, and a resumed session or a brand-new signUp() never sets it in
+    // the first place. A no-op if this device has no PIN configured yet
+    // (openPinGate() below just resolves immediately in that case).
+    const needsPinChallenge = pendingPasswordSignIn;
+    pendingPasswordSignIn = false;
+    if(needsPinChallenge){
+      hideAuthLoading();
+      const passed = await new Promise(function(resolve){ openPinGate('Enter your PIN to finish signing in.', resolve); });
+      if(!passed){
+        await window.Trakka.signOutUser();
+        started = false;
+        window.__ftUid = null;
+        showPlainSignInForm('Sign-in cancelled.');
+        return;
+      }
+      showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
+    }
+
     const ftProfile = window.__ftCloudData.profile || {};
     $('xl-user').textContent = '👤 ' + (ftProfile.username || (ftProfile.firstName && ftProfile.lastName ? ftProfile.firstName+' '+ftProfile.lastName : '') || user.displayName || window.__ftCloudData.displayName || 'you');
     hideAuthLoading();
@@ -6825,7 +6891,7 @@ window.__ftStart = function(){
       window.Trakka.registerDevice(user.uid).catch(function(e){ console.warn('Device registration failed:', e); });
       window.Trakka.logSecurityEvent(user.uid, 'signin', window.Trakka.deviceLabel()).catch(function(){});
     }
-    // Nudge toward setting up a quick-unlock PIN — every sign-in, not just
+    // Nudge toward setting up a security PIN — every sign-in, not just
     // the first one, since nothing here remembers "already asked": there's
     // no dismiss-forever option, only "Remind me later" for this one visit
     // (see openPinSetup()'s isNudge param below). It reappears on the very
@@ -6860,9 +6926,10 @@ window.__ftStart = function(){
         // which takes the loading card the rest of the way (or hides it on failure).
       } else {
         showAuthLoading('Signing in…');
+        pendingPasswordSignIn = true;
         await window.Trakka.signIn(name, pw, remember);
       }
-    }catch(e){ console.error(e); setError(friendlyAuthError(e)); hideAuthLoading(); }
+    }catch(e){ pendingPasswordSignIn = false; console.error(e); setError(friendlyAuthError(e)); hideAuthLoading(); }
     finally{ btn.disabled = false; }
   }
 
@@ -6891,7 +6958,7 @@ window.__ftStart = function(){
 
   setMode('signin');
 
-  // ----- quick-unlock PIN: unlock card (replaces the sign-in form after an
+  // ----- security PIN: unlock card (replaces the sign-in form after an
   // auto-logout, if this device has a PIN cached) -----
   var PIN_UNLOCK_MAX_ATTEMPTS = 5;
   var pinUnlockAttempts = 0;
@@ -7001,9 +7068,9 @@ window.__ftStart = function(){
     attemptBiometricUnlock(authBioBtn, null, 'email and password');
   });
 
-  // ----- quick-unlock PIN: setup/remove overlay (from the signed-in app) -----
+  // ----- security PIN: setup/remove overlay (from the signed-in app) -----
   // isNudge distinguishes the post-login nag (see begin() above) from
-  // opening this deliberately via the Settings page's "Quick-unlock PIN"
+  // opening this deliberately via the Settings page's "Security PIN"
   // button — same overlay either way, just a "Remind me later" label
   // instead of "Cancel" so it reads correctly as deferring an unprompted
   // suggestion rather than backing out of something the user asked to do.
@@ -7017,10 +7084,10 @@ window.__ftStart = function(){
     var btn = $('pin-setup-open');
     if(!btn) return;
     var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
-    btn.textContent = already ? '🔢 Reset PIN' : '🔢 Set up quick-unlock PIN';
+    btn.textContent = already ? '🔢 Reset PIN' : '🔢 Set up security PIN';
     btn.title = already
-      ? 'Change your quick-unlock PIN (you’ll need your current password)'
-      : 'Set up a short PIN to unlock the tracker after auto sign-out';
+      ? 'Change your security PIN (you’ll need your current password)'
+      : 'Set up a PIN that unlocks the tracker after auto sign-out, confirms sign-in, deleting an entry, and revealing hidden data';
   }
   function openPinSetup(isNudge){
     $('pin-setup-password').value = '';
@@ -7029,7 +7096,7 @@ window.__ftStart = function(){
     $('pin-setup-error').textContent = '';
     var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
     $('pin-setup-remove').hidden = !already;
-    $('pin-setup-title').textContent = already ? 'Reset your PIN' : 'Set up a quick-unlock PIN';
+    $('pin-setup-title').textContent = already ? 'Reset your PIN' : 'Set up a security PIN';
     $('pin-setup-save').textContent = already ? 'Reset PIN' : 'Save PIN';
     $('pin-setup-close').textContent = isNudge ? 'Remind me later' : 'Cancel';
     $('pin-setup-overlay').hidden = false;
@@ -7133,6 +7200,85 @@ window.__ftStart = function(){
     if(window.Trakka && window.Trakka.clearBiometric) window.Trakka.clearBiometric();
     closeBioSetup();
   });
+
+  // ----- security PIN gate -----
+  // The PIN's broader role: besides unlocking after an auto sign-out, it now
+  // also confirms a few sensitive in-app actions — finishing a plain
+  // password sign-in (see begin() above), revealing hidden data, and
+  // deleting a logged entry (both wired from window.__ftStart, a separate
+  // top-level scope from this IIFE — hence exposing a window.__ftRequirePin
+  // wrapper below for those call sites to use).
+  //
+  // Deliberately a no-op (resolves true immediately, action proceeds) when
+  // this device has no PIN configured — same optionality the PIN has always
+  // had everywhere else in the app; there's nothing to gate with until one
+  // exists, and forcing setup at the moment of, say, a first delete would be
+  // a much more disruptive change than what was asked for here.
+  var pinGateResolve = null;
+  function openPinGate(message, resolve){
+    if(!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+      resolve(true);
+      return;
+    }
+    var overlay = $('pin-gate-overlay');
+    if(!overlay){ resolve(true); return; } // markup missing somehow — fail open rather than hard-block the app
+    $('pin-gate-message').textContent = message;
+    $('pin-gate-input').value = '';
+    $('pin-gate-error').textContent = '';
+    var bioBtn = $('pin-gate-biometric-btn');
+    if(bioBtn) bioBtn.hidden = !(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+    pinGateResolve = resolve;
+    overlay.hidden = false;
+    setTimeout(function(){ $('pin-gate-input').focus(); }, 50);
+  }
+  function closePinGate(passed){
+    var overlay = $('pin-gate-overlay');
+    if(overlay) overlay.hidden = true;
+    var cb = pinGateResolve;
+    pinGateResolve = null;
+    if(cb) cb(passed);
+  }
+  window.__ftRequirePin = function(message){
+    return new Promise(function(resolve){ openPinGate(message, resolve); });
+  };
+  var pinGateForm = $('pin-gate-form');
+  if(pinGateForm) pinGateForm.addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('pin-gate-error');
+    errEl.textContent = '';
+    var pin = $('pin-gate-input').value.trim();
+    if(!pin){ errEl.textContent = 'Enter your PIN.'; return; }
+    var btn = $('pin-gate-submit');
+    btn.disabled = true;
+    try{
+      var result = await window.Trakka.verifyPin(pin);
+      if(result && result.ok){ closePinGate(true); }
+      else { errEl.textContent = 'Incorrect PIN.'; $('pin-gate-input').value = ''; $('pin-gate-input').focus(); }
+    }catch(e){
+      console.error(e);
+      errEl.textContent = 'Something went wrong — try again.';
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  var pinGateBioBtn = $('pin-gate-biometric-btn');
+  if(pinGateBioBtn) pinGateBioBtn.addEventListener('click', async function(){
+    var errEl = $('pin-gate-error');
+    errEl.textContent = '';
+    pinGateBioBtn.disabled = true;
+    try{
+      var result = await window.Trakka.verifyBiometricPresence();
+      if(result && result.ok) closePinGate(true);
+      else errEl.textContent = 'Biometric check failed or was cancelled — try your PIN instead.';
+    }catch(e){
+      console.error(e);
+      errEl.textContent = 'Something went wrong — try your PIN instead.';
+    }finally{
+      pinGateBioBtn.disabled = false;
+    }
+  });
+  var pinGateCancelBtn = $('pin-gate-cancel');
+  if(pinGateCancelBtn) pinGateCancelBtn.addEventListener('click', function(){ closePinGate(false); });
 
   // ----- start: Firebase tells us if a session already exists (e.g. "keep me
   // signed in" from a previous visit); otherwise wait at the sign-in page -----
@@ -7437,7 +7583,16 @@ window.__ftStart = function(){
   var privacyBtn = document.getElementById('privacy-toggle-btn');
   if(privacyBtn){
     privacyBtn.addEventListener('click', function(){
-      window.setPrivacyMode(document.body.getAttribute('data-privacy') !== 'on');
+      var revealing = document.body.getAttribute('data-privacy') === 'on';
+      // Only the reveal direction (hidden -> shown) needs the PIN gate —
+      // hiding data again never does, since that's the safer direction.
+      if(revealing && window.__ftRequirePin){
+        window.__ftRequirePin('Enter your PIN to show your data.').then(function(passed){
+          if(passed) window.setPrivacyMode(false);
+        });
+      } else {
+        window.setPrivacyMode(!revealing);
+      }
     });
   }
   applyPrivacyMode(true);
