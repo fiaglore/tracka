@@ -5898,10 +5898,37 @@ window.__ftStart = function(){
     if(field!=='' || row.length){ row.push(field); rows.push(row); }
     return rows;
   }
+  // Several banks' "Export to Excel" (Kuda among them) actually hands back
+  // an HTML table wearing an .xlsx/.xls extension — Microsoft Excel opens
+  // these fine via its own lenient format-sniffing, but a real xlsx parser
+  // sees a non-zip buffer and fails deep in its own internals (ExcelJS's
+  // exact failure here is "Cannot read properties of undefined (reading
+  // 'sheets')", not any error message this file writes itself — a dead
+  // giveaway once you've seen it once). A genuine xlsx is always a zip
+  // archive, which always starts with the two bytes "PK" — checking that
+  // up front means picking the right parser instead of letting ExcelJS
+  // fail confusingly on something it was never going to be able to read.
+  function stmtRowsFromHtml(text){
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const table = doc.querySelector('table');
+    if(!table) return [];
+    return Array.from(table.querySelectorAll('tr')).map(function(tr){
+      return Array.from(tr.querySelectorAll('td,th')).map(function(cell){ return cell.textContent.trim(); });
+    });
+  }
   async function stmtReadFile(file){
     const name = file.name.toLowerCase();
     if(name.endsWith('.csv')) return stmtRowsFromCsv(await file.text());
     const buf = await file.arrayBuffer();
+    const head = new Uint8Array(buf.slice(0,2));
+    const looksLikeRealXlsx = head[0]===0x50 && head[1]===0x4B; // "PK" — zip signature
+    if(!looksLikeRealXlsx){
+      const text = new TextDecoder('utf-8').decode(buf);
+      const htmlRows = stmtRowsFromHtml(text);
+      if(htmlRows.length>0) return htmlRows;
+      if(text.includes(',') || text.includes('\t')) return stmtRowsFromCsv(text);
+      throw new Error('This doesn\'t look like a real Excel file — try re-downloading the statement from your bank, or use its CSV export if it has one.');
+    }
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf);
     return stmtRowsFromWorkbook(wb);
@@ -6769,6 +6796,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🐛 Fixed: Kuda statement import failing to read the file', body: 'Kuda\'s "Excel" export is actually an HTML table wearing an .xlsx extension — Microsoft Excel opens it fine, but AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. It now detects this and reads the table correctly.' },
     { title: '💎 Two Premium-exclusive themes: Obsidian & Champagne', body: 'Settings → Appearance now has two new themes reserved for Premium — a sleek near-black "Obsidian" and a warm gold "Champagne". They unlock the moment Premium does, same as every other Premium feature.' },
     { title: '🐛 Fixed: couldn\'t sign in on a second device', body: 'Signing in on any device beyond your first was wrongly treated as "forgotten" and signed straight back out — a real bug, not a limit. That\'s fixed, and Settings → Security → "💻 Trusted devices" now supports up to 6 devices at once, with a running count. Signing in on a 7th device asks you to pick one of the existing 6 to sign out first, instead of silently failing.' },
     { title: '💎 Go Premium — bank transfer now live', body: 'Settings → "💎 Go Premium" shows AnchorTrakk\'s bank account for a one-time transfer — upload a receipt as proof and it\'s reviewed by hand, usually within a day. No card payments yet, but this is the first real way to actually unlock Premium features like 🏦 Bank statement import and 📈 Net Worth.' },
