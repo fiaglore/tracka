@@ -737,10 +737,14 @@ window.Trakka = {
   // Keeping receiptUrl (rather than re-fetching it) means Settings can show
   // "receipt submitted" status without an extra authenticated round trip
   // to the Worker just to check it still exists.
-  async submitPremiumRequest(uid, receiptUrl) {
+  // `product` is "premium" (the ₦1,000 subscription) or "unlimitedLogs"
+  // (the one-time ₦3,500 daily-log-cap removal, Premium-only add-on) — see
+  // PREMIUM_PRODUCT_LABELS in app.js. Defaults to "premium" so older,
+  // already-in-flight requests from before this existed still work.
+  async submitPremiumRequest(uid, receiptUrl, product) {
     await setDoc(
       userDocRef(uid),
-      { premiumRequest: { status: "pending", receiptUrl: receiptUrl, submittedAt: serverTimestamp() } },
+      { premiumRequest: { status: "pending", product: product || "premium", receiptUrl: receiptUrl, submittedAt: serverTimestamp() } },
       { merge: true }
     );
   },
@@ -751,11 +755,12 @@ window.Trakka = {
     const snap = await getDocs(query(collection(db, "users"), where("premiumRequest.status", "==", "pending")));
     return snap.docs.map(function (d) { return Object.assign({ uid: d.id }, d.data()); });
   },
-  async approvePremiumRequest(uid) {
+  async approvePremiumRequest(uid, product) {
+    const entitlementPatch = product === "unlimitedLogs" ? { unlimitedLogs: true } : { premium: true };
     await setDoc(
       userDocRef(uid),
       {
-        entitlements: { premium: true },
+        entitlements: entitlementPatch,
         premiumRequest: { status: "approved", reviewedAt: serverTimestamp() }
       },
       { merge: true }

@@ -71,7 +71,13 @@ window.__ftStart = function(){
   // be set by hand, directly in Firestore, not through any in-app purchase. Until that exists,
   // this gate is "on" in the sense that it locks the feature for everyone, with no self-serve way
   // to unlock it — that's expected for now, not a bug.
-  const PREMIUM_FEATURE_KEYS = ['bankStatementImport', 'autoFxRates'];
+  const PREMIUM_FEATURE_KEYS = [
+    'bankStatementImport', 'autoFxRates', 'netWorth', 'investments', 'multiCurrency',
+    // One shared key for every free-tier item cap below (categories, savings
+    // accounts, debts, income sources, gift goals) — there's only one
+    // Premium tier, so there's no reason for these to unlock separately.
+    'itemCaps'
+  ];
   // Kept in sync by hand with the same-named constant in the sign-in IIFE
   // further down (a separate top-level scope — see begin()'s trusted-device
   // check) — this copy is only for the "X of 6 devices" count below.
@@ -79,6 +85,47 @@ window.__ftStart = function(){
   function isFeatureUnlocked(key){
     if(!PREMIUM_FEATURE_KEYS.includes(key)) return true;
     return !!(cloud.entitlements && cloud.entitlements.premium);
+  }
+
+  // ===== Free-tier item caps =====
+  // Premium removes every one of these entirely (see isFeatureUnlocked
+  // above — they all share the single 'itemCaps' key, since there's only
+  // one Premium tier). A free account that already has MORE than its cap
+  // (grandfathered in from before this shipped, or from losing Premium)
+  // keeps every item it already has, fully visible and usable — the cap
+  // only blocks adding a NEW one past it. Checked at each "Add" button's
+  // click handler, right before the item actually gets pushed.
+  const FREE_ITEM_CAPS = { livingCategories: 5, savingsApps: 3, debts: 3, income: 3, giftGoals: 3 };
+  const ITEM_CAP_LABELS = {
+    livingCategories: 'expense categories', savingsApps: 'savings accounts',
+    debts: 'debts', income: 'income sources', giftGoals: 'gift goals'
+  };
+  function atFreeItemCap(key, currentCount){
+    if(isFeatureUnlocked('itemCaps')) return false;
+    return currentCount >= FREE_ITEM_CAPS[key];
+  }
+  function notifyItemCapReached(key){
+    showAppNotification('🔒 Premium feature', 'The free plan includes up to '+FREE_ITEM_CAPS[key]+' '+ITEM_CAP_LABELS[key]+' — upgrade in Settings → "💎 Go Premium" to add more.');
+  }
+
+  // ===== Daily log (Expenses tab) entry cap =====
+  // A third tier on top of the plain Premium/free split above: Premium
+  // raises the free 100-entry cap to 300, and a separate one-time ₦3,500
+  // purchase (entitlements.unlimitedLogs — only offered to accounts that
+  // already have entitlements.premium, see Settings → "💎 Go Premium")
+  // removes it entirely. Checked both at the single-entry "Add" button and
+  // at the bank-statement import's bulk commit, so neither path can bypass
+  // it — see their respective click handlers below.
+  function dailyLogCap(){
+    if(cloud.entitlements && cloud.entitlements.unlimitedLogs) return Infinity;
+    return (cloud.entitlements && cloud.entitlements.premium) ? 300 : 100;
+  }
+  function notifyDailyLogCapReached(){
+    const cap = dailyLogCap();
+    const msg = (cloud.entitlements && cloud.entitlements.premium)
+      ? 'You\'ve reached the '+cap+'-entry Premium limit on the daily log. A one-time ₦3,500 payment removes this limit entirely — see Settings → "💎 Go Premium".'
+      : 'The free plan includes up to '+cap+' daily log entries — upgrade in Settings → "💎 Go Premium" for 300, or go unlimited with a one-time payment.';
+    showAppNotification('🔒 Daily log limit reached', msg);
   }
 
   // ===== Display settings (currency + the day each month starts) =====
@@ -205,9 +252,11 @@ window.__ftStart = function(){
   function applyTabVisibility(){
     ALL_TAB_IDS.forEach(id=>{
       const btn = document.querySelector('.page-nav-btn[data-page="'+id+'"]');
-      // Net Worth stays behind its own premium gate (see isFeatureUnlocked)
-      // on top of this per-user show/hide choice — either one hides it.
-      const premiumLocked = id==='networth' && !isFeatureUnlocked('netWorth');
+      // Net Worth and Investments each stay behind their own premium gate
+      // (see isFeatureUnlocked) on top of this per-user show/hide choice —
+      // either one hides the tab.
+      const premiumLocked = (id==='networth' && !isFeatureUnlocked('netWorth')) ||
+        (id==='investments' && !isFeatureUnlocked('investments'));
       if(btn) btn.hidden = premiumLocked || !visibleTabIds.includes(id);
     });
     applyTabOrder();
@@ -1654,6 +1703,16 @@ window.__ftStart = function(){
   document.addEventListener('change', function(e){
     if(!e.target.matches('.item-currency-select, .acct-currency-select')) return;
     const code = e.target.value;
+    // Multi-currency accounts are Premium — a free account can only ever
+    // have everything in its one primary currency. Reverting the select
+    // (rather than just leaving the picked value and refusing to save it)
+    // means the dropdown never silently disagrees with what's actually
+    // stored.
+    if(code && code!==currencyCode() && !isFeatureUnlocked('multiCurrency')){
+      e.target.value = currencyCode();
+      showAppNotification('🔒 Premium feature', 'Tracking an item in a different currency needs Premium — upgrade in Settings → "💎 Go Premium".');
+      return;
+    }
     if(!code || code===currencyCode() || Number(state.currencyRates[code])>0) return;
     if(isFeatureUnlocked('autoFxRates')){
       fetchFxRates(currencyCode()).then(function(data){
@@ -1981,6 +2040,17 @@ window.__ftStart = function(){
   }
 
   function renderInvestments(){
+    const content = document.getElementById('investments-content');
+    const locked = document.getElementById('investments-locked');
+    if(content){
+      if(!isFeatureUnlocked('investments')){
+        content.hidden = true;
+        if(locked) locked.hidden = false;
+        return;
+      }
+      if(locked) locked.hidden = true;
+      content.hidden = false;
+    }
     const head = document.getElementById('inv-head');
     const list = document.getElementById('inv-list');
     if(!list) return;
@@ -2488,28 +2558,73 @@ window.__ftStart = function(){
   // separate async Firestore query, fetched by refreshPremiumAdminList()
   // only when that subpage is actually opened (see the settings-menu click
   // handler below) rather than on every render().
+  const PREMIUM_PRODUCT_LABELS = {
+    premium: { name: '💎 Premium subscription', amount: '₦1,000' },
+    unlimitedLogs: { name: '📒 Unlimited daily log entries', amount: '₦3,500 (one-time)' }
+  };
   function fmtPremiumRequestStatus(req){
     if(!req || !req.status) return '';
-    if(req.status==='pending') return '⏳ Your receipt is submitted and waiting for review — usually within a day.';
-    if(req.status==='approved') return '✅ Approved — Premium is active on this account.';
+    const productName = (PREMIUM_PRODUCT_LABELS[req.product] || PREMIUM_PRODUCT_LABELS.premium).name;
+    if(req.status==='pending') return '⏳ Your '+productName+' receipt is submitted and waiting for review — usually within a day.';
+    if(req.status==='approved') return '✅ Approved — '+productName+' is active on this account.';
     if(req.status==='rejected') return '❌ Your last request wasn\'t approved' + (req.reason ? ': '+escapeAttr(req.reason) : '.') + ' Feel free to submit a new receipt.';
     return '';
   }
+  // Which product the bank-transfer flow below is for — "Unlimited logs"
+  // only ever appears once the account already has Premium (see
+  // isFeatureUnlocked() above; it's a one-time add-on ON TOP of Premium,
+  // never a standalone purchase a free account can make directly).
+  function renderPremiumProductOptions(){
+    const sel = document.getElementById('premium-product-select');
+    if(!sel) return;
+    const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
+    const prev = sel.value;
+    const options = [];
+    if(!isPremium) options.push('premium');
+    if(isPremium && !hasUnlimitedLogs) options.push('unlimitedLogs');
+    sel.innerHTML = options.map(function(key){
+      const p = PREMIUM_PRODUCT_LABELS[key];
+      return '<option value="'+key+'">'+p.name+' — '+p.amount+'</option>';
+    }).join('');
+    if(options.includes(prev)) sel.value = prev;
+    applyPremiumProductToBankDetails();
+  }
+  function applyPremiumProductToBankDetails(){
+    const sel = document.getElementById('premium-product-select');
+    const titleEl = document.getElementById('premium-bank-details-title');
+    if(!sel || !titleEl) return;
+    const p = PREMIUM_PRODUCT_LABELS[sel.value] || PREMIUM_PRODUCT_LABELS.premium;
+    titleEl.textContent = '🏦 Transfer '+p.amount+' to:';
+  }
   function renderPremiumPanel(){
     const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
     const unlockedMsg = document.getElementById('premium-unlocked-msg');
     const requestWrap = document.getElementById('premium-request-wrap');
-    if(unlockedMsg) unlockedMsg.hidden = !isPremium;
-    if(requestWrap) requestWrap.hidden = isPremium;
+    if(unlockedMsg){
+      unlockedMsg.hidden = !isPremium;
+      unlockedMsg.textContent = hasUnlimitedLogs
+        ? '✅ Premium is active on this account, with unlimited daily log entries — every Premium feature is unlocked.'
+        : '✅ Premium is active on this account — every Premium feature (like 🏦 Bank statement import, 📈 Net Worth and 💹 Investments) is unlocked.';
+    }
+    // Only fully hide the bank-transfer flow once there's genuinely nothing
+    // left this account could buy — otherwise an already-Premium account
+    // still needs it to buy the Unlimited-logs add-on.
+    if(requestWrap) requestWrap.hidden = isPremium && hasUnlimitedLogs;
+    renderPremiumProductOptions();
     const statusEl = document.getElementById('premium-request-status');
     if(statusEl){
-      const msg = isPremium ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
+      const msg = (isPremium && hasUnlimitedLogs) ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
       statusEl.textContent = msg;
       statusEl.hidden = !msg;
     }
     const adminWrap = document.getElementById('premium-admin-wrap');
     if(adminWrap) adminWrap.hidden = !(window.Trakka && window.__ftEmail === window.Trakka.ADMIN_EMAIL);
   }
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.id==='premium-product-select') applyPremiumProductToBankDetails();
+  });
   function fmtPremiumRequestTs(req){
     // submittedAt is a Firestore server Timestamp once it round-trips, but
     // reads back as a plain object (not a JS Date) from getDocs() — only
@@ -2525,11 +2640,14 @@ window.__ftStart = function(){
     window.Trakka.listPendingPremiumRequests().then(function(list){
       listEl.innerHTML = list.length===0
         ? '<div class="empty-msg">No pending requests.</div>'
-        : list.map(function(r){ return `<div class="item-row">
-            <div class="item-label">${escapeAttr(r.displayName || r.uid)}
+        : list.map(function(r){
+            const product = (r.premiumRequest && r.premiumRequest.product) || 'premium';
+            const productLabel = (PREMIUM_PRODUCT_LABELS[product] || PREMIUM_PRODUCT_LABELS.premium).name;
+            return `<div class="item-row">
+            <div class="item-label">${escapeAttr(r.displayName || r.uid)} — ${productLabel}
               <span class="sub">Submitted ${fmtPremiumRequestTs(r.premiumRequest)} · <button type="button" class="link-btn premium-view-receipt-btn" data-uid="${r.uid}">view receipt</button></span>
             </div>
-            <button class="xl-btn primary premium-approve-btn" data-uid="${r.uid}" type="button">✅ Approve</button>
+            <button class="xl-btn primary premium-approve-btn" data-uid="${r.uid}" data-product="${product}" type="button">✅ Approve</button>
             <button class="del premium-reject-btn" data-uid="${r.uid}" title="Reject this request">✕</button>
           </div>`; }).join('');
     }).catch(function(e){
@@ -2566,7 +2684,7 @@ window.__ftStart = function(){
     const btn = approveBtn || rejectBtn;
     btn.disabled = true;
     const action = approveBtn
-      ? window.Trakka.approvePremiumRequest(uid)
+      ? window.Trakka.approvePremiumRequest(uid, approveBtn.dataset.product)
       : window.Trakka.rejectPremiumRequest(uid, '');
     action.then(function(){ refreshPremiumAdminList(); })
       .catch(function(err){ console.error('Premium review action failed:', err); btn.disabled = false; });
@@ -5019,6 +5137,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(atFreeItemCap('income', state.months[activeMonth].income.length)){ notifyItemCapReached('income'); return; }
     if(ongoingEl && ongoingEl.checked){ addRecurringItem('income', desc, amt, 'ongoing', cur); }
     else{ addCustomItem('income', desc, amt, cur); }
     descEl.value=''; amtEl.value=''; if(ongoingEl) ongoingEl.checked = false; if(curEl) curEl.value = currencyCode();
@@ -5034,6 +5153,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(atFreeItemCap('debts', state.months[activeMonth].debts.length)){ notifyItemCapReached('debts'); return; }
     if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing', cur); }
     else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur, cur); }
     descEl.value=''; amtEl.value=''; durEl.value=''; if(ongoingEl) ongoingEl.checked = false; if(curEl) curEl.value = currencyCode();
@@ -5049,6 +5169,7 @@ window.__ftStart = function(){
     const amount = Number(amtEl.value)||0;
     if(amount<=0) return;
     const desc = descEl.value.trim() || livingCategoryById(categoryId).name;
+    if(state.livingEntries.length >= dailyLogCap()){ notifyDailyLogCapReached(); return; }
     // monthIndex is stamped at write time — see entryMonthIndex() for why.
     const entryMi = dateToMonthIndex(date);
     state.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date, monthIndex:entryMi, categoryId, desc, amount});
@@ -5062,6 +5183,7 @@ window.__ftStart = function(){
     const budgetEl = document.getElementById('new-living-cat-budget');
     const name = nameEl.value.trim();
     if(!name) return;
+    if(atFreeItemCap('livingCategories', state.livingCategories.length)){ notifyItemCapReached('livingCategories'); return; }
     const id = 'lcat_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
     const color = livingCategoryPalette[state.livingCategories.length % livingCategoryPalette.length];
     const budget = Number(budgetEl.value)||0;
@@ -5076,6 +5198,7 @@ window.__ftStart = function(){
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     if(!desc) return;
+    if(atFreeItemCap('savingsApps', state.months[activeMonth].savingsApps.length)){ notifyItemCapReached('savingsApps'); return; }
     addSavingsAppAccount(desc, amt);
     descEl.value=''; amtEl.value='';
   });
@@ -5118,6 +5241,7 @@ window.__ftStart = function(){
     const cur = (curEl && curEl.value!==currencyCode()) ? curEl.value : null;
     if(!name || total<=0 || months<=0 || Number.isNaN(target)) return;
     if(months > target){ alert("Months to save can't exceed the number of months before the target date."); return; }
+    if(atFreeItemCap('giftGoals', state.giftGoals.length)){ notifyItemCapReached('giftGoals'); return; }
     const id = 'gift_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,24) + '_' + Date.now();
     const goal = {id, label:name, totalAmount:total, months, targetMonthIndex:target};
     if(cur) goal.currency = cur;
@@ -6244,6 +6368,16 @@ window.__ftStart = function(){
     const bank = document.getElementById('stmt-bank-select').value;
     const categoryId = document.getElementById('stmt-import-category').value;
     if(!categoryId){ stmtSetStatus('Add a living-expense category first (Expenses tab), then come back to import.', 'err'); return; }
+    // Conservative worst-case check (every "money-out" row counts against
+    // the cap, before de-duplication) — simpler and safer than importing
+    // some rows then discovering partway through that the cap was hit.
+    const outCount = stmtParsedTxns.filter(t=>t.direction==='out').length;
+    const cap = dailyLogCap();
+    if(state.livingEntries.length + outCount > cap){
+      const remaining = Math.max(0, cap - state.livingEntries.length);
+      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. '+(cloud.entitlements && cloud.entitlements.premium ? 'Go unlimited with a one-time ₦3,500 payment — see Settings → "💎 Go Premium".' : 'Upgrade in Settings → "💎 Go Premium" for more room.'), 'err');
+      return;
+    }
     const existing = stmtExistingFingerprints();
     const batchIds = [];
     let imported = 0, skipped = 0;
@@ -6492,12 +6626,14 @@ window.__ftStart = function(){
         if(!file.type.startsWith('image/') && file.type!=='application/pdf'){ premiumReceiptStatus('Please choose an image or PDF file.', true); return; }
         if(file.size > 5*1024*1024){ premiumReceiptStatus('That file is too large (max 5MB).', true); return; }
         if(!window.__ftUid){ premiumReceiptStatus('Sign in again to upload a receipt.', true); return; }
+        const productSelect = document.getElementById('premium-product-select');
+        const product = (productSelect && productSelect.value) || 'premium';
         chooseBtn.disabled = true;
         premiumReceiptStatus('Uploading…');
         window.Trakka.uploadReceipt(window.__ftUid, file)
-          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url); })
+          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url, product); })
           .then(function(){
-            cloud.premiumRequest = { status: 'pending' };
+            cloud.premiumRequest = { status: 'pending', product: product };
             renderPremiumPanel();
             premiumReceiptStatus('Receipt submitted — we\'ll review it soon.');
           })
@@ -6971,6 +7107,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources and 3 gift goals — anything you already have stays exactly as it is, this only limits adding more. The daily log caps at 100 free entries, 300 on Premium, or truly unlimited with a one-time ₦3,500 payment (Settings → "💎 Go Premium") on top of Premium.' },
     { title: '🐛 Fixed: Kuda statement import still failing for some real statements', body: 'The previous fix only covered statements secretly saved as HTML — Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
     { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
     { title: '🐛 Fixed: Kuda statement import failing to read the file', body: 'Kuda\'s "Excel" export is actually an HTML table wearing an .xlsx extension — Microsoft Excel opens it fine, but AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. It now detects this and reads the table correctly.' },
@@ -7497,7 +7634,7 @@ window.__ftStart = function(){
     // listPendingPremiumRequests()/approvePremiumRequest() in firebase-init.js,
     // which this same account uses to review everyone else's requests.
     if(window.Trakka && user.email === window.Trakka.ADMIN_EMAIL){
-      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true });
+      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true, unlimitedLogs: true });
     }
     // ===== Trusted-device check =====
     // A device "forgotten" from Settings → Security on another device finds

@@ -708,6 +708,8 @@ window.__ftSettingsPage = true;
   <div class="app-page" id="page-investments" data-page="investments">
     <section>
       <div class="section-head"><h2><span class="section-ic" data-icon="investments">💹</span> Investments</h2></div>
+      <div id="investments-locked" class="empty-msg" hidden>Investments is a Premium feature. Upgrade in Settings → "💎 Go Premium" to unlock it.</div>
+      <div id="investments-content">
       <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:640px;">Stocks, mutual funds, shares, commercial papers, treasury bills, crypto — anything you hold units of. Log a price for "today" whenever you check it, and your gain/(loss) updates off the most recent price you've logged, not a live feed.</p>
       <div class="payoff-panel" id="inv-panel">
         <div class="payoff-head" id="inv-head"></div>
@@ -720,6 +722,7 @@ window.__ftSettingsPage = true;
         <input type="number" id="inv-cost" placeholder="Total cost basis {c}" data-ph="Total cost basis {c}">
         <select id="inv-currency" class="item-currency-select" title="Currency this investment is priced and costed in — converted to your primary currency in totals"></select>
         <button id="inv-add-btn">Add</button>
+      </div>
       </div>
     </section>
   </div>
@@ -985,12 +988,15 @@ window.__ftSettingsPage = true;
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>💎 Go Premium</h2></div>
 
-      <div id="premium-unlocked-msg" class="empty-msg" hidden>✅ Premium is active on this account — every Premium feature (like 🏦 Bank statement import and 📈 Net Worth) is unlocked.</div>
+      <div id="premium-unlocked-msg" class="empty-msg" hidden></div>
 
       <div id="premium-request-wrap">
         <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">No card payments yet — unlock Premium with a one-time bank transfer, reviewed by hand. Transfer the amount below, then upload your receipt as proof. Most requests are reviewed within a day.</p>
+        <div class="toolbar" id="premium-product-row">
+          <label class="xl-set">What are you paying for? <select id="premium-product-select"></select></label>
+        </div>
         <div class="payoff-panel" id="premium-bank-details">
-          <h3>🏦 Transfer ₦1,000 to:</h3>
+          <h3 id="premium-bank-details-title">🏦 Transfer ₦1,000 to:</h3>
           <p style="font-size:14px;line-height:1.6;margin:8px 0 0;"><b>Bank:</b> Kuda<br><b>Account number:</b> 3004426470<br><b>Account name:</b> Ololade Opemipo Falobi</p>
         </div>
         <div class="toolbar" style="margin-top:14px;">
