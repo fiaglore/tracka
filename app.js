@@ -5691,6 +5691,281 @@ window.__ftStart = function(){
     }
   }
 
+  // =====================================================================================
+  // BANK STATEMENT IMPORT (OPay, Moniepoint, Kuda)
+  // Reads a statement the user downloaded straight from their own bank app — no
+  // third-party aggregator, no API keys, no account linking, nothing leaves the browser.
+  // Each row becomes a normal entry: a debit becomes a living-expense entry, a credit
+  // becomes an extra-income entry, exactly as if it had been typed in by hand.
+  //
+  // Column headers vary by bank, and these banks change their export format without
+  // notice — none of this is reverse-engineered from a byte-exact sample file. So instead
+  // of hardcoded exact-match column names (which would silently break the moment a label
+  // changes), detection is alias/heuristic-based, and the user sees a preview of what was
+  // actually parsed before anything is imported, so a bad guess is caught, not silent.
+  // =====================================================================================
+  const STMT_BANKS = { opay: 'OPay', moniepoint: 'Moniepoint', kuda: 'Kuda' };
+  const STMT_COLUMN_ALIASES = {
+    date: ['transaction date','txn date','value date','trans date','date'],
+    description: ['narration','description','particulars','remarks','remark','details','transaction details','transaction narration'],
+    debit: ['debit','debit amount','withdrawal','money out','dr'],
+    credit: ['credit','credit amount','deposit','money in','cr'],
+    amount: ['amount','transaction amount'],
+    type: ['transaction type','type','dr/cr','cr/dr','indicator'],
+    balance: ['balance','running balance','closing balance','balance after']
+  };
+  function stmtNormalizeHeader(h){
+    return String(h==null?'':h).toLowerCase().replace(/[^a-z]+/g,' ').trim();
+  }
+  // Statement exports often have a few title/account-summary rows above the real table,
+  // so row 0 usually isn't the header — scan the first 20 rows for whichever one matches
+  // the most known column aliases.
+  function stmtFindHeaderRow(rows){
+    let best = -1, bestScore = 0;
+    for(let r=0; r<Math.min(rows.length, 20); r++){
+      const cells = (rows[r]||[]).map(stmtNormalizeHeader);
+      let score = 0;
+      Object.values(STMT_COLUMN_ALIASES).forEach(aliases=>{ if(cells.some(c=>aliases.includes(c))) score++; });
+      if(score>bestScore){ bestScore = score; best = r; }
+    }
+    return bestScore>=2 ? best : -1;
+  }
+  function stmtDetectColumns(headerRow){
+    const cells = headerRow.map(stmtNormalizeHeader);
+    const map = {};
+    Object.keys(STMT_COLUMN_ALIASES).forEach(key=>{
+      const idx = cells.findIndex(c=>STMT_COLUMN_ALIASES[key].includes(c));
+      if(idx>=0) map[key] = idx;
+    });
+    return map;
+  }
+  function stmtParseAmount(v){
+    if(v==null || v==='') return 0;
+    if(typeof v==='number') return v;
+    const n = Number(String(v).replace(/[^0-9.\-]/g,''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  function stmtParseDate(v){
+    if(v instanceof Date && !isNaN(v)) return v;
+    if(typeof v==='number') return new Date(Date.UTC(1899,11,30) + v*86400000); // Excel serial date
+    const s = String(v||'').trim();
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if(m) return new Date(+m[3], +m[2]-1, +m[1]);
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+  function stmtRowsFromWorkbook(wb){
+    const ws = wb.worksheets[0];
+    const rows = [];
+    if(!ws) return rows;
+    ws.eachRow({includeEmpty:false}, row=>{
+      const cells = [];
+      row.eachCell({includeEmpty:true}, cell=>{
+        const v = cell.value;
+        cells[cell.col-1] = (v && typeof v==='object' && 'result' in v) ? v.result : v;
+      });
+      rows.push(cells);
+    });
+    return rows;
+  }
+  // Minimal RFC4180 reader: handles quoted fields with embedded commas/newlines/escaped quotes.
+  function stmtRowsFromCsv(text){
+    const rows = []; let row = []; let field = ''; let inQuotes = false;
+    for(let i=0;i<text.length;i++){
+      const c = text[i];
+      if(inQuotes){
+        if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+        else field += c;
+      } else {
+        if(c==='"') inQuotes = true;
+        else if(c===','){ row.push(field); field=''; }
+        else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+        else if(c==='\r'){ /* skip — \n follows */ }
+        else field += c;
+      }
+    }
+    if(field!=='' || row.length){ row.push(field); rows.push(row); }
+    return rows;
+  }
+  async function stmtReadFile(file){
+    const name = file.name.toLowerCase();
+    if(name.endsWith('.csv')) return stmtRowsFromCsv(await file.text());
+    const buf = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    return stmtRowsFromWorkbook(wb);
+  }
+  function stmtParseTransactions(rows){
+    const headerIdx = stmtFindHeaderRow(rows);
+    if(headerIdx<0) return { error: 'Could not find a header row with recognizable columns (date, description, amount). The statement format may have changed.' };
+    const cols = stmtDetectColumns(rows[headerIdx]);
+    if(cols.date==null || cols.description==null) return { error: 'Could not detect the Date and Description columns.' };
+    if(cols.debit==null && cols.credit==null && cols.amount==null) return { error: 'Could not detect an Amount, or Debit/Credit, column.' };
+
+    const txns = [];
+    for(let r=headerIdx+1; r<rows.length; r++){
+      const row = rows[r];
+      if(!row || row.every(c=>c==null||c==='')) continue;
+      const date = stmtParseDate(row[cols.date]);
+      if(!date) continue; // most likely a totals/footer row
+      const description = String(row[cols.description]==null?'':row[cols.description]).trim() || '(no description)';
+      let amount = 0, direction = null;
+      if(cols.debit!=null || cols.credit!=null){
+        const d = stmtParseAmount(row[cols.debit]), c = stmtParseAmount(row[cols.credit]);
+        if(d>0){ amount = d; direction = 'out'; }
+        else if(c>0){ amount = c; direction = 'in'; }
+        else continue; // both zero/blank — not a real transaction row
+      } else {
+        const raw = stmtParseAmount(row[cols.amount]);
+        const typeStr = cols.type!=null ? String(row[cols.type]||'').toLowerCase() : '';
+        if(/credit|cr|in/.test(typeStr) && !/debit|dr/.test(typeStr)) direction = 'in';
+        else if(/debit|dr|out/.test(typeStr) && !/credit|cr/.test(typeStr)) direction = 'out';
+        else direction = raw<0 ? 'out' : 'in';
+        amount = Math.abs(raw);
+        if(amount<=0) continue;
+      }
+      txns.push({ date, description, amount, direction });
+    }
+    return { txns };
+  }
+
+  var stmtParsedTxns = null, stmtLastBatchIds = null, stmtLastBatchBank = null;
+
+  function stmtFormatDate(d){ return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+  function stmtFingerprint(bank, t){ return bank+'|'+t.direction+'|'+t.amount+'|'+stmtFormatDate(t.date)+'|'+t.description.slice(0,40); }
+  function stmtExistingFingerprints(){
+    // livingEntries stores date as ISO ("YYYY-MM-DD"), extra stores it as the
+    // same display string stmtFormatDate() produces — both have to be
+    // reformatted to THAT display string here, matching the format
+    // stmtFingerprint() uses for a freshly-parsed transaction, or a debit and
+    // its own earlier import would never compare equal on a re-upload.
+    const set = new Set();
+    state.livingEntries.forEach(e=>{
+      if(!e.stmtSource) return;
+      const parts = String(e.date).split('-').map(Number);
+      const disp = stmtFormatDate(new Date(parts[0], parts[1]-1, parts[2]));
+      set.add(e.stmtSource+'|out|'+e.amount+'|'+disp+'|'+(e.desc||'').slice(0,40));
+    });
+    state.extra.forEach(e=>{ if(e.stmtSource) set.add(e.stmtSource+'|in|'+e.amount+'|'+e.date+'|'+(e.desc||'').slice(0,40)); });
+    return set;
+  }
+
+  function renderStmtCategorySelect(){
+    const sel = document.getElementById('stmt-import-category');
+    if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = state.livingCategories.map(c=>`<option value="${c.id}">${escapeAttr(c.name)}</option>`).join('');
+    if(state.livingCategories.some(c=>c.id===prev)) sel.value = prev;
+  }
+
+  function stmtSetStatus(msg, kind){
+    const el = document.getElementById('stmt-status');
+    if(!el) return;
+    el.textContent = msg || '';
+    el.className = 'xl-status' + (kind ? ' '+kind : '');
+  }
+
+  function stmtShowPreview(bank, txns){
+    stmtParsedTxns = txns;
+    const inCount = txns.filter(t=>t.direction==='in').length;
+    const outCount = txns.length - inCount;
+    const inTotal = txns.filter(t=>t.direction==='in').reduce((s,t)=>s+t.amount,0);
+    const outTotal = txns.filter(t=>t.direction==='out').reduce((s,t)=>s+t.amount,0);
+    document.getElementById('stmt-preview-summary').textContent =
+      'Found ' + txns.length + ' transaction' + (txns.length===1?'':'s') + ' — ' +
+      outCount + ' money-out (' + fmt(outTotal) + ') and ' + inCount + ' money-in (' + fmt(inTotal) + ').' +
+      (txns.length>10 ? ' Showing the first 10 below.' : '');
+    const rowsHtml = txns.slice(0,10).map(t=>
+      '<tr><td>'+stmtFormatDate(t.date)+'</td><td>'+escapeAttr(t.description)+'</td>' +
+      '<td class="stmt-'+t.direction+'">'+(t.direction==='out'?'−':'+')+fmt(t.amount)+'</td></tr>'
+    ).join('');
+    document.getElementById('stmt-preview-rows').innerHTML = rowsHtml;
+    renderStmtCategorySelect();
+    document.getElementById('stmt-preview').hidden = txns.length===0;
+    document.getElementById('stmt-undo-row').hidden = true;
+    if(txns.length===0) stmtSetStatus('No transactions found in that file.', 'warn');
+  }
+
+  document.getElementById('stmt-choose-file-btn').addEventListener('click', function(){
+    document.getElementById('stmt-file-input').click();
+  });
+  document.getElementById('stmt-file-input').addEventListener('change', async function(){
+    const file = this.files && this.files[0];
+    this.value = '';
+    if(!file) return;
+    if(!xlReady()) return;
+    const bank = document.getElementById('stmt-bank-select').value;
+    stmtSetStatus('Reading '+file.name+'…');
+    document.getElementById('stmt-preview').hidden = true;
+    try{
+      const rows = await stmtReadFile(file);
+      const result = stmtParseTransactions(rows);
+      if(result.error){ stmtSetStatus(result.error, 'err'); return; }
+      if(result.txns.length===0){ stmtSetStatus('No transactions found in "'+file.name+'".', 'warn'); return; }
+      stmtSetStatus('Parsed "'+file.name+'" as '+STMT_BANKS[bank]+'.', 'ok');
+      stmtShowPreview(bank, result.txns);
+    }catch(e){
+      console.error(e);
+      stmtSetStatus('Could not read that file: '+e.message, 'err');
+    }
+  });
+  document.getElementById('stmt-cancel-btn').addEventListener('click', function(){
+    stmtParsedTxns = null;
+    document.getElementById('stmt-preview').hidden = true;
+    stmtSetStatus('');
+  });
+  document.getElementById('stmt-import-btn').addEventListener('click', function(){
+    if(!stmtParsedTxns || !stmtParsedTxns.length) return;
+    const bank = document.getElementById('stmt-bank-select').value;
+    const categoryId = document.getElementById('stmt-import-category').value;
+    if(!categoryId){ stmtSetStatus('Add a living-expense category first (Expenses tab), then come back to import.', 'err'); return; }
+    const existing = stmtExistingFingerprints();
+    const batchIds = [];
+    let imported = 0, skipped = 0;
+    stmtParsedTxns.forEach(t=>{
+      const fp = stmtFingerprint(bank, t);
+      if(existing.has(fp)){ skipped++; return; }
+      existing.add(fp);
+      const dateIso = t.date.getFullYear()+'-'+String(t.date.getMonth()+1).padStart(2,'0')+'-'+String(t.date.getDate()).padStart(2,'0');
+      if(t.direction==='out'){
+        const mi = dateToMonthIndex(dateIso);
+        const id = 'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+        state.livingEntries.push({id, date:dateIso, monthIndex:mi, categoryId, desc:t.description, amount:t.amount, stmtSource:bank});
+        batchIds.push({list:'livingEntries', id});
+      } else {
+        const mi = dateToMonthIndex(dateIso);
+        const entry = {desc:t.description, amount:t.amount, date:stmtFormatDate(t.date), monthIndex:mi, stmtSource:bank};
+        state.extra.push(entry);
+        batchIds.push({list:'extra', ref:entry});
+      }
+      imported++;
+    });
+    save();
+    stmtLastBatchIds = batchIds;
+    stmtLastBatchBank = STMT_BANKS[bank];
+    stmtSetStatus(
+      'Imported ' + imported + ' transaction' + (imported===1?'':'s') + ' from ' + STMT_BANKS[bank] +
+      (skipped ? ' (' + skipped + ' already-imported duplicate' + (skipped===1?'':'s') + ' skipped).' : '.'),
+      'ok'
+    );
+    document.getElementById('stmt-preview').hidden = true;
+    document.getElementById('stmt-undo-row').hidden = imported===0;
+  });
+  document.getElementById('stmt-undo-btn').addEventListener('click', function(){
+    if(!stmtLastBatchIds || !stmtLastBatchIds.length) return;
+    if(!confirm('Remove the '+stmtLastBatchIds.length+' transaction(s) just imported from '+stmtLastBatchBank+'?')) return;
+    const idSet = new Set(stmtLastBatchIds.filter(b=>b.list==='livingEntries').map(b=>b.id));
+    const refSet = new Set(stmtLastBatchIds.filter(b=>b.list==='extra').map(b=>b.ref));
+    state.livingEntries = state.livingEntries.filter(e=>!idSet.has(e.id));
+    state.extra = state.extra.filter(e=>!refSet.has(e));
+    save();
+    stmtLastBatchIds = null;
+    document.getElementById('stmt-undo-row').hidden = true;
+    stmtSetStatus('Import undone.', 'ok');
+  });
+
   document.getElementById('set-currency').addEventListener('change', async function(){
     const select = this;
     const fromSym = CUR, toSym = select.value;
@@ -6335,6 +6610,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🏦 Import a bank statement from OPay, Moniepoint or Kuda', body: 'Settings → "📁 Data" now has an "🏦 Import a bank statement" section — download a statement from your own OPay, Moniepoint or Kuda app (Excel works best; .csv also works) and import it straight in. Nothing is sent to a third party or linked to your bank account; the file is read right in your browser. Each transaction becomes a normal expense (money out) or extra-income entry (money in), exactly as if typed in by hand, with a preview to check before anything is actually added and an "↩️ Undo this import" button right after. Re-importing the same statement twice skips whatever it already added instead of duplicating it.' },
     { title: '📧 Add a real recovery email, so password resets actually arrive', body: 'If you signed up with a plain username instead of a real email address, "Forgot password?" had nowhere real to deliver a reset link to — it would still show its usual success message (so as not to reveal whether an account exists), but nothing ever landed in an inbox. Settings → "🔐 Security" now has a "📧 Recovery email" section showing the address actually on file, with an "✏️ Update recovery email" button to add or change it. A verification link goes to the new address first — your account keeps using the old one for sign-in and password resets until you click it, so a typo can\'t lock you out.' },
     { title: '🔑 Change your password, or reset it by email, right from Settings', body: 'Settings → "🔐 Security" now has a "🔑 Change password" button (needs your current password, same as before) and a "✉️ Reset password by email" button — the same reset-link flow the signed-out "Forgot password?" link already used, now usable without signing out first. If a security PIN or biometric unlock is set up on this device, changing your password clears them automatically, since each holds an encrypted copy of the old one — set them back up with your new password whenever you like.' },
     { title: '🔢 Your PIN is now a security PIN, not just a quick-unlock shortcut', body: 'The PIN set up in Settings → "🔐 Security" used to only skip retyping your password after an auto sign-out. It now also confirms three more sensitive moments: finishing a plain password sign-in (an extra step right after your password, like a second factor), clicking "👁️ Show data" to reveal anything hidden by "🙈 Hide data" mode, and deleting any logged entry — a debt, income source, gift goal, savings entry, investment, or expense. Biometric unlock works as a faster alternative everywhere the PIN is asked, including these new spots. None of this applies until a PIN is actually set up — on a device with no PIN configured, everything works exactly as before.' },

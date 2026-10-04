@@ -1179,6 +1179,17 @@ body.ft-locked #auth-overlay{display:flex;}
 .xl-status.err{color:var(--bad);}
 .xl-status.warn{color:var(--accent-ink);}
 
+/* Bank statement import preview (stmtShowPreview() in app.js) — a plain
+   scrollable table, same borrowed .xl-status palette for the +/− amounts
+   as the rest of the import/export status line uses for ok/err/warn. */
+.stmt-preview-table-wrap{max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:var(--radius-md); margin-bottom:10px;}
+.stmt-preview-table{width:100%; border-collapse:collapse; font-size:12px;}
+.stmt-preview-table th{position:sticky; top:0; background:var(--bg-soft); text-align:left; padding:6px 10px; font-weight:700; border-bottom:1px solid var(--line);}
+.stmt-preview-table td{padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap;}
+.stmt-preview-table td:nth-child(2){white-space:normal; max-width:260px;}
+.stmt-preview-table td.stmt-out{color:var(--bad); font-weight:600;}
+.stmt-preview-table td.stmt-in{color:var(--good); font-weight:600;}
+
 .payoff-panel{border:1px dashed var(--line); border-radius:var(--radius-md); padding:14px 16px; margin:0 0 16px; background:var(--bg-soft);}
 .payoff-panel h3{font-size:13px; font-weight:700; margin-bottom:8px;}
 .payoff-panel-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px;}
