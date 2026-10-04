@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Trakka - Your Money Tracker</title>
+<title>AnchorTrakk - Your Money Tracker</title>
 
 <!-- PWA: installability -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Trakka">
+<meta name="apple-mobile-web-app-title" content="AnchorTrakk">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@
        revealSignInGate()) only swaps to this form once it's confirmed
        there's genuinely no session to resume. -->
   <div class="auth-card" id="auth-form-card" hidden>
-    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;"><img src="icon-192.png" alt="Trakka"></a>
+    <a href="index.html" class="auth-logo" title="Back to AnchorTrakk" style="text-decoration:none;"><img src="icon-192.png" alt="AnchorTrakk"></a>
     <h2 id="auth-title">Welcome back</h2>
     <p class="auth-sub" id="auth-sub">Sign in to open your tracker.</p>
     <button type="button" class="auth-submit auth-biometric-btn" id="auth-biometric-btn" hidden>🫆 Use biometric unlock</button>
@@ -69,7 +69,7 @@
        security PIN is cached on this device. See auto-logout.js and
        app.js's auth IIFE for how that's decided and this card gets swapped in. -->
   <div class="auth-card" id="pin-unlock-card" hidden>
-    <a href="index.html" class="auth-logo" title="Back to Trakka" style="text-decoration:none;"><img src="icon-192.png" alt="Trakka"></a>
+    <a href="index.html" class="auth-logo" title="Back to AnchorTrakk" style="text-decoration:none;"><img src="icon-192.png" alt="AnchorTrakk"></a>
     <h2>Welcome back</h2>
     <p class="auth-sub" id="pin-unlock-sub">You were signed out. Enter your security PIN to continue.</p>
     <form id="pin-unlock-form" autocomplete="off" novalidate>
@@ -184,7 +184,7 @@
 <div id="onboarding-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
   <div class="auth-card onboarding-card">
     <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true">🌱</div>
-    <h2 id="onboarding-title">Welcome to Trakka</h2>
+    <h2 id="onboarding-title">Welcome to AnchorTrakk</h2>
     <p class="auth-sub" id="onboarding-body"></p>
     <div class="onboarding-dots" id="onboarding-dots"></div>
     <div class="onboarding-nav">
@@ -229,10 +229,10 @@
 
   <div class="topbar">
     <div class="brand-row">
-      <a class="brand" href="index.html" title="Back to Trakka home">
-        <div class="brand-mark"><img src="icon-192.png" alt="Trakka"></div>
+      <a class="brand" href="index.html" title="Back to AnchorTrakk home">
+        <div class="brand-mark"><img src="icon-192.png" alt="AnchorTrakk"></div>
         <div class="brand-text">
-          <h1>Trakka - Your Money Tracker</h1>
+          <h1>AnchorTrakk - Your Money Tracker</h1>
           <div class="tag">One continuous log — switch months, nothing resets. <span id="period-desc"></span></div>
         </div>
       </a>
@@ -276,7 +276,7 @@
         <span class="lbl">🌟 Level</span>
         <span class="val" id="chip-level-val">1</span>
       </div>
-      <div class="chip streak" id="chip-streak" title="Consecutive days you've opened Trakka">
+      <div class="chip streak" id="chip-streak" title="Consecutive days you've opened AnchorTrakk">
         <span class="lbl" id="chip-streak-lbl">🔥 Streak</span>
         <span class="val" id="chip-streak-val">—</span>
       </div>
@@ -784,7 +784,7 @@
     <div class="settings-subpage" id="settings-page-profile" data-settings-page="profile" hidden>
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>👤 Profile</h2></div>
-      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Personalizes your greeting and lets Trakka send you a birthday shoutout. None of this is required.</p>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Personalizes your greeting and lets AnchorTrakk send you a birthday shoutout. None of this is required.</p>
       <div class="toolbar">
         <label class="xl-set">First name <input type="text" id="profile-first-name" maxlength="40" placeholder="e.g. Ada" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
         <label class="xl-set">Surname <input type="text" id="profile-last-name" maxlength="40" placeholder="e.g. Okafor" style="font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
@@ -838,7 +838,7 @@
     <div class="settings-subpage" id="settings-page-spotify" data-settings-page="spotify" hidden>
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>🎵 Spotify playlist</h2></div>
-      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Paste a Spotify playlist link to embed a player on your Overview page while you track. Without Spotify Premium (and being logged into Spotify in this browser), it only plays 30-second previews — that's a Spotify limitation, not Trakka's.</p>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Paste a Spotify playlist link to embed a player on your Overview page while you track. Without Spotify Premium (and being logged into Spotify in this browser), it only plays 30-second previews — that's a Spotify limitation, not AnchorTrakk's.</p>
       <div class="toolbar">
         <label class="xl-set" style="flex:1;min-width:220px;">Playlist link <input type="text" id="spotify-playlist-input" placeholder="https://open.spotify.com/playlist/..." style="flex:1;font-family:inherit;font-size:12px;padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);"></label>
         <button class="xl-btn" id="spotify-playlist-clear" type="button" title="Remove the embedded playlist">🗑️ Remove</button>
@@ -884,7 +884,7 @@
       <div class="toolbar">
         <label class="xl-set">Leveling pace <select id="set-xp-difficulty">
           <option value="easy">🌤️ Easy — levels come faster</option>
-          <option value="medium">⚖️ Trakka Mode (default)</option>
+          <option value="medium">⚖️ AnchorTrakk Mode (default)</option>
           <option value="hard">🔥 Hard — levels take much longer</option>
         </select></label>
       </div>
@@ -997,15 +997,15 @@
       <button type="button" class="settings-back-btn">‹ Settings</button>
       <div class="section-head"><h2>📲 App</h2></div>
       <div class="toolbar">
-        <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install Trakka as an app on this device">📲 Install app</button>
+        <button class="xl-btn" id="pwa-install-btn" type="button" style="display:none;" title="Install AnchorTrakk as an app on this device">📲 Install app</button>
         <span class="xl-status" style="width:auto;margin:0;">Adds a home-screen icon and works offline. Shows up here automatically in Chrome/Edge/Android when it's available and not already installed.</span>
       </div>
       <div class="toolbar">
         <button class="xl-btn" id="onboarding-replay-btn" type="button" title="Show the welcome tour again">🧭 Take the tour</button>
-        <span class="xl-status" style="width:auto;margin:0;">A quick walkthrough of what each part of Trakka does.</span>
+        <span class="xl-status" style="width:auto;margin:0;">A quick walkthrough of what each part of AnchorTrakk does.</span>
       </div>
       <div class="toolbar">
-        <a class="xl-btn" href="faq.html" title="In-depth walkthroughs of every part of Trakka">❓ Help &amp; FAQ</a>
+        <a class="xl-btn" href="faq.html" title="In-depth walkthroughs of every part of AnchorTrakk">❓ Help &amp; FAQ</a>
         <span class="xl-status" style="width:auto;margin:0;">In-depth tutorials for every part of the app. Leaving this page signs you out, for security — sign back in anytime.</span>
       </div>
     </div>

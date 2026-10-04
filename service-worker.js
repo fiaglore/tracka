@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION whenever any shell file changes, so returning users
 // pick up the new version instead of a stale cached copy.
-const CACHE_VERSION = "tracka-shell-v120";
+const CACHE_VERSION = "tracka-shell-v121";
 
 const SHELL_FILES = [
   "./",
@@ -169,7 +169,7 @@ self.addEventListener("fetch", (event) => {
 // payload it's handed. See subscribeToPush() in firebase-init.js for how a
 // device registers to receive these in the first place.
 self.addEventListener("push", (event) => {
-  let payload = { title: "Trakka", body: "" };
+  let payload = { title: "AnchorTrakk", body: "" };
   try {
     if (event.data) payload = Object.assign(payload, event.data.json());
   } catch (e) {

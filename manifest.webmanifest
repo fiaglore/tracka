@@ -1,6 +1,6 @@
 {
-  "name": "Trakka - Your Money Tracker",
-  "short_name": "Trakka",
+  "name": "AnchorTrakk - Your Money Tracker",
+  "short_name": "AnchorTrakk",
   "description": "One continuous money log — income, debts, gifts, savings and expenses, in one place.",
   "start_url": "./index.html",
   "scope": "./",

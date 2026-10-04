@@ -459,7 +459,7 @@ window.Trakka = {
     const cred = await navigator.credentials.create({
       publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rp: { name: "Trakka" },
+        rp: { name: "AnchorTrakk" },
         user: { id: new TextEncoder().encode(user.uid), name: username, displayName: username },
         pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
         authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },

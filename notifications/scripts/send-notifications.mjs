@@ -113,7 +113,7 @@ async function processUser(doc) {
       !hasLoggedToday(state, N, dateStr)
     ) {
       subs = await sendToUser(
-        uid, subs, "Trakka",
+        uid, subs, "AnchorTrakk",
         "You haven't logged anything yet today — a couple of minutes keeps your tracker honest."
       );
       updates["notifyState.lastReminderDate"] = dateStr;
@@ -130,7 +130,7 @@ async function processUser(doc) {
     // notification the moment they turn reminders on, however long they've
     // actually been level 7.
     if (prefEnabled(data, "levelUp") && notifyState.lastLevel !== undefined && level > notifyState.lastLevel) {
-      subs = await sendToUser(uid, subs, "🌟 Level up!", `You reached Level ${level} in Trakka.`);
+      subs = await sendToUser(uid, subs, "🌟 Level up!", `You reached Level ${level} in AnchorTrakk.`);
     }
     if (notifyState.lastLevel !== level) updates["notifyState.lastLevel"] = level;
   } catch (e) {
