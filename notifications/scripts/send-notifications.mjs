@@ -38,6 +38,12 @@ import {
 
 const VAPID_PUBLIC_KEY = "BBu3BjNQYno6ggvoHIqDHo7mbksg7DeZa3JC6NEa3aYmfLLKbR-FBFn8tep23uDim1TonfMSzyScazK7rG3VMJw";
 
+// The one account that reviews manual bank-transfer receipts (see
+// firestore.rules and firebase-init.js's listPendingPremiumRequests()) —
+// kept in sync by hand with the matching constant in those files, since
+// there's no shared config between this script's runtime and the browser.
+const ADMIN_EMAIL = "lolafalobi@gmail.com";
+
 // Local hour (in the USER's own timezone, not the runner's) the daily
 // reminder is allowed to fire from. Uses ">=" rather than "===" below so a
 // delayed/skipped GitHub Actions run doesn't just silently miss the day
@@ -92,15 +98,35 @@ async function sendToUser(uid, subscriptions, title, body) {
 async function processUser(doc) {
   const uid = doc.id;
   const data = doc.data();
+  const updates = {};
+
+  // ---- Premium request pending admin review ----
+  // Notifies ADMIN_EMAIL, not this account — independent of this account's
+  // own notifyPrefs/remindersEnabled/push subscriptions below, so it's
+  // checked before any of those gate the rest of this function. Flagged via
+  // adminNotifiedAt rather than re-checked every run, same "only notify
+  // once per newly-true condition" shape as debt-cleared/bill-due above.
+  let premiumRequestPending = null;
+  const premiumRequest = data.premiumRequest;
+  if (premiumRequest && premiumRequest.status === "pending" && !premiumRequest.adminNotifiedAt) {
+    premiumRequestPending = { uid, displayName: data.displayName || uid };
+    updates["premiumRequest.adminNotifiedAt"] = admin.firestore.FieldValue.serverTimestamp();
+  }
+
   const subscriptions = data.pushSubscriptions || [];
-  if (subscriptions.length === 0 || !data.remindersEnabled) return;
+  if (subscriptions.length === 0 || !data.remindersEnabled) {
+    if (Object.keys(updates).length > 0) await doc.ref.update(updates);
+    return premiumRequestPending;
+  }
 
   const state = data.trackerState;
-  if (!state || !Array.isArray(state.months) || state.months.length === 0) return;
+  if (!state || !Array.isArray(state.months) || state.months.length === 0) {
+    if (Object.keys(updates).length > 0) await doc.ref.update(updates);
+    return premiumRequestPending;
+  }
   const N = state.months.length;
   const timeZone = data.timezone || "UTC";
   const notifyState = data.notifyState || {};
-  const updates = {};
   let subs = subscriptions;
 
   // ---- 1. "Haven't logged anything today" reminder ----
@@ -242,6 +268,36 @@ async function processUser(doc) {
 
   if (subs.length !== subscriptions.length) updates.pushSubscriptions = subs;
   if (Object.keys(updates).length > 0) await doc.ref.update(updates);
+  return premiumRequestPending;
+}
+
+// Looks up ADMIN_EMAIL's own uid via Firebase Auth rather than a hardcoded
+// one (same reasoning as the email-based firestore.rules check: it never
+// needs updating even if that account is ever recreated) and pushes to
+// whatever devices it has subscribed, via the same sendToUser() every
+// other notification type above uses.
+async function notifyAdminOfPremiumRequests(db, pending) {
+  let adminUid;
+  try {
+    adminUid = (await admin.auth().getUserByEmail(ADMIN_EMAIL)).uid;
+  } catch (e) {
+    console.error(`Could not find admin account (${ADMIN_EMAIL}) to notify:`, e.message);
+    return;
+  }
+  const adminDocRef = db.collection("users").doc(adminUid);
+  const adminDoc = await adminDocRef.get();
+  const adminSubs = (adminDoc.exists && adminDoc.data().pushSubscriptions) || [];
+  if (adminSubs.length === 0) {
+    console.log("Admin has no push subscriptions — skipping premium-request notification.");
+    return;
+  }
+  const names = pending.map((p) => p.displayName);
+  const survivors = await sendToUser(
+    adminUid, adminSubs,
+    pending.length === 1 ? "💎 New premium request" : `💎 ${pending.length} new premium requests`,
+    names.join(" · ") + " — review in Settings → Go Premium."
+  );
+  if (survivors.length !== adminSubs.length) await adminDocRef.update({ pushSubscriptions: survivors });
 }
 
 async function run() {
@@ -257,8 +313,18 @@ async function run() {
   const db = admin.firestore();
   const snapshot = await db.collection("users").get();
   console.log(`Checking ${snapshot.size} user doc(s)...`);
+  const pendingPremiumRequests = [];
   for (const doc of snapshot.docs) {
-    await processUser(doc).catch((e) => console.error(`Unhandled error for ${doc.id}:`, e));
+    const pending = await processUser(doc).catch((e) => {
+      console.error(`Unhandled error for ${doc.id}:`, e);
+      return null;
+    });
+    if (pending) pendingPremiumRequests.push(pending);
+  }
+  if (pendingPremiumRequests.length > 0) {
+    await notifyAdminOfPremiumRequests(db, pendingPremiumRequests).catch((e) =>
+      console.error("Admin premium-request notification failed:", e)
+    );
   }
 }
 

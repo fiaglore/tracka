@@ -17,6 +17,12 @@
 const FIREBASE_PROJECT_ID = "tracka-app-f97e1";
 const GOOGLE_JWK_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+
+// Kept in sync by hand with app.js's ADMIN_EMAIL — this account can read
+// anyone's uploaded receipt (see handleReceiptGet below) to review premium
+// requests, same override that unlocks every premium feature client-side.
+const ADMIN_EMAIL = "lolafalobi@gmail.com";
 
 // Cached per-isolate — Workers reuse a warm isolate across many requests,
 // so this avoids refetching Google's signing keys on every single upload.
@@ -82,10 +88,10 @@ async function verifyFirebaseIdToken(token) {
   if (payload.iss !== "https://securetoken.google.com/" + FIREBASE_PROJECT_ID) throw new Error("Unexpected token issuer.");
   if (!payload.sub) throw new Error("Token missing subject.");
 
-  return payload.sub;
+  return { uid: payload.sub, email: payload.email || null };
 }
 
-async function requireUid(request) {
+async function requireAuth(request) {
   const authHeader = request.headers.get("Authorization") || "";
   const match = authHeader.match(/^Bearer (.+)$/);
   if (!match) throw new Error("Missing bearer token.");
@@ -101,7 +107,7 @@ function jsonResponse(obj, status) {
 
 async function handleUpload(request, env) {
   let uid;
-  try { uid = await requireUid(request); }
+  try { ({ uid } = await requireAuth(request)); }
   catch (e) { return jsonResponse({ error: e.message }, 401); }
 
   const contentType = request.headers.get("Content-Type") || "";
@@ -128,7 +134,7 @@ async function handleUpload(request, env) {
 
 async function handleDelete(request, env) {
   let uid;
-  try { uid = await requireUid(request); }
+  try { ({ uid } = await requireAuth(request)); }
   catch (e) { return jsonResponse({ error: e.message }, 401); }
 
   await env.AVATARS.delete("avatars/" + uid);
@@ -149,6 +155,58 @@ async function handleGet(request, env, uid) {
   return new Response(object.body, { headers });
 }
 
+// ----- receipt uploads (proof of a manual bank transfer for Premium) -----
+// Unlike avatars, receipts are private financial documents — a bank
+// transfer receipt can show account numbers and balances, so unlike
+// handleGet above this never serves one without checking who's asking.
+// One object per user (receipts/{uid}), overwritten on every re-upload,
+// same as avatars — a brand-new receipt for a still-pending request simply
+// replaces the old one, since only the latest submission matters.
+async function handleReceiptUpload(request, env) {
+  let uid;
+  try { ({ uid } = await requireAuth(request)); }
+  catch (e) { return jsonResponse({ error: e.message }, 401); }
+
+  const contentType = request.headers.get("Content-Type") || "";
+  if (!contentType.startsWith("image/") && contentType !== "application/pdf") {
+    return jsonResponse({ error: "Please upload an image or PDF of your receipt." }, 400);
+  }
+
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength === 0) return jsonResponse({ error: "Empty upload." }, 400);
+  if (bytes.byteLength > MAX_RECEIPT_BYTES) {
+    return jsonResponse({ error: "That file is too large (max 5MB)." }, 400);
+  }
+
+  await env.RECEIPTS.put("receipts/" + uid, bytes, {
+    httpMetadata: { contentType: contentType }
+  });
+
+  const url = new URL(request.url);
+  return jsonResponse({ url: url.origin + "/api/receipt/" + uid + "?v=" + Date.now() });
+}
+
+async function handleReceiptGet(request, env, uid) {
+  if (!uid) return new Response("Not found.", { status: 404 });
+
+  let auth;
+  try { auth = await requireAuth(request); }
+  catch (e) { return jsonResponse({ error: e.message }, 401); }
+  if (auth.uid !== uid && auth.email !== ADMIN_EMAIL) {
+    return jsonResponse({ error: "Not allowed." }, 403);
+  }
+
+  const object = await env.RECEIPTS.get("receipts/" + uid);
+  if (!object) return new Response("Not found.", { status: 404 });
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("cache-control", "private, no-store");
+
+  return new Response(object.body, { headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -161,6 +219,12 @@ export default {
     }
     if (url.pathname.startsWith("/api/avatar/") && request.method === "GET") {
       return handleGet(request, env, url.pathname.slice("/api/avatar/".length));
+    }
+    if (url.pathname === "/api/receipt" && request.method === "POST") {
+      return handleReceiptUpload(request, env);
+    }
+    if (url.pathname.startsWith("/api/receipt/") && request.method === "GET") {
+      return handleReceiptGet(request, env, url.pathname.slice("/api/receipt/".length));
     }
 
     return env.ASSETS.fetch(request);

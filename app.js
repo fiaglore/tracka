@@ -2404,6 +2404,96 @@ window.__ftStart = function(){
           </div>`).join('');
     }
   }
+  // ===== Premium via manual bank transfer (see firebase-init.js) =====
+  // Sync part only — shows the account's own request status from `cloud`,
+  // same "reflects whatever render() already has in hand" pattern as
+  // renderSecurityPanel() above. The admin's pending-requests list is a
+  // separate async Firestore query, fetched by refreshPremiumAdminList()
+  // only when that subpage is actually opened (see the settings-menu click
+  // handler below) rather than on every render().
+  function fmtPremiumRequestStatus(req){
+    if(!req || !req.status) return '';
+    if(req.status==='pending') return '⏳ Your receipt is submitted and waiting for review — usually within a day.';
+    if(req.status==='approved') return '✅ Approved — Premium is active on this account.';
+    if(req.status==='rejected') return '❌ Your last request wasn\'t approved' + (req.reason ? ': '+escapeAttr(req.reason) : '.') + ' Feel free to submit a new receipt.';
+    return '';
+  }
+  function renderPremiumPanel(){
+    const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    const unlockedMsg = document.getElementById('premium-unlocked-msg');
+    const requestWrap = document.getElementById('premium-request-wrap');
+    if(unlockedMsg) unlockedMsg.hidden = !isPremium;
+    if(requestWrap) requestWrap.hidden = isPremium;
+    const statusEl = document.getElementById('premium-request-status');
+    if(statusEl){
+      const msg = isPremium ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
+      statusEl.textContent = msg;
+      statusEl.hidden = !msg;
+    }
+    const adminWrap = document.getElementById('premium-admin-wrap');
+    if(adminWrap) adminWrap.hidden = !(window.Trakka && window.__ftEmail === window.Trakka.ADMIN_EMAIL);
+  }
+  function fmtPremiumRequestTs(req){
+    // submittedAt is a Firestore server Timestamp once it round-trips, but
+    // reads back as a plain object (not a JS Date) from getDocs() — only
+    // its toDate() form is usable here, and a brand-new write this same
+    // session may not have one locally yet until it syncs back down.
+    if(!req || !req.submittedAt || typeof req.submittedAt.toDate !== 'function') return '';
+    return fmtSecurityTs(req.submittedAt.toDate().getTime());
+  }
+  function refreshPremiumAdminList(){
+    const listEl = document.getElementById('premium-admin-list');
+    if(!listEl || !window.Trakka || window.__ftEmail !== window.Trakka.ADMIN_EMAIL) return;
+    listEl.innerHTML = '<div class="empty-msg">Loading…</div>';
+    window.Trakka.listPendingPremiumRequests().then(function(list){
+      listEl.innerHTML = list.length===0
+        ? '<div class="empty-msg">No pending requests.</div>'
+        : list.map(function(r){ return `<div class="item-row">
+            <div class="item-label">${escapeAttr(r.displayName || r.uid)}
+              <span class="sub">Submitted ${fmtPremiumRequestTs(r.premiumRequest)} · <button type="button" class="link-btn premium-view-receipt-btn" data-uid="${r.uid}">view receipt</button></span>
+            </div>
+            <button class="xl-btn primary premium-approve-btn" data-uid="${r.uid}" type="button">✅ Approve</button>
+            <button class="del premium-reject-btn" data-uid="${r.uid}" title="Reject this request">✕</button>
+          </div>`; }).join('');
+    }).catch(function(e){
+      listEl.innerHTML = '<div class="empty-msg">Could not load requests: '+escapeAttr((e&&e.message)||'unknown error')+'</div>';
+    });
+  }
+  // The settings-menu nav handler below lives in its own separate IIFE
+  // that wires up unconditionally on page load (see its own comment) —
+  // outside this function's scope, same reason showTrackerPage is exposed
+  // via `window.` instead of being called directly.
+  window.refreshPremiumAdminList = refreshPremiumAdminList;
+  document.addEventListener('click', function(e){
+    const viewBtn = e.target.closest ? e.target.closest('.premium-view-receipt-btn') : null;
+    if(!viewBtn) return;
+    const uid = viewBtn.dataset.uid;
+    if(!uid || !window.Trakka) return;
+    viewBtn.disabled = true;
+    window.Trakka.fetchReceiptBlob(uid).then(function(blob){
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // The opened tab has its own reference to the blob by now; this timeout
+      // just stops it leaking for the rest of this tab's lifetime, same
+      // trade-off showMilestoneCard()'s canvas-download blob URLs make.
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+    }).catch(function(err){ alert((err && err.message) || 'Could not load that receipt.'); })
+      .finally(function(){ viewBtn.disabled = false; });
+  });
+  document.addEventListener('click', function(e){
+    const approveBtn = e.target.closest ? e.target.closest('.premium-approve-btn') : null;
+    const rejectBtn = e.target.closest ? e.target.closest('.premium-reject-btn') : null;
+    if(!approveBtn && !rejectBtn) return;
+    const uid = (approveBtn || rejectBtn).dataset.uid;
+    if(!uid || !window.Trakka) return;
+    const btn = approveBtn || rejectBtn;
+    btn.disabled = true;
+    const action = approveBtn
+      ? window.Trakka.approvePremiumRequest(uid)
+      : window.Trakka.rejectPremiumRequest(uid, '');
+    action.then(function(){ refreshPremiumAdminList(); })
+      .catch(function(err){ console.error('Premium review action failed:', err); btn.disabled = false; });
+  });
   document.addEventListener('click', function(e){
     const forgetBtn = e.target.closest ? e.target.closest('.security-forget-device-btn') : null;
     if(!forgetBtn) return;
@@ -2914,6 +3004,7 @@ window.__ftStart = function(){
     renderNetWorth();
     renderCurrencyRates();
     renderSecurityPanel();
+    renderPremiumPanel();
     applyTabVisibility();
     renderExtra();
 
@@ -6162,6 +6253,44 @@ window.__ftStart = function(){
   renderAvatarPicker();
   applyProfileAvatar();
 
+  // ===== Premium via manual bank transfer: receipt upload wiring =====
+  // Same choose-a-file/upload/status pattern as the avatar upload above,
+  // minus the square-crop resize (a receipt's aspect ratio matters, an
+  // avatar's doesn't) — see uploadReceipt()/submitPremiumRequest() in
+  // firebase-init.js and renderPremiumPanel() above for the rest of this
+  // feature.
+  function premiumReceiptStatus(msg, isError){
+    const el = document.getElementById('premium-receipt-status');
+    if(!el) return;
+    el.textContent = msg || '';
+    el.style.color = isError ? 'var(--bad)' : 'var(--muted)';
+  }
+  { const chooseBtn = document.getElementById('premium-receipt-choose-btn');
+    const fileInput = document.getElementById('premium-receipt-input');
+    if(chooseBtn && fileInput){
+      chooseBtn.addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', function(){
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = ''; // lets the same file be re-picked later if needed
+        if(!file) return;
+        if(!file.type.startsWith('image/') && file.type!=='application/pdf'){ premiumReceiptStatus('Please choose an image or PDF file.', true); return; }
+        if(file.size > 5*1024*1024){ premiumReceiptStatus('That file is too large (max 5MB).', true); return; }
+        if(!window.__ftUid){ premiumReceiptStatus('Sign in again to upload a receipt.', true); return; }
+        chooseBtn.disabled = true;
+        premiumReceiptStatus('Uploading…');
+        window.Trakka.uploadReceipt(window.__ftUid, file)
+          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url); })
+          .then(function(){
+            cloud.premiumRequest = { status: 'pending' };
+            renderPremiumPanel();
+            premiumReceiptStatus('Receipt submitted — we\'ll review it soon.');
+          })
+          .catch(function(e){ premiumReceiptStatus((e && e.message) || 'Could not submit that receipt.', true); })
+          .finally(function(){ chooseBtn.disabled = false; });
+      });
+    }
+  }
+
   // ===== Spotify playlist embed =====
   // A simple public embed (no OAuth, no API key) — open.spotify.com/embed/
   // just needs the playlist's own id. Without Spotify Premium and being
@@ -6626,6 +6755,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 Go Premium — bank transfer now live', body: 'Settings → "💎 Go Premium" shows AnchorTrakk\'s bank account for a one-time transfer — upload a receipt as proof and it\'s reviewed by hand, usually within a day. No card payments yet, but this is the first real way to actually unlock Premium features like 🏦 Bank statement import and 📈 Net Worth.' },
     { title: '✨ Bank statement import is now a Premium feature', body: 'Importing an OPay, Moniepoint or Kuda statement (Settings → "📁 Data") now needs a Premium subscription. Premium billing isn\'t live yet, so the feature is locked for everyone for the moment — this is groundwork ahead of Premium actually launching, not something you can unlock yet.' },
     { title: '🌱 A new name: AnchorTrakk', body: 'Trakka is now AnchorTrakk — same app, same account, same data, same logo. Nothing about how it works has changed, just what it\'s called.' },
     { title: '🏦 Import a bank statement from OPay, Moniepoint or Kuda', body: 'Settings → "📁 Data" now has an "🏦 Import a bank statement" section — download a statement from your own OPay, Moniepoint or Kuda app (Excel works best; .csv also works) and import it straight in. Nothing is sent to a third party or linked to your bank account; the file is read right in your browser. Each transaction becomes a normal expense (money out) or extra-income entry (money in), exactly as if typed in by hand, with a preview to check before anything is actually added and an "↩️ Undo this import" button right after. Re-importing the same statement twice skips whatever it already added instead of duplicating it.' },
@@ -7124,6 +7254,7 @@ window.__ftStart = function(){
     if(started) return;
     started = true;
     window.__ftUid = user.uid;
+    window.__ftEmail = user.email || null;
     showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
     let cloudData = null;
     try{
@@ -7137,6 +7268,13 @@ window.__ftStart = function(){
       return;
     }
     window.__ftCloudData = cloudData || {};
+    // This one account always has every premium feature unlocked, regardless
+    // of what's actually in Firestore — see isFeatureUnlocked() above and
+    // listPendingPremiumRequests()/approvePremiumRequest() in firebase-init.js,
+    // which this same account uses to review everyone else's requests.
+    if(window.Trakka && user.email === window.Trakka.ADMIN_EMAIL){
+      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true });
+    }
     // ===== Trusted-device check =====
     // A device "forgotten" from Settings → Security on another device finds
     // out here, the next time it actually loads — there's no live push for
@@ -8061,6 +8199,10 @@ window.__ftStart = function(){
       var id = item.getAttribute('data-settings-page');
       menu.hidden = true;
       subpages.forEach(function(p){ p.hidden = (p.getAttribute('data-settings-page') !== id); });
+      // The admin's pending-requests list is fetched fresh each time this
+      // page opens, rather than on every render() — it's the one subpage
+      // with its own async Firestore query instead of just reading `cloud`.
+      if(id==='premium' && typeof window.refreshPremiumAdminList==='function') window.refreshPremiumAdminList();
     });
     subpages.forEach(function(p){
       var backBtn = p.querySelector('.settings-back-btn');
