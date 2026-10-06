@@ -1524,15 +1524,25 @@ window.__ftStart = function(){
   let __undoStack = [];
   let __redoStack = [];
   let __undoBaseline = JSON.stringify(state);
-  // Badges stick permanently the instant they're crossed (see badgeMemory
-  // above) — a plain state-only undo would put the data back but leave a
-  // mistakenly-triggered badge/XP/level/unlock in place, since nothing else
-  // ever removes a badgeMemory entry. Carrying a badge snapshot alongside
-  // each state snapshot lets undo put both back together, so undoing the
-  // entry that crossed a threshold also undoes whatever that crossing
-  // unlocked — the complement to confirmNotTypo() above, which tries to
-  // stop the mistake before it's ever committed in the first place.
+  // Most hand-written badges' `earned` is purely live (recomputed fresh
+  // every render — see badgeDefs below), so deleting the entry that
+  // crossed one already re-locks it for gating purposes with no extra
+  // work. What ISN'T self-correcting: earnedBadgeCount (XP, then level)
+  // counts badgeMemory's badge_<id> KEYS directly, which render() only
+  // ever adds to (see the "newly-earned" pass below) and never used to
+  // remove — so a badge crossed even for one render permanently inflates
+  // XP/level, which matters most for level-gated unlocks (Premium-style
+  // achievement rewards). Carrying a badge-memory snapshot alongside each
+  // state snapshot lets Undo put both back together; the render-time prune
+  // below (see "prunedAnyBadge") is what gives a plain DELETE — with no
+  // Undo click at all — that same effect, within the same correction
+  // window. Complements confirmNotTypo() above, which tries to stop the
+  // mistake before it's ever committed in the first place.
   let __undoBadgeBaseline = JSON.stringify(badgeMemory);
+  // Guards the settle-render scheduled when render() prunes a badge this
+  // same pass (see "prunedAnyBadge" below) — prevents stacking more than
+  // one pending settle timer if several saves land in quick succession.
+  let __badgeSettlePending = false;
   let __undoBatchTimer = null;
   const UNDO_BATCH_MS = 800;
   const UNDO_MAX = 50;
@@ -3947,6 +3957,47 @@ window.__ftStart = function(){
     badgeDefs.forEach(b=>{
       if(b.earned && !badgeMemory['badge_'+b.id]){ badgeMemory['badge_'+b.id]=true; newlyEarned = true; newlyEarnedBadges.push(b); }
     });
+    // Un-stick a badge_<id> key the moment it's no longer earned, but only
+    // if it only became true within the CURRENT, not-yet-committed undo
+    // batch (__undoBadgeBaseline, set by commitUndoBatch further up) —
+    // i.e. the same correction window Undo itself can still reach back
+    // into. This is what makes DELETING the entry that crossed a threshold
+    // have the same effect as clicking Undo, without actually having to
+    // click it: restoreBadgeMemory() above only fires on an explicit
+    // Undo/Redo, but this runs on every render, so it also catches a plain
+    // delete (or any other edit) that drops the same badge back below its
+    // line within that window. A key already true as of the last committed
+    // batch is left alone — once that window closes, a badge's XP is meant
+    // to be permanent, same as everywhere else in this gamification system.
+    // (Harmless no-op for the handful of ids — REBALANCED_BADGE_IDS below,
+    // and every endless-ladder id — whose `earned` already folds memory
+    // back in, since `earned` can then never be false while memory is
+    // true, so this condition simply never matches them.)
+    let prunedAnyBadge = false;
+    {
+      let batchBaselineBadges = {};
+      try{ batchBaselineBadges = JSON.parse(__undoBadgeBaseline); }catch(e){}
+      badgeDefs.forEach(b=>{
+        const key = 'badge_'+b.id;
+        if(badgeMemory[key] && !b.earned && !batchBaselineBadges[key]){ delete badgeMemory[key]; newlyEarned = true; prunedAnyBadge = true; }
+      });
+    }
+    // earnedBadgeCount/totalXP/level above were computed from badgeMemory
+    // as it stood at the START of this render — a badge pruned just now
+    // (prunedAnyBadge) means that count was briefly too high, which could
+    // have let a level/XP-dependent badge (a "reached level N" rung, say)
+    // get added to memory THIS render using that stale, inflated level —
+    // permanently, since nothing afterward would ever re-examine it. One
+    // more render, scheduled right after this one finishes rather than
+    // recursively inside it, lets earnedBadgeCount/level recompute from the
+    // now-corrected memory and prune anything that got added on a false
+    // premise — converges in practice within a render or two, same as
+    // deleting the entry that crossed the original threshold in the first
+    // place settles everything else.
+    if(prunedAnyBadge && !__badgeSettlePending){
+      __badgeSettlePending = true;
+      setTimeout(function(){ __badgeSettlePending = false; render(); }, 0);
+    }
     for(let i=0;i<N;i++){
       const mk = monthBadgeKey(i);
       if(monthCompleteness(i)==='complete' && !badgeMemory[mk]){
@@ -7284,6 +7335,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🛟 Deleting a mistaken entry now cleans up after itself too', body: 'The previous update made Undo also revert any badge/XP/level a mistaken entry had triggered — that now also happens when the entry is deleted directly, without touching Undo at all, as long as it\'s within the same short window where the mistake would still be fresh. An achievement earned a while ago and confirmed stable stays exactly as it is either way.' },
     { title: '🛟 A safety check for big typos, and a smarter Undo', body: 'Adding a single income, debt, gift, savings, investment, or daily-log entry worth ₦100,000 or more now asks "just checking this isn\'t a typo" before it\'s added — easy to dismiss if it\'s genuinely that big, but it catches an accidental extra zero before it\'s committed. Separately, Undo (and Redo) now also reverts any achievement badge, XP, level, or achievement-unlocked pet/weather effect that entry had triggered, not just the entry itself — so undoing a mistake undoes everything it caused, not just the number.' },
     { title: '💎 A Premium spotlight banner', body: 'A rotating banner now highlights what Premium actually includes — Auto FX rates, Net Worth, Investments, exclusive themes & dark mode, exclusive pets & weather effects, and more — at the top of the tracker, plus a smaller version docked to the side on a wide screen. Both disappear once you\'re Premium, and either can be dismissed for the rest of your visit with its ✕.' },
     { title: '🌌 3 new pets and weather effects — unlocked by achievements', body: 'Three new pet companions — 🐉 Dragon (reach a ₦1,000,000 cumulative balance), 🐺 Wolf (hit a 100-day streak) and 🦚 Peacock (reach Level 40) — and three new weather effects with matching ambient sounds — 🌌 Aurora (reach Level 60), 🌈 Rainbow (complete every tracked month) and ✨ Starry night (hit a 200-day streak) — join the picker in Settings, each unlocked the same way themes already are: by playing, not paying.' },
