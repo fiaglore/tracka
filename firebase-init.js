@@ -737,10 +737,10 @@ window.Trakka = {
   // Keeping receiptUrl (rather than re-fetching it) means Settings can show
   // "receipt submitted" status without an extra authenticated round trip
   // to the Worker just to check it still exists.
-  // `product` is "premium" (the ₦1,000 subscription) or "unlimitedLogs"
-  // (the one-time ₦3,500 daily-log-cap removal, Premium-only add-on) — see
-  // PREMIUM_PRODUCT_LABELS in app.js. Defaults to "premium" so older,
-  // already-in-flight requests from before this existed still work.
+  // `product` is "premium" (the ₦3,500/month subscription) or
+  // "unlimitedLogs" (the one-time ₦3,500 daily-log-cap removal, Premium-only
+  // add-on) — see PREMIUM_PRODUCT_LABELS in app.js. Defaults to "premium" so
+  // older, already-in-flight requests from before this existed still work.
   async submitPremiumRequest(uid, receiptUrl, product) {
     await setDoc(
       userDocRef(uid),
@@ -756,11 +756,36 @@ window.Trakka = {
     return snap.docs.map(function (d) { return Object.assign({ uid: d.id }, d.data()); });
   },
   async approvePremiumRequest(uid, product) {
-    const entitlementPatch = product === "unlimitedLogs" ? { unlimitedLogs: true } : { premium: true };
+    if (product === "unlimitedLogs") {
+      await setDoc(
+        userDocRef(uid),
+        {
+          entitlements: { unlimitedLogs: true },
+          premiumRequest: { status: "approved", reviewedAt: serverTimestamp() }
+        },
+        { merge: true }
+      );
+      return;
+    }
+    // Premium is a 30-day recurring unlock, not a one-time purchase — each
+    // approval (first purchase or a later renewal) extends premiumExpiresAt
+    // by 30 days. Stacked on top of whatever time is already left (read via
+    // getDoc below) rather than always restarting the clock from today, so
+    // renewing a few days early — or well before the current period even
+    // lapses — never throws away already-paid-for days. isPremiumActive()
+    // in app.js is what actually reads this; a missing premiumExpiresAt on
+    // an older entitlements doc is treated there as permanent (grandfathered
+    // in from before this field existed), never as already-expired.
+    const snap = await getDoc(userDocRef(uid));
+    const existing = snap.exists() ? (snap.data().entitlements || {}) : {};
+    const existingExpiryMs = existing.premiumExpiresAt && typeof existing.premiumExpiresAt.toMillis === "function"
+      ? existing.premiumExpiresAt.toMillis() : 0;
+    const base = Math.max(Date.now(), existingExpiryMs);
+    const premiumExpiresAt = new Date(base + 30 * 24 * 60 * 60 * 1000);
     await setDoc(
       userDocRef(uid),
       {
-        entitlements: entitlementPatch,
+        entitlements: { premium: true, premiumExpiresAt: premiumExpiresAt },
         premiumRequest: { status: "approved", reviewedAt: serverTimestamp() }
       },
       { merge: true }

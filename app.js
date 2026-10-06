@@ -82,9 +82,25 @@ window.__ftStart = function(){
   // further down (a separate top-level scope — see begin()'s trusted-device
   // check) — this copy is only for the "X of 6 devices" count below.
   const MAX_TRUSTED_DEVICES = 6;
+  // Premium is a 30-day recurring unlock (see approvePremiumRequest() in
+  // firebase-init.js) — entitlements.premiumExpiresAt is the actual source
+  // of truth for whether it's still active, not just entitlements.premium
+  // on its own. A doc with premium:true but no premiumExpiresAt at all is
+  // treated as permanently active: that's either the admin's forced-true
+  // override (see the sign-in IIFE further down, which never sets an
+  // expiry) or an account granted under the old one-time-unlock model,
+  // grandfathered in rather than silently cut off by a field that didn't
+  // exist yet when their access was granted.
+  function isPremiumActive(){
+    const ent = cloud.entitlements;
+    if(!ent || !ent.premium) return false;
+    const exp = ent.premiumExpiresAt;
+    if(!exp || typeof exp.toDate !== 'function') return true;
+    return exp.toDate().getTime() > Date.now();
+  }
   function isFeatureUnlocked(key){
     if(!PREMIUM_FEATURE_KEYS.includes(key)) return true;
-    return !!(cloud.entitlements && cloud.entitlements.premium);
+    return isPremiumActive();
   }
 
   // ===== Free-tier item caps =====
@@ -118,11 +134,11 @@ window.__ftStart = function(){
   // it — see their respective click handlers below.
   function dailyLogCap(){
     if(cloud.entitlements && cloud.entitlements.unlimitedLogs) return Infinity;
-    return (cloud.entitlements && cloud.entitlements.premium) ? 300 : 100;
+    return isPremiumActive() ? 300 : 100;
   }
   function notifyDailyLogCapReached(){
     const cap = dailyLogCap();
-    const msg = (cloud.entitlements && cloud.entitlements.premium)
+    const msg = isPremiumActive()
       ? 'You\'ve reached the '+cap+'-entry Premium limit on the daily log. A one-time ₦3,500 payment removes this limit entirely — see Settings → "💎 Go Premium".'
       : 'The free plan includes up to '+cap+' daily log entries — upgrade in Settings → "💎 Go Premium" for 300, or go unlimited with a one-time payment.';
     showAppNotification('🔒 Daily log limit reached', msg);
@@ -170,7 +186,7 @@ window.__ftStart = function(){
     // restarts the rotation if it's already running, same "idempotent toggle"
     // shape as refreshThemeLocks()/refreshPetLocks() elsewhere.
     function refresh(){
-      const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+      const isPremium = isPremiumActive();
       if(top) top.hidden = isPremium || topDismissed;
       if(side) side.hidden = isPremium || sideDismissed;
       const anyVisible = (top && !top.hidden) || (side && !side.hidden);
@@ -2701,13 +2717,14 @@ window.__ftStart = function(){
   // separate async Firestore query, fetched by refreshPremiumAdminList()
   // only when that subpage is actually opened (see the settings-menu click
   // handler below) rather than on every render().
-  // Both products are one-time, lifetime unlocks — there's no renewal
-  // or expiry anywhere (cloud.entitlements.premium is set once by admin
-  // approval and never re-checked against a billing date), so "subscription"
-  // in the name here would be actively misleading about what's being paid
-  // for. Keep both labeled the same way for that reason.
+  // Premium is a 30-day recurring unlock, not a one-time purchase — each
+  // approval (first purchase or a later renewal) stacks another 30 days
+  // onto entitlements.premiumExpiresAt (see approvePremiumRequest() in
+  // firebase-init.js and isPremiumActive() above). Unlimited-logs stays a
+  // genuine one-time add-on on top of Premium, unaffected by whether
+  // Premium itself later lapses.
   const PREMIUM_PRODUCT_LABELS = {
-    premium: { name: '💎 Premium', amount: '₦1,000 (one-time)' },
+    premium: { name: '💎 Premium (1 month)', amount: '₦3,500/month' },
     unlimitedLogs: { name: '📒 Unlimited daily log entries', amount: '₦3,500 (one-time)' }
   };
   function fmtPremiumRequestStatus(req){
@@ -2718,18 +2735,35 @@ window.__ftStart = function(){
     if(req.status==='rejected') return '❌ Your last request wasn\'t approved' + (req.reason ? ': '+escapeAttr(req.reason) : '.') + ' Feel free to submit a new receipt.';
     return '';
   }
-  // Which product the bank-transfer flow below is for — "Unlimited logs"
-  // only ever appears once the account already has Premium (see
-  // isFeatureUnlocked() above; it's a one-time add-on ON TOP of Premium,
-  // never a standalone purchase a free account can make directly).
+  // How much longer the current Premium period has — '' for a free account,
+  // or one grandfathered onto permanent access with no premiumExpiresAt on
+  // record at all (an admin override, or an account granted under the old
+  // one-time-unlock model).
+  function premiumStatusLine(){
+    const ent = cloud.entitlements;
+    if(!ent || !ent.premium) return '';
+    const exp = ent.premiumExpiresAt;
+    if(!exp || typeof exp.toDate !== 'function') return '';
+    const ms = exp.toDate().getTime();
+    const dateStr = new Date(ms).toLocaleDateString('en-NG', {day:'numeric', month:'short', year:'numeric'});
+    const days = Math.ceil((ms-Date.now())/86400000);
+    return days>0
+      ? ' — active until '+dateStr+' ('+days+' day'+(days===1?'':'s')+' left)'
+      : ' — expired on '+dateStr+'; renew below to pick back up';
+  }
+  // Which product(s) the bank-transfer flow below offers — Premium is always
+  // purchasable (a first unlock when free, a renewal any time after, even
+  // before the current period runs out). "Unlimited logs" only ever appears
+  // once the account currently has active Premium (see isFeatureUnlocked()
+  // above; it's a one-time add-on ON TOP of Premium, never a standalone
+  // purchase a free account can make directly).
   function renderPremiumProductOptions(){
     const sel = document.getElementById('premium-product-select');
     if(!sel) return;
-    const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    const isPremium = isPremiumActive();
     const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
     const prev = sel.value;
-    const options = [];
-    if(!isPremium) options.push('premium');
+    const options = ['premium'];
     if(isPremium && !hasUnlimitedLogs) options.push('unlimitedLogs');
     sel.innerHTML = options.map(function(key){
       const p = PREMIUM_PRODUCT_LABELS[key];
@@ -2746,24 +2780,25 @@ window.__ftStart = function(){
     titleEl.textContent = '🏦 Transfer '+p.amount+' to:';
   }
   function renderPremiumPanel(){
-    const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    const isPremium = isPremiumActive();
     const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
     const unlockedMsg = document.getElementById('premium-unlocked-msg');
     const requestWrap = document.getElementById('premium-request-wrap');
     if(unlockedMsg){
       unlockedMsg.hidden = !isPremium;
+      const statusLine = premiumStatusLine();
       unlockedMsg.textContent = hasUnlimitedLogs
-        ? '✅ Premium is active on this account, with unlimited daily log entries — every Premium feature is unlocked.'
-        : '✅ Premium is active on this account — every Premium feature (like 🏦 Bank statement import, 📈 Net Worth and 💹 Investments) is unlocked.';
+        ? '✅ Premium is active on this account'+statusLine+', with unlimited daily log entries — every Premium feature is unlocked.'
+        : '✅ Premium is active on this account'+statusLine+' — every Premium feature (like 🏦 Bank statement import, 📈 Net Worth and 💹 Investments) is unlocked.';
     }
-    // Only fully hide the bank-transfer flow once there's genuinely nothing
-    // left this account could buy — otherwise an already-Premium account
-    // still needs it to buy the Unlimited-logs add-on.
-    if(requestWrap) requestWrap.hidden = isPremium && hasUnlimitedLogs;
+    // Always shown now — unlike the old one-time model, there's always
+    // something this account could buy (a renewal), even once it already
+    // has both Premium and the Unlimited-logs add-on.
+    if(requestWrap) requestWrap.hidden = false;
     renderPremiumProductOptions();
     const statusEl = document.getElementById('premium-request-status');
     if(statusEl){
-      const msg = (isPremium && hasUnlimitedLogs) ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
+      const msg = fmtPremiumRequestStatus(cloud.premiumRequest);
       statusEl.textContent = msg;
       statusEl.hidden = !msg;
     }
@@ -3868,7 +3903,7 @@ window.__ftStart = function(){
     window.__ftLevel = level;
     window.__ftTotalXP = totalXP;
     window.__ftEarnedBadgeIds = badgeDefs.filter(b=>b.earned).map(b=>b.id);
-    window.__ftPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    window.__ftPremium = isPremiumActive();
     if(window.__refreshThemeLocks) window.__refreshThemeLocks();
     if(window.__refreshWeatherLocks) window.__refreshWeatherLocks();
     if(window.__refreshPetLocks) window.__refreshPetLocks();
@@ -4145,6 +4180,39 @@ window.__ftStart = function(){
           null, 'budgetThreshold'
         );
       });
+      if(memoryChanged) saveBadgeMemory(badgeMemory);
+    })();
+
+    // ===== Premium expiry reminder =====
+    // Same one-time-per-key badgeMemory dedup as the bill-due/budget alerts
+    // above — 'premiumexpiring_<ms>'/'premiumexpired_<ms>' are each tied to
+    // one specific premiumExpiresAt value, so a renewal (a fresh, later
+    // expiry) naturally gets its own reminder instead of ever repeating, and
+    // there's no "old news on first run" flood to baseline against the way
+    // bill-due has to — a freshly-approved expiry is never already in the
+    // past relative to when this check first starts running for it. An
+    // account grandfathered onto permanent access (no premiumExpiresAt at
+    // all — see isPremiumActive() above) never reaches either branch.
+    (function checkPremiumExpiry(){
+      const ent = cloud.entitlements;
+      const exp = ent && ent.premium && ent.premiumExpiresAt;
+      if(!exp || typeof exp.toDate !== 'function') return;
+      const ms = exp.toDate().getTime();
+      const daysLeft = Math.ceil((ms-Date.now())/86400000);
+      let memoryChanged = false;
+      if(daysLeft<=3 && daysLeft>0){
+        const key = 'premiumexpiring_'+ms;
+        if(!badgeMemory[key]){
+          badgeMemory[key]=true; memoryChanged = true;
+          showAppNotification('💎 Premium expiring soon', 'Your Premium access runs out in '+daysLeft+' day'+(daysLeft===1?'':'s')+' — renew any time in Settings → "💎 Go Premium".', null, 'premiumExpiry');
+        }
+      } else if(daysLeft<=0){
+        const key = 'premiumexpired_'+ms;
+        if(!badgeMemory[key]){
+          badgeMemory[key]=true; memoryChanged = true;
+          showAppNotification('💎 Premium has expired', 'Your Premium access has run out — renew any time in Settings → "💎 Go Premium" to pick back up.', null, 'premiumExpiry');
+        }
+      }
       if(memoryChanged) saveBadgeMemory(badgeMemory);
     })();
 
@@ -6574,7 +6642,7 @@ window.__ftStart = function(){
     const cap = dailyLogCap();
     if(state.livingEntries.length + outCount > cap){
       const remaining = Math.max(0, cap - state.livingEntries.length);
-      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. '+(cloud.entitlements && cloud.entitlements.premium ? 'Go unlimited with a one-time ₦3,500 payment — see Settings → "💎 Go Premium".' : 'Upgrade in Settings → "💎 Go Premium" for more room.'), 'err');
+      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. '+(isPremiumActive() ? 'Go unlimited with a one-time ₦3,500 payment — see Settings → "💎 Go Premium".' : 'Upgrade in Settings → "💎 Go Premium" for more room.'), 'err');
       return;
     }
     const existing = stmtExistingFingerprints();
@@ -7061,7 +7129,7 @@ window.__ftStart = function(){
     if(!sp || !sp.requires) return true;
     if('level' in sp.requires) return (Number(window.__ftLevel)||0) >= sp.requires.level;
     if('badge' in sp.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(sp.requires.badge)!==-1;
-    if('premium' in sp.requires) return !!(cloud.entitlements && cloud.entitlements.premium);
+    if('premium' in sp.requires) return isPremiumActive();
     return true;
   }
   function refreshPetLocks(){
@@ -7340,6 +7408,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. The separate one-time ₦3,500 "Unlimited logs" add-on is unchanged.' },
     { title: '💎 Premium is now clearly labeled as one-time, not a subscription', body: 'Premium has never actually renewed or expired — it\'s a one-time ₦1,000 unlock, the same way the separate "Unlimited logs" add-on already was. It was previously labeled "Premium subscription" in a couple of spots, which implied recurring billing that doesn\'t exist; it now reads "💎 Premium — ₦1,000 (one-time)" everywhere that price shows up.' },
     { title: '🛟 Deleting a mistaken entry now cleans up after itself too', body: 'The previous update made Undo also revert any badge/XP/level a mistaken entry had triggered — that now also happens when the entry is deleted directly, without touching Undo at all, as long as it\'s within the same short window where the mistake would still be fresh. An achievement earned a while ago and confirmed stable stays exactly as it is either way.' },
     { title: '🛟 A safety check for big typos, and a smarter Undo', body: 'Adding a single income, debt, gift, savings, investment, or daily-log entry worth ₦100,000 or more now asks "just checking this isn\'t a typo" before it\'s added — easy to dismiss if it\'s genuinely that big, but it catches an accidental extra zero before it\'s committed. Separately, Undo (and Redo) now also reverts any achievement badge, XP, level, or achievement-unlocked pet/weather effect that entry had triggered, not just the entry itself — so undoing a mistake undoes everything it caused, not just the number.' },
