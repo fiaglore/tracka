@@ -2701,8 +2701,13 @@ window.__ftStart = function(){
   // separate async Firestore query, fetched by refreshPremiumAdminList()
   // only when that subpage is actually opened (see the settings-menu click
   // handler below) rather than on every render().
+  // Both products are one-time, lifetime unlocks — there's no renewal
+  // or expiry anywhere (cloud.entitlements.premium is set once by admin
+  // approval and never re-checked against a billing date), so "subscription"
+  // in the name here would be actively misleading about what's being paid
+  // for. Keep both labeled the same way for that reason.
   const PREMIUM_PRODUCT_LABELS = {
-    premium: { name: '💎 Premium subscription', amount: '₦1,000' },
+    premium: { name: '💎 Premium', amount: '₦1,000 (one-time)' },
     unlimitedLogs: { name: '📒 Unlimited daily log entries', amount: '₦3,500 (one-time)' }
   };
   function fmtPremiumRequestStatus(req){
@@ -7335,6 +7340,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💎 Premium is now clearly labeled as one-time, not a subscription', body: 'Premium has never actually renewed or expired — it\'s a one-time ₦1,000 unlock, the same way the separate "Unlimited logs" add-on already was. It was previously labeled "Premium subscription" in a couple of spots, which implied recurring billing that doesn\'t exist; it now reads "💎 Premium — ₦1,000 (one-time)" everywhere that price shows up.' },
     { title: '🛟 Deleting a mistaken entry now cleans up after itself too', body: 'The previous update made Undo also revert any badge/XP/level a mistaken entry had triggered — that now also happens when the entry is deleted directly, without touching Undo at all, as long as it\'s within the same short window where the mistake would still be fresh. An achievement earned a while ago and confirmed stable stays exactly as it is either way.' },
     { title: '🛟 A safety check for big typos, and a smarter Undo', body: 'Adding a single income, debt, gift, savings, investment, or daily-log entry worth ₦100,000 or more now asks "just checking this isn\'t a typo" before it\'s added — easy to dismiss if it\'s genuinely that big, but it catches an accidental extra zero before it\'s committed. Separately, Undo (and Redo) now also reverts any achievement badge, XP, level, or achievement-unlocked pet/weather effect that entry had triggered, not just the entry itself — so undoing a mistake undoes everything it caused, not just the number.' },
     { title: '💎 A Premium spotlight banner', body: 'A rotating banner now highlights what Premium actually includes — Auto FX rates, Net Worth, Investments, exclusive themes & dark mode, exclusive pets & weather effects, and more — at the top of the tracker, plus a smaller version docked to the side on a wide screen. Both disappear once you\'re Premium, and either can be dismissed for the rest of your visit with its ✕.' },
