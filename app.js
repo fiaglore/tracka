@@ -7408,6 +7408,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🐛 Fixed: sign-in could hang forever on "Loading your tracker…"', body: 'On a slow or flaky connection, the step right after signing in — fetching your data — could sit waiting indefinitely with no error and no way forward except reloading blind. It now gives up after 20 seconds and shows a clear "check your connection and reload" message instead of hanging forever.' },
     { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. The separate one-time ₦3,500 "Unlimited logs" add-on is unchanged.' },
     { title: '💎 Premium is now clearly labeled as one-time, not a subscription', body: 'Premium has never actually renewed or expired — it\'s a one-time ₦1,000 unlock, the same way the separate "Unlimited logs" add-on already was. It was previously labeled "Premium subscription" in a couple of spots, which implied recurring billing that doesn\'t exist; it now reads "💎 Premium — ₦1,000 (one-time)" everywhere that price shows up.' },
     { title: '🛟 Deleting a mistaken entry now cleans up after itself too', body: 'The previous update made Undo also revert any badge/XP/level a mistaken entry had triggered — that now also happens when the entry is deleted directly, without touching Undo at all, as long as it\'s within the same short window where the mistake would still be fresh. An achievement earned a while ago and confirmed stable stays exactly as it is either way.' },
@@ -7929,10 +7930,19 @@ window.__ftStart = function(){
     showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
     let cloudData = null;
     try{
-      cloudData = await window.Trakka.loadUserDoc(user.uid);
+      // A plain await here can hang forever rather than reject — on some
+      // networks Firestore's request just sits pending with no error — so
+      // this is raced against a timeout rather than awaited directly, to
+      // guarantee sign-in never gets stuck on the loading screen for good.
+      cloudData = await Promise.race([
+        window.Trakka.loadUserDoc(user.uid),
+        new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('timeout')); }, 20000); })
+      ]);
     }catch(e){
       console.error(e);
-      setError('Could not reach the server. Check your connection and reload.');
+      setError(e && e.message === 'timeout'
+        ? 'This is taking longer than usual. Check your connection and reload the page.'
+        : 'Could not reach the server. Check your connection and reload.');
       hideAuthLoading();
       started = false;
       window.__ftUid = null;
