@@ -929,6 +929,17 @@ body.ft-locked #auth-overlay{display:flex;}
 .landing-feature h3{font-size:15.5px; margin:0 0 6px; font-weight:700;}
 .landing-feature p{font-size:13.5px; color:var(--muted); margin:0; line-height:1.5;}
 
+.landing-screens{padding:20px 0 36px;}
+.landing-screens h2{font-size:clamp(20px,2.8vw,26px); text-align:center; margin:0 0 28px; font-weight:800;}
+.landing-screens-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+.landing-screen-wide{grid-column:1 / -1;}
+.landing-screen{margin:0; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); padding:10px; box-shadow:var(--shadow-sm);}
+.landing-screen img{display:block; width:100%; height:auto; border-radius:var(--radius-sm);}
+.landing-screen figcaption{font-size:13px; color:var(--muted); text-align:center; padding:12px 8px 4px; line-height:1.4;}
+@media (max-width:700px){
+  .landing-screens-grid{grid-template-columns:1fr;}
+}
+
 /* Rotates through the same feature list the signed-in promo banners use
    (see PREMIUM_PROMO_FEATURES in app.js) via the small inline script at
    the bottom of index.html — this page never loads app.js itself, so the
@@ -944,6 +955,7 @@ body.ft-locked #auth-overlay{display:flex;}
 .landing-premium-dots{display:flex; gap:6px; justify-content:center; margin-bottom:22px;}
 .landing-premium-dot{width:6px; height:6px; border-radius:50%; border:none; padding:0; background:rgba(255,255,255,.35); cursor:pointer;}
 .landing-premium-dot.active{background:#fff;}
+.landing-premium-price{font-family:var(--font-display); font-weight:700; font-size:13px; opacity:.85; margin:0 0 18px;}
 
 .landing-final-cta{text-align:center; padding:48px 0 20px;}
 .landing-final-cta h2{font-size:clamp(19px,2.6vw,24px); margin:0 0 18px; font-weight:800;}
