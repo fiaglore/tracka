@@ -109,23 +109,17 @@ window.__ftStart = function(){
   }
 
   // ===== Daily log (Expenses tab) entry cap =====
-  // A third tier on top of the plain Premium/free split above: Premium
-  // raises the free 100-entry cap to 300, and a separate one-time ₦3,500
-  // purchase (entitlements.unlimitedLogs — only offered to accounts that
-  // already have entitlements.premium, see Settings → "💎 Go Premium")
-  // removes it entirely. Checked both at the single-entry "Add" button and
-  // at the bank-statement import's bulk commit, so neither path can bypass
-  // it — see their respective click handlers below.
+  // Free accounts cap out at 100 entries; Premium removes the cap entirely
+  // (no separate add-on needed — see isFeatureUnlocked() above). Checked
+  // both at the single-entry "Add" button and at the bank-statement
+  // import's bulk commit, so neither path can bypass it — see their
+  // respective click handlers below.
+  const FREE_DAILY_LOG_CAP = 100;
   function dailyLogCap(){
-    if(cloud.entitlements && cloud.entitlements.unlimitedLogs) return Infinity;
-    return (cloud.entitlements && cloud.entitlements.premium) ? 300 : 100;
+    return (cloud.entitlements && cloud.entitlements.premium) ? Infinity : FREE_DAILY_LOG_CAP;
   }
   function notifyDailyLogCapReached(){
-    const cap = dailyLogCap();
-    const msg = (cloud.entitlements && cloud.entitlements.premium)
-      ? 'You\'ve reached the '+cap+'-entry Premium limit on the daily log. A one-time ₦3,500 payment removes this limit entirely — see Settings → "💎 Go Premium".'
-      : 'The free plan includes up to '+cap+' daily log entries — upgrade in Settings → "💎 Go Premium" for 300, or go unlimited with a one-time payment.';
-    showAppNotification('🔒 Daily log limit reached', msg);
+    showAppNotification('🔒 Daily log limit reached', 'The free plan includes up to '+FREE_DAILY_LOG_CAP+' daily log entries — upgrade in Settings → "💎 Go Premium" to log without limit.');
   }
 
   // ===== Display settings (currency + the day each month starts) =====
@@ -2559,8 +2553,7 @@ window.__ftStart = function(){
   // only when that subpage is actually opened (see the settings-menu click
   // handler below) rather than on every render().
   const PREMIUM_PRODUCT_LABELS = {
-    premium: { name: '💎 Premium subscription', amount: '₦3,500/month' },
-    unlimitedLogs: { name: '📒 Unlimited daily log entries', amount: '₦3,500 (one-time)' }
+    premium: { name: '💎 Premium subscription', amount: '₦3,500/month' }
   };
   function fmtPremiumRequestStatus(req){
     if(!req || !req.status) return '';
@@ -2570,61 +2563,33 @@ window.__ftStart = function(){
     if(req.status==='rejected') return '❌ Your last request wasn\'t approved' + (req.reason ? ': '+escapeAttr(req.reason) : '.') + ' Feel free to submit a new receipt.';
     return '';
   }
-  // Which product the bank-transfer flow below is for — "Unlimited logs"
-  // only ever appears once the account already has Premium (see
-  // isFeatureUnlocked() above; it's a one-time add-on ON TOP of Premium,
-  // never a standalone purchase a free account can make directly).
-  function renderPremiumProductOptions(){
-    const sel = document.getElementById('premium-product-select');
-    if(!sel) return;
-    const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
-    const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
-    const prev = sel.value;
-    const options = [];
-    if(!isPremium) options.push('premium');
-    if(isPremium && !hasUnlimitedLogs) options.push('unlimitedLogs');
-    sel.innerHTML = options.map(function(key){
-      const p = PREMIUM_PRODUCT_LABELS[key];
-      return '<option value="'+key+'">'+p.name+' — '+p.amount+'</option>';
-    }).join('');
-    if(options.includes(prev)) sel.value = prev;
-    applyPremiumProductToBankDetails();
-  }
-  function applyPremiumProductToBankDetails(){
-    const sel = document.getElementById('premium-product-select');
+  // Premium is a single tier with no add-ons — once an account has it,
+  // every Premium feature (and every cap, including the daily log) is
+  // unlocked, so there's nothing left for it to buy.
+  function renderPremiumBankDetails(){
     const titleEl = document.getElementById('premium-bank-details-title');
-    if(!sel || !titleEl) return;
-    const p = PREMIUM_PRODUCT_LABELS[sel.value] || PREMIUM_PRODUCT_LABELS.premium;
-    titleEl.textContent = '🏦 Transfer '+p.amount+' to:';
+    if(!titleEl) return;
+    titleEl.textContent = '🏦 Transfer '+PREMIUM_PRODUCT_LABELS.premium.amount+' to:';
   }
   function renderPremiumPanel(){
     const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
-    const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
     const unlockedMsg = document.getElementById('premium-unlocked-msg');
     const requestWrap = document.getElementById('premium-request-wrap');
     if(unlockedMsg){
       unlockedMsg.hidden = !isPremium;
-      unlockedMsg.textContent = hasUnlimitedLogs
-        ? '✅ Premium is active on this account, with unlimited daily log entries — every Premium feature is unlocked.'
-        : '✅ Premium is active on this account — every Premium feature (like 🏦 Bank statement import, 📈 Net Worth and 💹 Investments) is unlocked.';
+      unlockedMsg.textContent = '✅ Premium is active on this account — everything is unlocked, with no caps.';
     }
-    // Only fully hide the bank-transfer flow once there's genuinely nothing
-    // left this account could buy — otherwise an already-Premium account
-    // still needs it to buy the Unlimited-logs add-on.
-    if(requestWrap) requestWrap.hidden = isPremium && hasUnlimitedLogs;
-    renderPremiumProductOptions();
+    if(requestWrap) requestWrap.hidden = isPremium;
+    renderPremiumBankDetails();
     const statusEl = document.getElementById('premium-request-status');
     if(statusEl){
-      const msg = (isPremium && hasUnlimitedLogs) ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
+      const msg = isPremium ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
       statusEl.textContent = msg;
       statusEl.hidden = !msg;
     }
     const adminWrap = document.getElementById('premium-admin-wrap');
     if(adminWrap) adminWrap.hidden = !(window.Trakka && window.__ftEmail === window.Trakka.ADMIN_EMAIL);
   }
-  document.addEventListener('change', function(e){
-    if(e.target && e.target.id==='premium-product-select') applyPremiumProductToBankDetails();
-  });
   function fmtPremiumRequestTs(req){
     // submittedAt is a Firestore server Timestamp once it round-trips, but
     // reads back as a plain object (not a JS Date) from getDocs() — only
@@ -6375,7 +6340,7 @@ window.__ftStart = function(){
     const cap = dailyLogCap();
     if(state.livingEntries.length + outCount > cap){
       const remaining = Math.max(0, cap - state.livingEntries.length);
-      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. '+(cloud.entitlements && cloud.entitlements.premium ? 'Go unlimited with a one-time ₦3,500 payment — see Settings → "💎 Go Premium".' : 'Upgrade in Settings → "💎 Go Premium" for more room.'), 'err');
+      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. Upgrade in Settings → "💎 Go Premium" to log without limit.', 'err');
       return;
     }
     const existing = stmtExistingFingerprints();
@@ -6626,14 +6591,12 @@ window.__ftStart = function(){
         if(!file.type.startsWith('image/') && file.type!=='application/pdf'){ premiumReceiptStatus('Please choose an image or PDF file.', true); return; }
         if(file.size > 5*1024*1024){ premiumReceiptStatus('That file is too large (max 5MB).', true); return; }
         if(!window.__ftUid){ premiumReceiptStatus('Sign in again to upload a receipt.', true); return; }
-        const productSelect = document.getElementById('premium-product-select');
-        const product = (productSelect && productSelect.value) || 'premium';
         chooseBtn.disabled = true;
         premiumReceiptStatus('Uploading…');
         window.Trakka.uploadReceipt(window.__ftUid, file)
-          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url, product); })
+          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url, 'premium'); })
           .then(function(){
-            cloud.premiumRequest = { status: 'pending', product: product };
+            cloud.premiumRequest = { status: 'pending', product: 'premium' };
             renderPremiumPanel();
             premiumReceiptStatus('Receipt submitted — we\'ll review it soon.');
           })
@@ -7581,7 +7544,7 @@ window.__ftStart = function(){
     // listPendingPremiumRequests()/approvePremiumRequest() in firebase-init.js,
     // which this same account uses to review everyone else's requests.
     if(window.Trakka && user.email === window.Trakka.ADMIN_EMAIL){
-      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true, unlimitedLogs: true });
+      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true });
     }
     // ===== Trusted-device check =====
     // A device "forgotten" from Settings → Security on another device finds
