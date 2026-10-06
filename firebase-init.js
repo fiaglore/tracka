@@ -737,7 +737,7 @@ window.Trakka = {
   // Keeping receiptUrl (rather than re-fetching it) means Settings can show
   // "receipt submitted" status without an extra authenticated round trip
   // to the Worker just to check it still exists.
-  // `product` is "premium" (the ₦1,000 subscription) or "unlimitedLogs"
+  // `product` is "premium" (the ₦3,500/month subscription) or "unlimitedLogs"
   // (the one-time ₦3,500 daily-log-cap removal, Premium-only add-on) — see
   // PREMIUM_PRODUCT_LABELS in app.js. Defaults to "premium" so older,
   // already-in-flight requests from before this existed still work.

@@ -2559,7 +2559,7 @@ window.__ftStart = function(){
   // only when that subpage is actually opened (see the settings-menu click
   // handler below) rather than on every render().
   const PREMIUM_PRODUCT_LABELS = {
-    premium: { name: '💎 Premium subscription', amount: '₦1,000' },
+    premium: { name: '💎 Premium subscription', amount: '₦3,500/month' },
     unlimitedLogs: { name: '📒 Unlimited daily log entries', amount: '₦3,500 (one-time)' }
   };
   function fmtPremiumRequestStatus(req){
@@ -7107,7 +7107,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
-    { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources and 3 gift goals — anything you already have stays exactly as it is, this only limits adding more. The daily log caps at 100 free entries, 300 on Premium, or truly unlimited with a one-time ₦3,500 payment (Settings → "💎 Go Premium") on top of Premium.' },
+    { title: '💎 Premium is ₦3,500/month', body: '💎 Premium is ₦3,500/month.' },
     { title: '🐛 Fixed: Kuda statement import failing for real statements', body: 'Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual — AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
     { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
     { title: '💎 Two Premium-exclusive themes: Obsidian & Champagne', body: 'Settings → Appearance now has two new themes reserved for Premium — a sleek near-black "Obsidian" and a warm gold "Champagne". They unlock the moment Premium does, same as every other Premium feature.' },
