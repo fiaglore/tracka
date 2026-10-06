@@ -1524,6 +1524,15 @@ window.__ftStart = function(){
   let __undoStack = [];
   let __redoStack = [];
   let __undoBaseline = JSON.stringify(state);
+  // Badges stick permanently the instant they're crossed (see badgeMemory
+  // above) — a plain state-only undo would put the data back but leave a
+  // mistakenly-triggered badge/XP/level/unlock in place, since nothing else
+  // ever removes a badgeMemory entry. Carrying a badge snapshot alongside
+  // each state snapshot lets undo put both back together, so undoing the
+  // entry that crossed a threshold also undoes whatever that crossing
+  // unlocked — the complement to confirmNotTypo() above, which tries to
+  // stop the mistake before it's ever committed in the first place.
+  let __undoBadgeBaseline = JSON.stringify(badgeMemory);
   let __undoBatchTimer = null;
   const UNDO_BATCH_MS = 800;
   const UNDO_MAX = 50;
@@ -1531,13 +1540,24 @@ window.__ftStart = function(){
   function commitUndoBatch(){
     if(__undoBatchTimer){ clearTimeout(__undoBatchTimer); __undoBatchTimer = null; }
     const current = JSON.stringify(state);
+    const currentBadges = JSON.stringify(badgeMemory);
     if(current !== __undoBaseline){
-      __undoStack.push(__undoBaseline);
+      __undoStack.push({ state: __undoBaseline, badges: __undoBadgeBaseline });
       if(__undoStack.length > UNDO_MAX) __undoStack.shift();
       __redoStack = []; // a real change invalidates whatever could have been redone
     }
     __undoBaseline = current;
+    __undoBadgeBaseline = currentBadges;
     updateUndoRedoButtons();
+  }
+  // Swaps badgeMemory's own contents in place (never reassigns the
+  // variable) — render()'s badge checks and saveBadgeMemory() both close
+  // over this exact object, so replacing its contents is what makes an
+  // undo/redo actually take effect on the next render() and get persisted.
+  function restoreBadgeMemory(snapshotJson){
+    Object.keys(badgeMemory).forEach(function(k){ delete badgeMemory[k]; });
+    Object.assign(badgeMemory, JSON.parse(snapshotJson));
+    saveBadgeMemory(badgeMemory);
   }
   function scheduleUndoCommit(){
     if(__undoBatchTimer) clearTimeout(__undoBatchTimer);
@@ -1563,10 +1583,12 @@ window.__ftStart = function(){
     commitUndoBatch(); // whatever was still "in progress" becomes its own step first
     if(__undoStack.length===0) return;
     const prev = __undoStack.pop();
-    __redoStack.push(JSON.stringify(state));
+    __redoStack.push({ state: JSON.stringify(state), badges: JSON.stringify(badgeMemory) });
     if(__redoStack.length > UNDO_MAX) __redoStack.shift();
-    state = JSON.parse(prev);
-    __undoBaseline = prev;
+    state = JSON.parse(prev.state);
+    restoreBadgeMemory(prev.badges);
+    __undoBaseline = prev.state;
+    __undoBadgeBaseline = prev.badges;
     syncMonthMetaFromState();
     render();
     updateClockAndCountdown();
@@ -1576,10 +1598,12 @@ window.__ftStart = function(){
   function doRedo(){
     if(__redoStack.length===0) return;
     const next = __redoStack.pop();
-    __undoStack.push(JSON.stringify(state));
+    __undoStack.push({ state: JSON.stringify(state), badges: JSON.stringify(badgeMemory) });
     if(__undoStack.length > UNDO_MAX) __undoStack.shift();
-    state = JSON.parse(next);
-    __undoBaseline = next;
+    state = JSON.parse(next.state);
+    restoreBadgeMemory(next.badges);
+    __undoBaseline = next.state;
+    __undoBadgeBaseline = next.badges;
     syncMonthMetaFromState();
     render();
     updateClockAndCountdown();
@@ -1638,6 +1662,22 @@ window.__ftStart = function(){
 
   function fmt(n){ n=Number(n)||0; return CUR+Math.round(n).toLocaleString('en-NG'); }
   function escapeAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ===== Typo guard on single-entry amounts =====
+  // A fat-fingered extra zero (₦10,000 entered as ₦100,000,000) can cross a
+  // badge threshold the instant it's added — and badges stick permanently
+  // the moment they're crossed (see badgeMemory further down), unaffected
+  // by later deleting or fixing the entry. Catching the mistake HERE, before
+  // it's ever committed, is the one point that actually prevents it rather
+  // than just making it easier to undo after the fact (see doUndo() below
+  // for the complementary "I already added it" safety net). ₦100,000,
+  // scaled by currencyScale exactly like every other NGN-denominated
+  // constant in this file (badge thresholds, etc. — see loadCurrencyScale).
+  const LARGE_AMOUNT_THRESHOLD = 100000;
+  function confirmNotTypo(amt){
+    if((Number(amt)||0) < ct(LARGE_AMOUNT_THRESHOLD)) return true;
+    return confirm('That\'s '+fmt(amt)+' — just checking this isn\'t a typo (like an extra zero) before it\'s added. Continue?');
+  }
 
   // ===== Multi-currency (shared across every tab) =====
   // A single item — one income source, one debt/loan, one gift goal, one savings account — can be
@@ -2125,6 +2165,7 @@ window.__ftStart = function(){
       const desc = descEl.value.trim();
       const amt = Number(amtEl.value)||0;
       if(!desc || amt<=0) return;
+      if(!confirmNotTypo(amt)) return;
       addAsset(desc, amt);
       descEl.value=''; amtEl.value='';
     });
@@ -2238,6 +2279,7 @@ window.__ftStart = function(){
       const units = Number(unitsEl.value)||1;
       const cost = Number(costEl.value)||0;
       if(!name || cost<=0) return;
+      if(!confirmNotTypo(cost)) return;
       addInvestment(typeEl.value, name, units, cost, curEl ? curEl.value : null);
       nameEl.value=''; unitsEl.value=''; costEl.value=''; if(curEl) curEl.value = currencyCode();
     });
@@ -5231,6 +5273,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('income', state.months[activeMonth].income.length)){ notifyItemCapReached('income'); return; }
     if(ongoingEl && ongoingEl.checked){ addRecurringItem('income', desc, amt, 'ongoing', cur); }
     else{ addCustomItem('income', desc, amt, cur); }
@@ -5247,6 +5290,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('debts', state.months[activeMonth].debts.length)){ notifyItemCapReached('debts'); return; }
     if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing', cur); }
     else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur, cur); }
@@ -5262,6 +5306,7 @@ window.__ftStart = function(){
     const categoryId = catEl.value;
     const amount = Number(amtEl.value)||0;
     if(amount<=0) return;
+    if(!confirmNotTypo(amount)) return;
     const desc = descEl.value.trim() || livingCategoryById(categoryId).name;
     if(state.livingEntries.length >= dailyLogCap()){ notifyDailyLogCapReached(); return; }
     // monthIndex is stamped at write time — see entryMonthIndex() for why.
@@ -5292,6 +5337,7 @@ window.__ftStart = function(){
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     if(!desc) return;
+    if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('savingsApps', state.months[activeMonth].savingsApps.length)){ notifyItemCapReached('savingsApps'); return; }
     addSavingsAppAccount(desc, amt);
     descEl.value=''; amtEl.value='';
@@ -5305,6 +5351,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-NG', {day:'numeric', month:'short', year:'numeric'});
     const entry = {desc, amount:amt, date:dateStr, monthIndex:activeMonth};
@@ -5335,6 +5382,7 @@ window.__ftStart = function(){
     const cur = (curEl && curEl.value!==currencyCode()) ? curEl.value : null;
     if(!name || total<=0 || months<=0 || Number.isNaN(target)) return;
     if(months > target){ alert("Months to save can't exceed the number of months before the target date."); return; }
+    if(!confirmNotTypo(total)) return;
     if(atFreeItemCap('giftGoals', state.giftGoals.length)){ notifyItemCapReached('giftGoals'); return; }
     const id = 'gift_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,24) + '_' + Date.now();
     const goal = {id, label:name, totalAmount:total, months, targetMonthIndex:target};
@@ -5368,6 +5416,7 @@ window.__ftStart = function(){
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     state.savings.push({desc, amount:amt, monthIndex:activeMonth});
     descEl.value=''; amtEl.value='';
     save();
@@ -7235,6 +7284,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🛟 A safety check for big typos, and a smarter Undo', body: 'Adding a single income, debt, gift, savings, investment, or daily-log entry worth ₦100,000 or more now asks "just checking this isn\'t a typo" before it\'s added — easy to dismiss if it\'s genuinely that big, but it catches an accidental extra zero before it\'s committed. Separately, Undo (and Redo) now also reverts any achievement badge, XP, level, or achievement-unlocked pet/weather effect that entry had triggered, not just the entry itself — so undoing a mistake undoes everything it caused, not just the number.' },
     { title: '💎 A Premium spotlight banner', body: 'A rotating banner now highlights what Premium actually includes — Auto FX rates, Net Worth, Investments, exclusive themes & dark mode, exclusive pets & weather effects, and more — at the top of the tracker, plus a smaller version docked to the side on a wide screen. Both disappear once you\'re Premium, and either can be dismissed for the rest of your visit with its ✕.' },
     { title: '🌌 3 new pets and weather effects — unlocked by achievements', body: 'Three new pet companions — 🐉 Dragon (reach a ₦1,000,000 cumulative balance), 🐺 Wolf (hit a 100-day streak) and 🦚 Peacock (reach Level 40) — and three new weather effects with matching ambient sounds — 🌌 Aurora (reach Level 60), 🌈 Rainbow (complete every tracked month) and ✨ Starry night (hit a 200-day streak) — join the picker in Settings, each unlocked the same way themes already are: by playing, not paying.' },
     { title: '💎 Weather, sounds, dark mode and some pets are now Premium', body: 'Half of the weather effects — ❄️ Snow, ⛈️ Thunderstorm, 🌸 Spring, ☀️ Summer, 🌴 Tropical rain, 🏜️ Sandstorm — along with their matching ambient sounds, are now Premium, picked for being the most elaborate ones. 🌙 Dark mode is now Premium too. And 7 of the pet companions — 🐶 Dog, 🦊 Fox, 🦉 Owl, 🐰 Rabbit, 🐼 Panda, 🐨 Koala, 🦄 Unicorn — join them, while your default 🐱 Cat and 7 others stay free. Nothing already picked gets taken away — this only affects switching to a locked one going forward.' },
