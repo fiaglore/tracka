@@ -2142,43 +2142,74 @@ window.__ftStart = function(){
     save();
   }
   // ===== Investment top-ups =====
-  // Adds more money to an EXISTING holding — buying more of the same thing
-  // on a later date, same idea as a savings app's monthly top-up, except an
-  // investment also needs its unit count to grow alongside cost basis so
-  // currentValueOf() (units × latest logged price) still reflects the extra
-  // money invested. The per-unit price used to size that is the latest
-  // logged price if one exists (the best read on what a unit costs right
-  // now), falling back to the holding's own original cost-per-unit when
-  // nothing's been logged yet.
-  // `mi` defaults to activeMonth for the manual "Top up" button, but
+  // A top-up is queued first, unchecked, the same "planned until you
+  // actually tick it" shape every other recurring line in the tracker uses
+  // (income, debts, a savings app's monthly top-up) — it does NOT touch the
+  // holding's cost basis or units yet. Only checking it off (see
+  // setInvestmentTopUpChecked below) applies the money, which is also the
+  // moment it needs to size the extra units to add alongside the cost
+  // basis so currentValueOf() (units × latest logged price) reflects it.
+  // That per-unit price is the latest logged price if one exists (the best
+  // read on what a unit costs right now), falling back to the holding's own
+  // original cost-per-unit when nothing's been logged yet.
+  // `mi` defaults to activeMonth for the manual "Top up" box below, but
   // addMonth() (below) passes the month it's actually adding explicitly —
-  // activeMonth isn't updated to that month until after it runs. Split from
-  // topUpInvestment() so addMonth() can apply several of these (one per
-  // recurring holding) under its own single save()/render(), the same
-  // "mutate state directly, save once at the end" shape it already uses
-  // for recurring income/debt instalments, instead of one save() per
-  // holding.
-  function applyInvestmentTopUp(investmentId, amount, mi, dateKeyStr){
+  // activeMonth isn't updated to that month until after it runs.
+  function queueInvestmentTopUp(investmentId, amount, mi){
     const inv = state.investments.find(i=>i.id===investmentId);
     if(!inv) return;
     const amt = Number(amount)||0;
     if(amt<=0) return;
-    const latest = latestPriceEntry(investmentId);
-    const perUnit = latest ? latest.price : (inv.units>0 ? inv.costBasis/inv.units : 0);
-    const units = perUnit>0 ? amt/perUnit : 0;
-    inv.costBasis += amt;
-    inv.units += units;
-    state.investmentTopUps.push({id: makeCustomId('invtu'), investmentId, monthIndex: (mi===undefined ? activeMonth : mi), amount: amt, units, date: dateKeyStr || todayISO()});
+    const targetMi = mi===undefined ? activeMonth : mi;
+    // One top-up per holding per month — same "a single planned row,
+    // amend it rather than pile up duplicates" shape as a savings app's
+    // monthly top-up. Already-queued-or-done for this month wins; this is
+    // a no-op rather than a second row competing for the same month.
+    if(topUpForInvestmentMonth(investmentId, targetMi)) return;
+    state.investmentTopUps.push({id: makeCustomId('invtu'), investmentId, monthIndex: targetMi, amount: amt, checked:false});
   }
-  function topUpInvestment(investmentId, amount, mi, dateKeyStr){
-    applyInvestmentTopUp(investmentId, amount, mi, dateKeyStr);
+  // Toggling a top-up checked/unchecked applies/reverses it on the holding
+  // — same reversible-checkbox shape as every income/debt/gift/savings-app
+  // row, so ticking it by mistake (or a real withdrawal reversal) isn't a
+  // one-way door.
+  function setInvestmentTopUpChecked(topUpId, checked){
+    const t = state.investmentTopUps.find(x=>x.id===topUpId);
+    if(!t) return;
+    const inv = state.investments.find(i=>i.id===t.investmentId);
+    if(!inv) return;
+    if(checked && !t.checked){
+      const latest = latestPriceEntry(inv.id);
+      const perUnit = latest ? latest.price : (inv.units>0 ? inv.costBasis/inv.units : 0);
+      const units = perUnit>0 ? t.amount/perUnit : 0;
+      inv.costBasis += t.amount;
+      inv.units += units;
+      t.units = units;
+      t.checked = true;
+      t.lastTicked = todayKey();
+    } else if(!checked && t.checked){
+      inv.costBasis -= t.amount;
+      inv.units -= (t.units||0);
+      t.checked = false;
+      delete t.units;
+      delete t.lastTicked;
+    }
     save();
   }
-  // Presence of inv.recurringTopUp means addMonth() below tops this holding
-  // up automatically, at the same amount, every month it adds — same
-  // "set once, keep going until stopped" shape as income/debts' ongoing
-  // series, just scoped to one existing holding instead of creating a new
-  // line item.
+  // Only a still-pending (unchecked) top-up can be removed outright — a
+  // checked one is real money already applied, same "reverse it first,
+  // deletion is for a plan that never happened" rule as everywhere else.
+  function deleteInvestmentTopUp(topUpId){
+    const t = state.investmentTopUps.find(x=>x.id===topUpId);
+    if(!t || t.checked) return;
+    state.investmentTopUps = state.investmentTopUps.filter(x=>x.id!==topUpId);
+    save();
+  }
+  // Presence of inv.recurringTopUp means addMonth() below queues a new
+  // (unchecked) top-up for this holding every month it adds, at the same
+  // amount — same "set once, keep going until stopped" shape as
+  // income/debts' ongoing series, just scoped to one existing holding
+  // instead of creating a new line item, and still left for the user to
+  // actually tick off once it's really happened.
   function setInvestmentRecurringTopUp(investmentId, amount){
     const inv = state.investments.find(i=>i.id===investmentId);
     if(!inv) return;
@@ -2194,7 +2225,10 @@ window.__ftStart = function(){
     save();
   }
   function topUpsForInvestment(investmentId){
-    return state.investmentTopUps.filter(t=>t.investmentId===investmentId).sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
+    return state.investmentTopUps.filter(t=>t.investmentId===investmentId).sort((a,b)=> (a.monthIndex-b.monthIndex) || (a.id<b.id?-1:1));
+  }
+  function topUpForInvestmentMonth(investmentId, mi){
+    return state.investmentTopUps.find(t=>t.investmentId===investmentId && t.monthIndex===mi) || null;
   }
   function deleteInvestment(id){
     const inv = state.investments.find(i=>i.id===id);
@@ -2238,14 +2272,16 @@ window.__ftStart = function(){
   function gainPctOf(inv){ return inv.costBasis>0 ? (gainAmountOf(inv)/inv.costBasis)*100 : null; }
   function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+convertToPrimary(currentValueOf(i), i.currency), 0); }
   function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+convertToPrimary(i.costBasis, i.currency), 0); }
-  // Cost basis of holdings first added in month mi, PLUS any top-up (manual
-  // or recurring) made to an existing holding during that same month —
-  // investments added before monthIndex existed have no monthIndex and so
-  // never count toward any month's figure (indistinguishable from "added
-  // who knows when").
+  // Cost basis of holdings first added in month mi, PLUS any CHECKED top-up
+  // (manual or recurring) made to an existing holding that same month — a
+  // still-pending, unticked top-up hasn't actually happened yet, so it
+  // doesn't count here any more than an unchecked income/debt instalment
+  // counts toward its own month's totals. Investments added before
+  // monthIndex existed have no monthIndex and so never count toward any
+  // month's figure (indistinguishable from "added who knows when").
   function investedThisMonth(mi){
     const newHoldings = state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0);
-    const topUps = state.investmentTopUps.filter(t=>t.monthIndex===mi).reduce((s,t)=>{
+    const topUps = state.investmentTopUps.filter(t=>t.monthIndex===mi && t.checked).reduce((s,t)=>{
       const inv = state.investments.find(i=>i.id===t.investmentId);
       return s + convertToPrimary(Number(t.amount)||0, inv && inv.currency);
     }, 0);
@@ -2363,8 +2399,21 @@ window.__ftStart = function(){
         ? ` · ${priceHistory.length} prices logged, latest ${formatDateLong(latest.date)}`
         : (latest ? ` · logged ${formatDateLong(latest.date)}` : '');
       const topUps = topUpsForInvestment(inv.id);
-      const topUpNote = topUps.length ? ` · ${topUps.length} top-up${topUps.length===1?'':'s'} so far` : '';
+      const doneTopUps = topUps.filter(t=>t.checked);
+      const topUpNote = doneTopUps.length ? ` · ${doneTopUps.length} top-up${doneTopUps.length===1?'':'s'} so far` : '';
       const recurring = inv.recurringTopUp;
+      // The active month's own top-up (if any) shows as a tickable line —
+      // queued either by "💰 Queue top-up" below or automatically by
+      // addMonth() if recurringTopUp is set — instead of another input box,
+      // so there's only ever one pending-or-done entry to deal with per
+      // holding per month (see queueInvestmentTopUp's dedupe above).
+      const monthTopUp = topUpForInvestmentMonth(inv.id, activeMonth);
+      const monthTopUpHtml = monthTopUp
+        ? `<input type="checkbox" class="checkbox inv-topup-check" ${monthTopUp.checked?'checked':''} data-topup-id="${monthTopUp.id}">
+           <span class="ds-left" style="color:${monthTopUp.checked?'var(--good)':'var(--ink)'}">💰 ${monthLabels[activeMonth]} top-up: ${fmtIn(monthTopUp.amount, inv.currency)}${monthTopUp.checked && monthTopUp.lastTicked ? ' · ✔ ticked '+fmtTickDate(monthTopUp.lastTicked) : ' · tick once it is actually done'}</span>
+           ${!monthTopUp.checked ? `<button class="del inv-topup-del-btn" data-topup-id="${monthTopUp.id}" title="Remove this planned top-up">✕</button>` : ''}`
+        : `<input type="number" min="0" step="0.01" class="inv-topup-input" data-id="${inv.id}" placeholder="Top up ${symbolForCode(inv.currency)}">
+           <button class="ds-pay-btn inv-topup-btn" data-id="${inv.id}">💰 Queue top-up</button>`;
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${type.icon} ${escapeAttr(inv.name)} <span class="hint">${type.label}</span></span>
@@ -2378,12 +2427,12 @@ window.__ftStart = function(){
           <input type="date" class="inv-price-date" data-id="${inv.id}" value="${todayISO()}">
           <button class="ds-pay-btn inv-log-price-btn" data-id="${inv.id}">Log price</button>
         </div>
+        <div class="ds-pay">${monthTopUpHtml}</div>
         <div class="ds-pay">
-          <input type="number" min="0" step="0.01" class="inv-topup-input" data-id="${inv.id}" placeholder="Top up ${symbolForCode(inv.currency)}" value="${recurring ? recurring.amount : ''}">
-          <button class="ds-pay-btn inv-topup-btn" data-id="${inv.id}">💰 Top up</button>
           ${recurring
-            ? `<span class="ds-left" style="color:var(--muted)">🔁 Tops up ${fmtIn(recurring.amount, inv.currency)} every month</span><button class="ds-pay-btn inv-topup-stop-btn" data-id="${inv.id}" title="Stop topping this up automatically — months already added keep it">⏹ Stop repeating</button>`
-            : `<label class="recurring-toggle" title="Tops this holding up by the amount above automatically, every month, until you stop it"><input type="checkbox" class="inv-topup-recurring-toggle" data-id="${inv.id}"> 🔁 Repeat monthly</label>`}
+            ? `<span class="ds-left" style="color:var(--muted)">🔁 Queues ${fmtIn(recurring.amount, inv.currency)} every month (tick each one off once it's done)</span><button class="ds-pay-btn inv-topup-stop-btn" data-id="${inv.id}" title="Stop queuing a top-up automatically — months already queued or applied keep it">⏹ Stop repeating</button>`
+            : `<input type="number" min="0" step="0.01" class="inv-recurring-input" data-id="${inv.id}" placeholder="Monthly amount ${symbolForCode(inv.currency)}">
+               <button class="ds-pay-btn inv-recurring-start-btn" data-id="${inv.id}">🔁 Repeat monthly</button>`}
         </div>
       </div>`;
     }).join('');
@@ -2405,21 +2454,28 @@ window.__ftStart = function(){
       const amtInput = document.querySelector('.inv-topup-input[data-id="'+id+'"]');
       const amt = amtInput ? Number(amtInput.value)||0 : 0;
       if(amt<=0){ if(amtInput) amtInput.focus(); return; }
-      topUpInvestment(id, amt);
+      queueInvestmentTopUp(id, amt);
+      save();
       return;
     }
+    const topUpDelBtn = e.target.closest ? e.target.closest('.inv-topup-del-btn') : null;
+    if(topUpDelBtn){ deleteInvestmentTopUp(topUpDelBtn.dataset.topupId); return; }
     const topUpStopBtn = e.target.closest ? e.target.closest('.inv-topup-stop-btn') : null;
     if(topUpStopBtn){ stopInvestmentRecurringTopUp(topUpStopBtn.dataset.id); return; }
+    const recurringStartBtn = e.target.closest ? e.target.closest('.inv-recurring-start-btn') : null;
+    if(recurringStartBtn){
+      const id = recurringStartBtn.dataset.id;
+      const amtInput = document.querySelector('.inv-recurring-input[data-id="'+id+'"]');
+      const amt = amtInput ? Number(amtInput.value)||0 : 0;
+      if(amt<=0){ if(amtInput) amtInput.focus(); return; }
+      setInvestmentRecurringTopUp(id, amt);
+      return;
+    }
   });
   document.addEventListener('change', function(e){
-    const toggle = e.target.closest ? e.target.closest('.inv-topup-recurring-toggle') : null;
-    if(!toggle) return;
-    if(!toggle.checked) return;
-    const id = toggle.dataset.id;
-    const amtInput = document.querySelector('.inv-topup-input[data-id="'+id+'"]');
-    const amt = amtInput ? Number(amtInput.value)||0 : 0;
-    if(amt<=0){ alert('Enter the monthly top-up amount above first.'); toggle.checked = false; if(amtInput) amtInput.focus(); return; }
-    setInvestmentRecurringTopUp(id, amt);
+    const check = e.target.closest ? e.target.closest('.inv-topup-check') : null;
+    if(!check) return;
+    setInvestmentTopUpChecked(check.dataset.topupId, check.checked);
   });
   (function populateInvestmentTypeSelect(){
     const sel = document.getElementById('inv-type');
@@ -2646,7 +2702,7 @@ window.__ftStart = function(){
       state.months[mi][series.kind].push(item);
     });
     state.investments.forEach(inv=>{
-      if(inv.recurringTopUp) applyInvestmentTopUp(inv.id, inv.recurringTopUp.amount, mi);
+      if(inv.recurringTopUp) queueInvestmentTopUp(inv.id, inv.recurringTopUp.amount, mi);
     });
     activeMonth = mi;
     populateTargetSelect();
@@ -7612,7 +7668,7 @@ window.__ftStart = function(){
     { title: '🐾 Drag your pet or growth tree out of the way, and bigger bottom tabs', body: 'On a phone, the pet companion and growth tree used to sit fixed in the bottom corners — right where the new bottom tab bar now lives too. Both can now be dragged anywhere on screen (tap-and-hold, then move) to get them out of the way; wherever you leave one stays put on this device. The bottom tab bar\'s buttons are also bigger now, for an easier tap.' },
     { title: '🐛 Fixed: biometric unlock and "too many devices" popups appearing at the top of the page', body: 'Two of the overlay screens — "🫆 Set up biometric unlock" (Settings → Security) and the "too many devices signed in" gate during sign-in — were missing the CSS that actually centers a popup over the page; both showed up stuck at the very top instead, inline with whatever else was on screen. They now center and dim the background like every other popup in the app.' },
     { title: '📱 A more compact, app-like feel', body: 'Tighter spacing throughout the tracker — cards, buttons, the top bar, forms — so more fits on screen with less scrolling, plus rounder corners across the board. On a phone, the page tabs (Overview, Income, Debts…) now sit in a fixed bar at the bottom of the screen, the way a native app\'s navigation usually does, instead of a row under the month picker.' },
-    { title: '💰 Top up an investment, monthly if you want', body: 'Each holding on the Investments tab now has a "💰 Top up" box — add more money to an existing investment (with enough extra units added to match, at the latest logged price) instead of only being able to log a price. Tick "🔁 Repeat monthly" to have it top up by the same amount automatically every month you add, the same way an income source or bill already could.' },
+    { title: '💰 Top up an investment, monthly if you want', body: 'Each holding on the Investments tab now has a "💰 Queue top-up" box — queue more money for an existing investment instead of only being able to log a price. It shows up right there as a tickable line, the same "planned until you confirm it" shape a savings app\'s monthly top-up already uses: nothing moves on the holding — cost basis, units, current value — until you actually tick it off (with enough extra units added alongside the cost basis, at the latest logged price, so the current value reflects it right away). Tick "🔁 Repeat monthly" to have a new one queued automatically every month you add, the same way an income source or bill already could — you still tick each one off yourself once it\'s really happened.' },
     { title: '📅 See your remaining balance as of any day in the month', body: 'The Overview page has a new "📅 Remaining balance as of" card with a date picker — pick any day within the current billing period to see what your balance would be as of that day (everything checked off or logged on or before it, plus every prior month in full), instead of only ever seeing it as of today.' },
     { title: '🐛 Fixed: sign-in could hang forever on "Loading your tracker…"', body: 'On a slow or flaky connection, the step right after signing in — fetching your data — could sit waiting indefinitely with no error and no way forward except reloading blind. It now gives up after 20 seconds and shows a clear "check your connection and reload" message instead of hanging forever.' },
     { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. Premium is also now a single tier with no caps at all — the daily log\'s 100-entry free-plan limit is removed entirely while Premium is active, and the separate one-time ₦3,500 "Unlimited logs" add-on is retired along with it.' },
