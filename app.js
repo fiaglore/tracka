@@ -125,23 +125,17 @@ window.__ftStart = function(){
   }
 
   // ===== Daily log (Expenses tab) entry cap =====
-  // A third tier on top of the plain Premium/free split above: Premium
-  // raises the free 100-entry cap to 300, and a separate one-time ₦3,500
-  // purchase (entitlements.unlimitedLogs — only offered to accounts that
-  // already have entitlements.premium, see Settings → "💎 Go Premium")
-  // removes it entirely. Checked both at the single-entry "Add" button and
-  // at the bank-statement import's bulk commit, so neither path can bypass
-  // it — see their respective click handlers below.
+  // Free accounts cap out at 100 entries; Premium removes the cap entirely
+  // (no separate add-on needed — see isFeatureUnlocked() above). Checked
+  // both at the single-entry "Add" button and at the bank-statement
+  // import's bulk commit, so neither path can bypass it — see their
+  // respective click handlers below.
+  const FREE_DAILY_LOG_CAP = 100;
   function dailyLogCap(){
-    if(cloud.entitlements && cloud.entitlements.unlimitedLogs) return Infinity;
-    return isPremiumActive() ? 300 : 100;
+    return isPremiumActive() ? Infinity : FREE_DAILY_LOG_CAP;
   }
   function notifyDailyLogCapReached(){
-    const cap = dailyLogCap();
-    const msg = isPremiumActive()
-      ? 'You\'ve reached the '+cap+'-entry Premium limit on the daily log. A one-time ₦3,500 payment removes this limit entirely — see Settings → "💎 Go Premium".'
-      : 'The free plan includes up to '+cap+' daily log entries — upgrade in Settings → "💎 Go Premium" for 300, or go unlimited with a one-time payment.';
-    showAppNotification('🔒 Daily log limit reached', msg);
+    showAppNotification('🔒 Daily log limit reached', 'The free plan includes up to '+FREE_DAILY_LOG_CAP+' daily log entries — upgrade in Settings → "💎 Go Premium" to log without limit.');
   }
 
   // ===== Premium promo banners (top + side, Overview only) =====
@@ -158,7 +152,7 @@ window.__ftStart = function(){
     { icon:'🌙', title:'Dark mode', desc:'Switch the whole app to a proper dark theme.' },
     { icon:'🐾', title:'7 exclusive companions', desc:'Dog, Fox, Owl, Rabbit, Panda, Koala and Unicorn, unlocked instantly.' },
     { icon:'🌦️', title:'6 exclusive weather effects', desc:'Snow, Thunderstorm, Spring, Summer, Tropical rain and Sandstorm, with matching sounds.' },
-    { icon:'📝', title:'Higher daily log limits', desc:'300 entries a day instead of 100 — or truly unlimited with a one-time add-on.' },
+    { icon:'📝', title:'No daily log limit', desc:'The free plan\'s 100-entry cap is removed entirely — log as much as you need to.' },
     { icon:'🏦', title:'Bank statement import', desc:'Import an OPay, Moniepoint or Kuda statement straight in.' }
   ];
   function initPremiumPromo(){
@@ -1950,6 +1944,65 @@ window.__ftStart = function(){
     return incomeChecked - (debtChecked + livingChecked + giftChecked);
   }
 
+  // ===== Remaining balance as of any day within a month =====
+  // Same shape as netForMonth() above, but only counts an item if it was
+  // actually ticked (lastTicked) or dated on or before a given day — lets
+  // "remaining balance" be shown as of any day in the period, not just
+  // "everything checked off so far" (today). dateKeyStr is a 'YYYY-MM-DD'
+  // key; plain string comparison works since every key is zero-padded.
+  function sumCheckedUpToDate(items, dateKeyStr){
+    return items.filter(i=>i.checked && i.lastTicked && i.lastTicked<=dateKeyStr)
+      .reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0);
+  }
+  function sumExtraForMonthUpToDate(mi, dateKeyStr){
+    return extraForMonth(mi).filter(e=>e.date && e.date<=dateKeyStr)
+      .reduce((s,e)=>s+convertToPrimary(e.amount, e.currency),0);
+  }
+  function sumLivingForMonthUpToDate(mi, dateKeyStr){
+    return livingEntriesForMonth(mi).filter(e=>e.date && e.date<=dateKeyStr)
+      .reduce((s,e)=>s+Number(e.amount||0),0);
+  }
+  function netForMonthUpToDate(mi, dateKeyStr){
+    const mm = state.months[mi];
+    const incomeChecked = sumCheckedUpToDate(mm.income, dateKeyStr) + sumExtraForMonthUpToDate(mi, dateKeyStr);
+    const debtChecked = sumCheckedUpToDate(mm.debts, dateKeyStr);
+    const livingChecked = sumLivingForMonthUpToDate(mi, dateKeyStr);
+    const giftChecked = sumCheckedUpToDate(giftItemsForMonth(mi), dateKeyStr);
+    return incomeChecked - (debtChecked + livingChecked + giftChecked);
+  }
+  // Every prior month counts in full (nothing partial about a month
+  // that's already over), plus only what's dated/ticked by dateKeyStr in
+  // the month actually being viewed.
+  function balanceAsOfDate(mi, dateKeyStr){
+    return cumulativeBalanceUpTo(mi-1) + netForMonthUpToDate(mi, dateKeyStr);
+  }
+  // Overview's "📅 Remaining balance as of" card — a date picker (bounded to
+  // the viewed month's own billing period) next to the figure above, so the
+  // same running balance the rest of Overview shows "as of today" can be
+  // checked for any day already past, or planned ahead to any day still to
+  // come, within this period.
+  function renderBalanceAsOf(){
+    const dateInput = document.getElementById('balance-asof-date');
+    const amtEl = document.getElementById('balance-asof-amt');
+    const subEl = document.getElementById('balance-asof-sub');
+    if(!dateInput || !amtEl) return;
+    const {start, end} = periodBounds(activeMonth);
+    const minKey = dateKey(start), maxKey = dateKey(end);
+    dateInput.min = minKey;
+    dateInput.max = maxKey;
+    if(!dateInput.value || dateInput.value<minKey || dateInput.value>maxKey){
+      const todayK = todayKey();
+      dateInput.value = (todayK>=minKey && todayK<=maxKey) ? todayK : (todayK>maxKey ? maxKey : minKey);
+    }
+    const bal = balanceAsOfDate(activeMonth, dateInput.value);
+    amtEl.textContent = (bal<0?'-':'') + fmt(Math.abs(bal));
+    amtEl.style.color = bal>=0 ? 'var(--good)' : 'var(--bad)';
+    if(subEl) subEl.textContent = 'Income, debts, living & gifts checked off or logged on or before '+fmtTickDate(dateInput.value)+', plus every prior month in full';
+  }
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.id==='balance-asof-date') renderBalanceAsOf();
+  });
+
   // Running total saved (all top-ups made) from month 0 through mi (inclusive).
   // Combines the free-form savings ledger with everything ticked off in the savings apps.
   function cumulativeSavingsUpTo(mi){
@@ -2720,12 +2773,11 @@ window.__ftStart = function(){
   // Premium is a 30-day recurring unlock, not a one-time purchase — each
   // approval (first purchase or a later renewal) stacks another 30 days
   // onto entitlements.premiumExpiresAt (see approvePremiumRequest() in
-  // firebase-init.js and isPremiumActive() above). Unlimited-logs stays a
-  // genuine one-time add-on on top of Premium, unaffected by whether
-  // Premium itself later lapses.
+  // firebase-init.js and isPremiumActive() above). It's also a single tier
+  // with no add-ons and no caps of any kind — the old one-time "Unlimited
+  // logs" add-on is retired.
   const PREMIUM_PRODUCT_LABELS = {
-    premium: { name: '💎 Premium (1 month)', amount: '₦3,500/month' },
-    unlimitedLogs: { name: '📒 Unlimited daily log entries', amount: '₦3,500 (one-time)' }
+    premium: { name: '💎 Premium (1 month)', amount: '₦3,500/month' }
   };
   function fmtPremiumRequestStatus(req){
     if(!req || !req.status) return '';
@@ -2751,51 +2803,28 @@ window.__ftStart = function(){
       ? ' — active until '+dateStr+' ('+days+' day'+(days===1?'':'s')+' left)'
       : ' — expired on '+dateStr+'; renew below to pick back up';
   }
-  // Which product(s) the bank-transfer flow below offers — Premium is always
-  // purchasable (a first unlock when free, a renewal any time after, even
-  // before the current period runs out). "Unlimited logs" only ever appears
-  // once the account currently has active Premium (see isFeatureUnlocked()
-  // above; it's a one-time add-on ON TOP of Premium, never a standalone
-  // purchase a free account can make directly).
-  function renderPremiumProductOptions(){
-    const sel = document.getElementById('premium-product-select');
-    if(!sel) return;
-    const isPremium = isPremiumActive();
-    const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
-    const prev = sel.value;
-    const options = ['premium'];
-    if(isPremium && !hasUnlimitedLogs) options.push('unlimitedLogs');
-    sel.innerHTML = options.map(function(key){
-      const p = PREMIUM_PRODUCT_LABELS[key];
-      return '<option value="'+key+'">'+p.name+' — '+p.amount+'</option>';
-    }).join('');
-    if(options.includes(prev)) sel.value = prev;
-    applyPremiumProductToBankDetails();
-  }
-  function applyPremiumProductToBankDetails(){
-    const sel = document.getElementById('premium-product-select');
+  // Premium is a single tier with no add-ons and no caps — but it's a
+  // 30-day recurring unlock, not a lifetime one, so the bank-transfer flow
+  // stays available even once an account already has it, as the way to
+  // renew before (or after) the current period runs out.
+  function renderPremiumBankDetails(){
     const titleEl = document.getElementById('premium-bank-details-title');
-    if(!sel || !titleEl) return;
-    const p = PREMIUM_PRODUCT_LABELS[sel.value] || PREMIUM_PRODUCT_LABELS.premium;
-    titleEl.textContent = '🏦 Transfer '+p.amount+' to:';
+    if(!titleEl) return;
+    titleEl.textContent = '🏦 Transfer '+PREMIUM_PRODUCT_LABELS.premium.amount+' to:';
   }
   function renderPremiumPanel(){
     const isPremium = isPremiumActive();
-    const hasUnlimitedLogs = !!(cloud.entitlements && cloud.entitlements.unlimitedLogs);
     const unlockedMsg = document.getElementById('premium-unlocked-msg');
     const requestWrap = document.getElementById('premium-request-wrap');
     if(unlockedMsg){
       unlockedMsg.hidden = !isPremium;
-      const statusLine = premiumStatusLine();
-      unlockedMsg.textContent = hasUnlimitedLogs
-        ? '✅ Premium is active on this account'+statusLine+', with unlimited daily log entries — every Premium feature is unlocked.'
-        : '✅ Premium is active on this account'+statusLine+' — every Premium feature (like 🏦 Bank statement import, 📈 Net Worth and 💹 Investments) is unlocked.';
+      unlockedMsg.textContent = '✅ Premium is active on this account'+premiumStatusLine()+' — everything is unlocked, with no caps.';
     }
-    // Always shown now — unlike the old one-time model, there's always
-    // something this account could buy (a renewal), even once it already
-    // has both Premium and the Unlimited-logs add-on.
+    // Always shown now, even once already Premium — the only thing left to
+    // buy is a renewal, and that's always available, before or after the
+    // current period runs out.
     if(requestWrap) requestWrap.hidden = false;
-    renderPremiumProductOptions();
+    renderPremiumBankDetails();
     const statusEl = document.getElementById('premium-request-status');
     if(statusEl){
       const msg = fmtPremiumRequestStatus(cloud.premiumRequest);
@@ -2805,9 +2834,6 @@ window.__ftStart = function(){
     const adminWrap = document.getElementById('premium-admin-wrap');
     if(adminWrap) adminWrap.hidden = !(window.Trakka && window.__ftEmail === window.Trakka.ADMIN_EMAIL);
   }
-  document.addEventListener('change', function(e){
-    if(e.target && e.target.id==='premium-product-select') applyPremiumProductToBankDetails();
-  });
   function fmtPremiumRequestTs(req){
     // submittedAt is a Firestore server Timestamp once it round-trips, but
     // reads back as a plain object (not a JS Date) from getDocs() — only
@@ -3478,6 +3504,7 @@ window.__ftStart = function(){
     document.getElementById('sum-cumulative').textContent = (cumBalance<0?'-':'') + fmt(Math.abs(cumBalance));
     document.getElementById('sum-cumulative').style.color = cumBalance>=0 ? 'var(--good)' : 'var(--bad)';
     document.getElementById('sum-cumulative-sub').textContent = 'through '+monthLabels[activeMonth]+' '+yearTags[activeMonth]+', after debts, living & gifts';
+    renderBalanceAsOf();
 
     const savedPct = cumBalance>0 ? (cumSavings/cumBalance*100) : 0;
     document.getElementById('sum-savings-pct').textContent = cumBalance>0 ? savedPct.toFixed(1)+'%' : '—';
@@ -6642,7 +6669,7 @@ window.__ftStart = function(){
     const cap = dailyLogCap();
     if(state.livingEntries.length + outCount > cap){
       const remaining = Math.max(0, cap - state.livingEntries.length);
-      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. '+(isPremiumActive() ? 'Go unlimited with a one-time ₦3,500 payment — see Settings → "💎 Go Premium".' : 'Upgrade in Settings → "💎 Go Premium" for more room.'), 'err');
+      stmtSetStatus('This would add '+outCount+' daily-log entries, but only '+remaining+' of your '+cap+'-entry limit remain. Upgrade in Settings → "💎 Go Premium" to log without limit.', 'err');
       return;
     }
     const existing = stmtExistingFingerprints();
@@ -6893,14 +6920,12 @@ window.__ftStart = function(){
         if(!file.type.startsWith('image/') && file.type!=='application/pdf'){ premiumReceiptStatus('Please choose an image or PDF file.', true); return; }
         if(file.size > 5*1024*1024){ premiumReceiptStatus('That file is too large (max 5MB).', true); return; }
         if(!window.__ftUid){ premiumReceiptStatus('Sign in again to upload a receipt.', true); return; }
-        const productSelect = document.getElementById('premium-product-select');
-        const product = (productSelect && productSelect.value) || 'premium';
         chooseBtn.disabled = true;
         premiumReceiptStatus('Uploading…');
         window.Trakka.uploadReceipt(window.__ftUid, file)
-          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url, product); })
+          .then(function(url){ return window.Trakka.submitPremiumRequest(window.__ftUid, url, 'premium'); })
           .then(function(){
-            cloud.premiumRequest = { status: 'pending', product: product };
+            cloud.premiumRequest = { status: 'pending', product: 'premium' };
             renderPremiumPanel();
             premiumReceiptStatus('Receipt submitted — we\'ll review it soon.');
           })
@@ -7408,78 +7433,25 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '📅 See your remaining balance as of any day in the month', body: 'The Overview page has a new "📅 Remaining balance as of" card with a date picker — pick any day within the current billing period to see what your balance would be as of that day (everything checked off or logged on or before it, plus every prior month in full), instead of only ever seeing it as of today.' },
     { title: '🐛 Fixed: sign-in could hang forever on "Loading your tracker…"', body: 'On a slow or flaky connection, the step right after signing in — fetching your data — could sit waiting indefinitely with no error and no way forward except reloading blind. It now gives up after 20 seconds and shows a clear "check your connection and reload" message instead of hanging forever.' },
-    { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. The separate one-time ₦3,500 "Unlimited logs" add-on is unchanged.' },
-    { title: '💎 Premium is now clearly labeled as one-time, not a subscription', body: 'Premium has never actually renewed or expired — it\'s a one-time ₦1,000 unlock, the same way the separate "Unlimited logs" add-on already was. It was previously labeled "Premium subscription" in a couple of spots, which implied recurring billing that doesn\'t exist; it now reads "💎 Premium — ₦1,000 (one-time)" everywhere that price shows up.' },
+    { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. Premium is also now a single tier with no caps at all — the daily log\'s 100-entry free-plan limit is removed entirely while Premium is active, and the separate one-time ₦3,500 "Unlimited logs" add-on is retired along with it.' },
     { title: '🛟 Deleting a mistaken entry now cleans up after itself too', body: 'The previous update made Undo also revert any badge/XP/level a mistaken entry had triggered — that now also happens when the entry is deleted directly, without touching Undo at all, as long as it\'s within the same short window where the mistake would still be fresh. An achievement earned a while ago and confirmed stable stays exactly as it is either way.' },
     { title: '🛟 A safety check for big typos, and a smarter Undo', body: 'Adding a single income, debt, gift, savings, investment, or daily-log entry worth ₦100,000 or more now asks "just checking this isn\'t a typo" before it\'s added — easy to dismiss if it\'s genuinely that big, but it catches an accidental extra zero before it\'s committed. Separately, Undo (and Redo) now also reverts any achievement badge, XP, level, or achievement-unlocked pet/weather effect that entry had triggered, not just the entry itself — so undoing a mistake undoes everything it caused, not just the number.' },
     { title: '💎 A Premium spotlight banner', body: 'A rotating banner now highlights what Premium actually includes — Auto FX rates, Net Worth, Investments, exclusive themes & dark mode, exclusive pets & weather effects, and more — at the top of the tracker, plus a smaller version docked to the side on a wide screen. Both disappear once you\'re Premium, and either can be dismissed for the rest of your visit with its ✕.' },
     { title: '🌌 3 new pets and weather effects — unlocked by achievements', body: 'Three new pet companions — 🐉 Dragon (reach a ₦1,000,000 cumulative balance), 🐺 Wolf (hit a 100-day streak) and 🦚 Peacock (reach Level 40) — and three new weather effects with matching ambient sounds — 🌌 Aurora (reach Level 60), 🌈 Rainbow (complete every tracked month) and ✨ Starry night (hit a 200-day streak) — join the picker in Settings, each unlocked the same way themes already are: by playing, not paying.' },
     { title: '💎 Weather, sounds, dark mode and some pets are now Premium', body: 'Half of the weather effects — ❄️ Snow, ⛈️ Thunderstorm, 🌸 Spring, ☀️ Summer, 🌴 Tropical rain, 🏜️ Sandstorm — along with their matching ambient sounds, are now Premium, picked for being the most elaborate ones. 🌙 Dark mode is now Premium too. And 7 of the pet companions — 🐶 Dog, 🦊 Fox, 🦉 Owl, 🐰 Rabbit, 🐼 Panda, 🐨 Koala, 🦄 Unicorn — join them, while your default 🐱 Cat and 7 others stay free. Nothing already picked gets taken away — this only affects switching to a locked one going forward.' },
-    { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources and 3 gift goals — anything you already have stays exactly as it is, this only limits adding more. The daily log caps at 100 free entries, 300 on Premium, or truly unlimited with a one-time ₦3,500 payment (Settings → "💎 Go Premium") on top of Premium.' },
+    { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources, 3 gift goals and 100 daily-log entries — anything you already have stays exactly as it is, this only limits adding more.' },
     { title: '🐛 Fixed: Kuda statement import still failing for some real statements', body: 'The previous fix only covered statements secretly saved as HTML — Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
     { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
-    { title: '🐛 Fixed: Kuda statement import failing to read the file', body: 'Kuda\'s "Excel" export is actually an HTML table wearing an .xlsx extension — Microsoft Excel opens it fine, but AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. It now detects this and reads the table correctly.' },
     { title: '💎 Two Premium-exclusive themes: Obsidian & Champagne', body: 'Settings → Appearance now has two new themes reserved for Premium — a sleek near-black "Obsidian" and a warm gold "Champagne". They unlock the moment Premium does, same as every other Premium feature.' },
     { title: '🐛 Fixed: couldn\'t sign in on a second device', body: 'Signing in on any device beyond your first was wrongly treated as "forgotten" and signed straight back out — a real bug, not a limit. That\'s fixed, and Settings → Security → "💻 Trusted devices" now supports up to 6 devices at once, with a running count. Signing in on a 7th device asks you to pick one of the existing 6 to sign out first, instead of silently failing.' },
     { title: '💎 Go Premium — bank transfer now live', body: 'Settings → "💎 Go Premium" shows AnchorTrakk\'s bank account for a one-time transfer — upload a receipt as proof and it\'s reviewed by hand, usually within a day. No card payments yet, but this is the first real way to actually unlock Premium features like 🏦 Bank statement import and 📈 Net Worth.' },
-    { title: '✨ Bank statement import is now a Premium feature', body: 'Importing an OPay, Moniepoint or Kuda statement (Settings → "📁 Data") now needs a Premium subscription. Premium billing isn\'t live yet, so the feature is locked for everyone for the moment — this is groundwork ahead of Premium actually launching, not something you can unlock yet.' },
     { title: '🌱 A new name: AnchorTrakk', body: 'Trakka is now AnchorTrakk — same app, same account, same data, same logo. Nothing about how it works has changed, just what it\'s called.' },
     { title: '🏦 Import a bank statement from OPay, Moniepoint or Kuda', body: 'Settings → "📁 Data" now has an "🏦 Import a bank statement" section — download a statement from your own OPay, Moniepoint or Kuda app (Excel works best; .csv also works) and import it straight in. Nothing is sent to a third party or linked to your bank account; the file is read right in your browser. Each transaction becomes a normal expense (money out) or extra-income entry (money in), exactly as if typed in by hand, with a preview to check before anything is actually added and an "↩️ Undo this import" button right after. Re-importing the same statement twice skips whatever it already added instead of duplicating it.' },
     { title: '📧 Add a real recovery email, so password resets actually arrive', body: 'If you signed up with a plain username instead of a real email address, "Forgot password?" had nowhere real to deliver a reset link to — it would still show its usual success message (so as not to reveal whether an account exists), but nothing ever landed in an inbox. Settings → "🔐 Security" now has a "📧 Recovery email" section showing the address actually on file, with an "✏️ Update recovery email" button to add or change it. A verification link goes to the new address first — your account keeps using the old one for sign-in and password resets until you click it, so a typo can\'t lock you out.' },
     { title: '🔑 Change your password, or reset it by email, right from Settings', body: 'Settings → "🔐 Security" now has a "🔑 Change password" button (needs your current password, same as before) and a "✉️ Reset password by email" button — the same reset-link flow the signed-out "Forgot password?" link already used, now usable without signing out first. If a security PIN or biometric unlock is set up on this device, changing your password clears them automatically, since each holds an encrypted copy of the old one — set them back up with your new password whenever you like.' },
     { title: '🔢 Your PIN is now a security PIN, not just a quick-unlock shortcut', body: 'The PIN set up in Settings → "🔐 Security" used to only skip retyping your password after an auto sign-out. It now also confirms three more sensitive moments: finishing a plain password sign-in (an extra step right after your password, like a second factor), clicking "👁️ Show data" to reveal anything hidden by "🙈 Hide data" mode, and deleting any logged entry — a debt, income source, gift goal, savings entry, investment, or expense. Biometric unlock works as a faster alternative everywhere the PIN is asked, including these new spots. None of this applies until a PIN is actually set up — on a device with no PIN configured, everything works exactly as before.' },
-    { title: '🙈 Hide data now blurs your greeting and notification history too', body: 'Turning on "🙈 Hide data" used to leave two spots showing real figures in plain sentences: the time-of-day greeting at the top of the page ("You\'ve logged ₦X in expenses so far today") and the 🔔 bell\'s notification history (debt-cleared, budget-threshold and badge entries that mention an amount). Both are now blurred along with everything else while privacy mode is on. The shareable milestone card (the one offered when a debt is cleared or a savings goal is hit) is also skipped entirely while hiding data is on, instead of showing a blurred-but-still-downloadable image.' },
-    { title: '⛄ Pick a debt payoff strategy — Snowball, Avalanche, or your own pace', body: 'The Debts tab\'s payoff plan now offers three ways to tackle multiple debts: "🧘 My own pace" (no suggested order, exactly as before), "⛄ Snowball" (pay minimums on everything, then throw every extra at your smallest balance first, for quick motivational wins), or "⚡ Avalanche" (same idea, but targeting your highest interest rate first, for the cheapest route overall). Each debt can have an optional interest rate set on it — the picked strategy reorders the list, badges the one to focus on first, and shows roughly how many months sooner you\'d be debt-free by rolling payments forward versus paying each debt separately.' },
-    { title: '🫆 Biometric unlock, trusted devices & a security activity log', body: 'Settings → "🔐 Security" now offers biometric unlock — Face ID, Touch ID, Windows Hello, or a fingerprint reader — as a faster alternative to the PIN, set up separately on each device since it\'s tied to that device\'s own hardware. It shows up both on the usual "you were signed out, enter your PIN" screen and, once it\'s set up, right on the sign-in page itself — so a normal fresh visit can skip typing a password too. The same Settings page also lists every device that\'s ever signed in under "💻 Trusted devices" (forgetting one signs it out the next time it\'s opened) and a "📜 Recent activity" log of the last 30 sign-ins, PIN/biometric changes, and device removals.' },
-    { title: "💰 A zero-based monthly budget plan", body: 'The Expenses tab has a new "💰 Monthly budget plan" card: your expected income for the month against everything already spoken for — living expense budgets, debt instalments due, and gift contributions due — down to what\'s still unassigned. Each expense category can also turn on "Rollover" (in "Categories & budget" below it), which carries whatever\'s left unspent, or overspent, in that category into next month\'s budget instead of resetting to the flat number every period.' },
-    { title: '🔎 Filter your search, and bulk-edit the expense log', body: 'The search box on Overview now has a "⚙️ Filters" button — narrow results by date range, minimum/maximum amount, or which kinds (income, debt, gift, expense) to include, instead of only a plain text match. Separately, the Expenses tab\'s daily log can select several entries at once with a checkbox on each row, for a one-tap bulk recategorize or bulk delete instead of handling them one at a time.' },
-    { title: "🔔 Bill-due and over-budget alerts, and pick exactly which notifications you get", body: 'AnchorTrakk can now warn you when a debt payment is due within 3 days, or when a living-expense category crosses 90%/100% of its budget for the period — both show up instantly in the app and, if notifications are on, even while it\'s closed. Settings → "🔔 Notifications" also replaces the single on/off switch with a checkbox for each kind — daily reminder, level up, debt cleared, bill due, budget alerts, birthday, achievements & quests — so any one of them can be turned off without losing the rest.' },
-    { title: "📈 See your trends over time, not just this month", body: "The Net Worth tab now has four small trend charts — net worth, income, expenses, and savings — plotted across every month you've tracked, with the exact figure for each point on hover. The month-by-month net worth list is still there underneath for the precise numbers." },
-    { title: '🎮 7 new ways to level up', body: 'A big batch of new ways to stay motivated: 10 of the 30 themes are now unlocked by reaching a level or a specific achievement (clearing your first debt, hitting your savings goal, and more) instead of all being free from day one — locked ones show a 🔒 (now a properly tap-sized one) and explain what\'s needed. The Overview page has new weekly and monthly mini-quests worth bonus XP, and the Debts tab\'s payoff panel reskins each balance as a boss health bar. Clearing a debt or hitting a savings goal now also offers a downloadable, shareable milestone card. The "This month vs last month" panel gained a trophy for beating the same month a year ago, a second companion — a growing garden — now sits alongside the pet and grows with your net worth, and reaching Level 100 unlocks Prestige: reset to Level 1 for a permanent crown, with every badge and streak untouched.' },
-    { title: '🎨 9 new themes, and a bigger pet companion', body: 'Settings → "🎨 Appearance" now has 9 new themes to pick from — Biker, Fire, Barbie, Studio Ghibli, Cyberpunk, Galaxy, Matcha, Vaporwave, and Cozy Cabin — in place of 8 of the more similar-looking plain colors (Dusk, Slate, Citrus, Sage, Coral, Sky, Wine, Copper), which have been retired. The theme picker also now spans the full width of the card instead of being squeezed into a narrow column. Separately, your pet companion in the bottom-right corner is now three times the size, and the page-tab bar (Overview, Income, Debts... What\'s New) no longer wraps "✨ What\'s New" onto its own line on a wide screen — it scrolls with the rest of the tabs instead, the same way it already did on a phone.' },
-    { title: '📷 Upload a profile photo', body: 'Settings → "👤 Profile" now has an "📷 Upload photo" button, so your own picture can show up everywhere your profile icon used to — the top-bar avatar and anywhere else your profile appears. It replaces the emoji icon when set; a "🗑️ Remove photo" button switches back to picking an emoji instead. Square-crops and shrinks it automatically before uploading, so there\'s no need to pre-resize anything yourself.' },
-    { title: '🌱 One consistent AnchorTrakk logo everywhere', body: "The leaf emoji standing in for AnchorTrakk's logo (which could render differently depending on your device) has been replaced with the app's actual icon — the same one on your home screen — in the sign-in screen, Settings, and every page's top nav." },
-    { title: '📜 A Terms & Conditions and Privacy Policy page', body: 'A new "Terms & Privacy" link (in the footer of the sign-in and landing pages) lays out, in plain language, what AnchorTrakk is for, what data is collected, how it\'s stored, and how to request it or have it deleted. Nothing in the app requires reading it or signing anything first.' },
-    { title: "✨ A dot for unread updates, a reorder for your tabs, and a nudge when something new ships", body: 'The ✨ What\'s New tab now shows a small dot whenever there\'s an update you haven\'t seen yet, and a "✅ Mark all as read" button clears it. AnchorTrakk also now sends a one-time notification ("check the What\'s New tab") the first time it notices a new update, the same way a level-up or achievement does — through the 🔔 bell and push if you\'ve turned that on. Separately, Settings → "📑 Visible tabs" now has ▲▼ arrows so tabs can be put in whatever order you like — Overview and What\'s New stay fixed first/last, and XP stays fixed in place too, but everything else can move freely around it.' },
-    { title: '💱 Investments can be priced in a different currency too', body: 'Adding a holding on the Investments tab now has the same currency picker Income, Debts, Gifts and Savings accounts already had — log a USD stock or a GBP fund while your primary currency is ₦, for instance. Cost basis, logged prices and gain/(loss) all show in that holding\'s own currency, and the converted total is still counted correctly everywhere investments are totaled (the Investments tab, Net worth, and the top-bar chips below).' },
-    { title: '📈 Net Worth moves up front, new top-bar totals, and choose which tabs you see', body: 'The "📈 Net Worth" tab now sits right after Overview instead of near the end. Two new top-bar chips — "Total investments" and "Net worth" — are visible from any tab (and hideable from Settings → "Top bar cards" like any other chip), and the Overview page gained an "Investments this month" card showing the cost basis of holdings first added in the month you\'re viewing. A new Settings → "📑 Visible tabs" section also lets you turn off any tab you don\'t use — Investments, XP, whichever — Overview and What\'s New always stay on, and nothing hidden is ever deleted.' },
-    { title: '🐛 Fixed a few spots where multi-currency totals and symbols were wrong', body: 'The combined "App balances" total on the Savings tab (and its share of the top-bar/Overview savings figures) was adding different currencies\' raw numbers together instead of converting them first. The monthly top-up row for a savings app, and the "Recurring income" panel\'s amount field, could also show the wrong currency symbol next to an amount even when the account was correctly set to a foreign currency. All three now compute and label correctly.' },
-    { title: '🌍 Multi-currency now covers Income, Debts, Gifts and Savings', body: 'Any Income source, Debt/bill, Gift goal or Savings account can now be tagged with a currency other than your primary one — not just Savings accounts like before. Every currency shares ONE rate, set once in Settings → "🌍 Currency rates" and reused everywhere it\'s tagged, so the same currency can\'t end up disagreeing with itself between tabs (the bug behind the old per-account rate field, now removed). Each row still shows its own native amount and symbol; totals (Overview, debt payoff, gift totals, Net worth) show the converted sum in your primary currency. Picking a currency also applies immediately — no separate "Save" step to forget.' },
-    { title: '💹 A new Investments tab', body: 'Track stocks, mutual funds, shares, commercial papers, treasury bills and crypto in one place. Add a holding with its units and cost basis, then log a price for "today" whenever you check it — gains/losses are computed off the most recently logged price, not a live feed, same philosophy as everything else in AnchorTrakk. Portfolio totals and each holding\'s current value now also count toward your Net worth.' },
-    { title: '📈 A Net worth page', body: 'A new "📈 Net Worth" tab rolls up cumulative cash, converted savings, outstanding debts, investments and any manually-added asset (property, a vehicle) into one number, with a month-by-month trend underneath.' },
-    { title: '📑 Export to CSV', body: 'Settings → "📁 Data" now has a "📑 Export CSV" button alongside the existing Excel export, for anyone who wants a plain, scriptable file instead of a workbook.' },
-    { title: '🔁 Bills and income that repeat automatically', body: 'Adding an Income source or Debt/bill now offers "🔁 Repeat monthly" — tick it and that item keeps getting added to every new month automatically, at its last-set amount, instead of being re-entered by hand each time. A "⏹ Stop repeating" button ends it going forward without touching months already added, and a recurring series\' amount can be updated for every future month at once (a raise, a price change) rather than editing each month individually.' },
-    { title: '🔎 Search across every month', body: 'A search box at the top of the Overview page now looks across every month\'s income, debts, gifts and logged expenses at once — click a result to jump straight to it, instead of paging through months one at a time.' },
-    { title: '🔇 Mark a month as not tracked', body: 'A month you never actually logged (traveled, forgot, nothing to track) can now be marked "not tracked" from the month picker, so it\'s left out of the month-over-month comparison instead of reading as a false 100% drop.' },
-    { title: '📱 Mobile polish pass', body: 'Settings and What\'s New no longer show blurred by default on a phone (there was never anything sensitive to hide there — you can still Hide/Show the tracker itself as before). The tab bar now shows a subtle shadow hinting there are more tabs to swipe to, the top-bar buttons wrap more consistently on narrow screens, the 🔔 notification dropdown no longer runs off the edge of the screen, and the "Add a source"/"What was it?" fields show more of their placeholder text instead of clipping mid-word.' },
-    { title: '♾️ Achievements that never run out', body: 'Reached the top of an achievement ladder? It now keeps going. Past the final built-in tier, AnchorTrakk automatically adds the next milestone — more items checked off, bigger savings and debt paid down, longer streaks, higher levels, more months tracked, and so on — so there\'s always a next one to aim for on the 🌟 XP tab. Each new one is worth 50 XP like any other achievement, and only your earned ones plus the single next goal in each ladder are shown, so the list stays tidy.' },
-    { title: '🎵 Embed a Spotify playlist', body: 'Settings → "🎵 Spotify playlist" now lets you paste a Spotify playlist link to embed a compact player right on your Overview page while you track. It\'s a simple public embed — no Spotify account linking needed — though without Spotify Premium (and being logged into Spotify in this browser) it only plays 30-second previews, which is a Spotify limitation on the embed itself.' },
-    { title: '🙈 Hide earned achievements on the XP tab', body: 'A new "Hide earned" link on the 🌟 XP tab collapses every achievement you\'ve already unlocked, so the grid shows only what\'s still left to earn. Tap "Show earned" to bring them back. It\'s just a view preference remembered on this device — your XP and badges are unaffected.' },
-    { title: '⛈️ Thunderstorm, Windy day, and Sandstorm weather', body: 'Three new weather effects in Settings → Appearance. 🌩️ Thunderstorm (Temperate) is heavy slanting rain with occasional lightning flashes and rolling thunder. 💨 Windy day (Temperate) is fast streaks of wind with gusty rushing sound. 🏜️ Sandstorm (Tropical) blows warm, gritty sand across the screen under a dusty haze, with a howling wind to match.' },
-    { title: '🌻 Temperate & Tropical weather, plus a Summer effect', body: 'The weather pickers in Settings are now simply "Temperate weather" (snow, autumn leaves, rain, spring blossom, and the new 🌻 Summer fireflies) and "Tropical weather" (harmattan haze, tropical rain, sunny). Summer comes with its own drifting-firefly look and matching weather sounds — cicadas, birdsong, and a warm breeze.' },
-    { title: '🔊 Weather sounds and sound effects', body: 'The background music is gone, replaced by ambient sound that matches your weather effect — rain and drips, distant thunder in tropical rain, wind for snow, autumn and harmattan, birdsong in spring, and birds and crickets when it\'s sunny. Turn it on from Settings → "Weather sounds". There are also new sound effects: a soft pop when you untick something, and a celebratory "good job" fanfare whenever you unlock an achievement or clear a debt. Sound effects are on by default and can be switched off in Settings → "Sound effects".' },
-    { title: '✨ Older updates tucked away in What\'s New', body: 'This tab now only shows the 10 most recent updates by default, so it stays quick to skim. A "Show older updates" button at the bottom reveals the rest whenever you want them — nothing is ever deleted, and "Hide older updates" tucks them away again.' },
-    { title: '🔔 Keep or delete notifications from the bell dropdown', body: 'The 🔔 notification history now automatically keeps just your 6 most recent notifications, clearing older ones out of the way. Want to hold onto one longer? Tap 📍 to pin it — pinned notifications never get auto-cleared, however many new ones arrive. Tap 🗑️ on any notification to delete it outright.' },
-    { title: '👤 Profile info, a personalized greeting, and a birthday shoutout', body: 'Settings → "👤 Profile" now lets you add a first name, surname, username, date of birth, and pick a profile icon from a handful of options — and if you add your birthday, AnchorTrakk will send you a "🎂 Happy Birthday" notification on the day, even if the app is closed. Every field is optional.' },
-    { title: '🔔 A notifications bell with your personal notification history', body: 'A new 🔔 bell in the top bar (next to Undo/Redo) drops down to show everything AnchorTrakk has notified you about — XP level-ups, achievements unlocked, debts cleared, daily reminders, and more — whether or not you ever turned on push notifications. Unread notifications show a small count badge; opening the dropdown marks them read.' },
-    { title: '💱 Achievement targets now convert with your currency', body: 'Money-based achievements (savings, debt paid down, gifts set aside, cumulative balance, windfalls) used to compare against a fixed number regardless of currency, so switching currency could make one instantly trivial or nearly impossible. They now scale by the same rate used when you convert, so a badge still represents the same real value before and after switching.' },
-    { title: '📋 Wider gaps between some achievement tiers', body: 'A few tiers were clustered close enough together to unlock almost back-to-back — the all-time "items checked off" ladder around 500–1,000, and the gift/debt count badges around 5–10. Those now step up in bigger jumps (300 → 700 → 1,500 → 3,000 → 6,000 → 12,000 for items checked off; 6 → 12 for debts cleared; 15 for gift goals created; 7 for gift goals fully funded), so there\'s more room between one milestone and the next. If you\'d already earned one of these under its old, lower bar, you keep it — raising the bar never takes back a badge you already unlocked.' },
-    { title: '🏅 Over 100 achievements to unlock, and only your earned ones clutter the Overview', body: 'Every achievement category — Checklist, Savings, Debt, Gifts, Budget, Income, Tools, Streaks, Level, Longevity — now has 10+ tiers instead of a handful, including a proper all-time "items checked off" ladder (25, 100, 200, 500, 750, 1,000... up to 5,000). The Overview page now only shows the icons you\'ve actually earned, instead of a long row of greyed-out locked ones — the full locked-and-earned grid, grouped by category, still lives on the 🌟 XP tab.' },
-    { title: '🎮 Choose your own leveling pace', body: 'A new "Leveling pace" setting (Settings → "XP & achievements") lets you pick Easy, AnchorTrakk Mode (the default), or Hard for how much XP each level takes to reach. It only changes how fast levels climb — how you earn XP and which achievements exist are exactly the same on every setting, so nobody\'s stuck with a pace that doesn\'t fit them.' },
-    { title: '💾 A Save button in Settings', body: 'A "💾 Save changes" button now sits at the top of Settings. Everything there already saved and applied instantly — this just gives a clear confirmation once it\'s done, and forces through anything still in flight (like a checkbox ticked on the tracker right before opening Settings).' },
-    { title: '🙈 Data is hidden by default every time you sign in', body: 'Every figure, chip, and log entry now starts blurred the moment you sign in — no setup needed. Click "👁️ Show data" in the top bar to reveal it for this visit; it resets to hidden again next time you sign in, so it can\'t accidentally stay switched off on a shared device.' },
-    { title: '📌 Choose which cards show at the top', body: 'A new "Top bar cards" section in Settings lets you pick which cards show in the bar at the top of every page — clock, countdown, level, streak, outstanding debt, this month\'s net, total savings, total gifts. Turning one off just hides it; nothing is deleted, and the choice follows you across devices.' },
-    { title: '❓ A Help & FAQ page', body: 'A new "❓ Help & FAQ" link in Settings (under "📲 App") opens an in-depth walkthrough of every part of AnchorTrakk — income, debts, gifts, savings, budgets, notifications, and more.' },
-    { title: '🔔 Notifications now reach you even with AnchorTrakk closed', body: 'Your daily reminder, level-ups, and "debt cleared" alerts can now show up on your device even when the app isn\'t open — turn it on (or re-confirm it) from the 🔔 button in Settings.' },
-    { title: '🎁 See your total gifts at a glance', body: 'A "Total gifts this month" card now sits on the Overview page next to "Days left in period," and a running "Total gifts" total across every month is in the top bar. Gift goals you\'ve already bought can be tucked away with a new "Hide past" button on the Gifts tab.' },
-    { title: '🐷 See your total savings at a glance', body: '"Total savings this month" now shows on the Overview page, and a running "Total savings" total across every month sits in the top bar next to "Still outstanding."' },
-    { title: '📝 Clearer label on the Expenses tab', body: 'The box for adding a new expense to your daily log now has its own heading, so it\'s easy to spot.' },
-    { title: '🙈 Hide the whole daily log in one tap', body: 'A "Hide daily log" link on the Expenses tab collapses every logged expense out of view — handy if someone\'s looking over your shoulder.' },
-    { title: '📅 AnchorTrakk now opens on the right month automatically', body: "Signing in now takes you straight to whichever month you're actually in, instead of always starting from the first month you ever tracked." },
-    { title: '🔢 A nudge to set up your quick-unlock PIN', body: "Right after the welcome tour, you'll now be prompted to set up a PIN if you haven't already — a faster way back in after you're auto signed-out." },
-    { title: "🗓️ Change one month's start date on its own", body: 'Salary landed early or late one month? A "This month starts on" picker next to the month selector lets you override just that one month, without changing your usual start day everywhere else.' },
-    { title: '🙈 Hide everything on screen with one button', body: 'A "Hide data" button in the top bar blurs every number and entry in the tracker — quick to turn on before you hand your phone to someone, or pull up AnchorTrakk in public.' }
   ];
   // Only the 10 most recent What's New entries show by default — older ones
   // are archived out of view rather than deleted, and "Show older updates"
@@ -7954,7 +7926,7 @@ window.__ftStart = function(){
     // listPendingPremiumRequests()/approvePremiumRequest() in firebase-init.js,
     // which this same account uses to review everyone else's requests.
     if(window.Trakka && user.email === window.Trakka.ADMIN_EMAIL){
-      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true, unlimitedLogs: true });
+      window.__ftCloudData.entitlements = Object.assign({}, window.__ftCloudData.entitlements, { premium: true });
     }
     // ===== Trusted-device check =====
     // A device "forgotten" from Settings → Security on another device finds

@@ -737,10 +737,10 @@ window.Trakka = {
   // Keeping receiptUrl (rather than re-fetching it) means Settings can show
   // "receipt submitted" status without an extra authenticated round trip
   // to the Worker just to check it still exists.
-  // `product` is "premium" (the ₦3,500/month subscription) or
-  // "unlimitedLogs" (the one-time ₦3,500 daily-log-cap removal, Premium-only
-  // add-on) — see PREMIUM_PRODUCT_LABELS in app.js. Defaults to "premium" so
-  // older, already-in-flight requests from before this existed still work.
+  // `product` is always "premium" now (the ₦3,500/month subscription — see
+  // PREMIUM_PRODUCT_LABELS in app.js); the param is kept, defaulting to
+  // "premium", so older in-flight requests from before the now-retired
+  // "unlimitedLogs" add-on still work.
   async submitPremiumRequest(uid, receiptUrl, product) {
     await setDoc(
       userDocRef(uid),
@@ -755,18 +755,10 @@ window.Trakka = {
     const snap = await getDocs(query(collection(db, "users"), where("premiumRequest.status", "==", "pending")));
     return snap.docs.map(function (d) { return Object.assign({ uid: d.id }, d.data()); });
   },
+  // `product` is accepted for compatibility with older, already-in-flight
+  // requests (back when "unlimitedLogs" was a separate add-on) but always
+  // grants the one Premium entitlement now — Premium itself has no caps.
   async approvePremiumRequest(uid, product) {
-    if (product === "unlimitedLogs") {
-      await setDoc(
-        userDocRef(uid),
-        {
-          entitlements: { unlimitedLogs: true },
-          premiumRequest: { status: "approved", reviewedAt: serverTimestamp() }
-        },
-        { merge: true }
-      );
-      return;
-    }
     // Premium is a 30-day recurring unlock, not a one-time purchase — each
     // approval (first purchase or a later renewal) extends premiumExpiresAt
     // by 30 days. Stacked on top of whatever time is already left (read via

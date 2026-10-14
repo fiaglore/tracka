@@ -1309,6 +1309,14 @@ body.ft-locked #auth-overlay{display:flex;}
 .new-cat-form input{font-family:var(--font-body); font-size:13px; padding:8px 11px; border-radius:9px; border:1px solid var(--line); background:var(--surface); flex:1; min-width:130px;}
 .new-cat-form button{font-family:var(--font-display); font-weight:700; font-size:12.5px; padding:8px 14px; border-radius:9px; border:none; background:var(--accent); color:#fff; cursor:pointer;}
 
+/* ===== Remaining balance as of (any day in the period) ===== */
+.balance-asof-card{border:1px solid var(--line); border-radius:var(--radius-lg); background:var(--surface); padding:16px 20px; margin:0 0 20px; box-shadow:var(--shadow-sm);}
+.balance-asof-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
+.balance-asof-head h3{font-weight:600; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin:0;}
+.balance-asof-date-input{font-family:inherit; font-size:13px; padding:6px 9px; border-radius:8px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink);}
+.balance-asof-amt{font-family:var(--font-mono); font-size:28px; font-weight:700;}
+.balance-asof-card .subnote{font-size:11px; color:var(--muted); margin-top:4px;}
+
 .mvl-card{border:1px solid var(--line); border-radius:var(--radius-lg); background:var(--surface); padding:16px 20px; margin:0 0 20px; box-shadow:var(--shadow-sm);}
 .mvl-card h3{font-weight:600; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:10px;}
 .mvl-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:7px 0; border-bottom:1px dashed var(--line);}
