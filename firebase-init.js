@@ -759,10 +759,25 @@ window.Trakka = {
   // requests (back when "unlimitedLogs" was a separate add-on) but always
   // grants the one Premium entitlement now — Premium itself has no caps.
   async approvePremiumRequest(uid, product) {
+    // Premium is a 30-day recurring unlock, not a one-time purchase — each
+    // approval (first purchase or a later renewal) extends premiumExpiresAt
+    // by 30 days. Stacked on top of whatever time is already left (read via
+    // getDoc below) rather than always restarting the clock from today, so
+    // renewing a few days early — or well before the current period even
+    // lapses — never throws away already-paid-for days. isPremiumActive()
+    // in app.js is what actually reads this; a missing premiumExpiresAt on
+    // an older entitlements doc is treated there as permanent (grandfathered
+    // in from before this field existed), never as already-expired.
+    const snap = await getDoc(userDocRef(uid));
+    const existing = snap.exists() ? (snap.data().entitlements || {}) : {};
+    const existingExpiryMs = existing.premiumExpiresAt && typeof existing.premiumExpiresAt.toMillis === "function"
+      ? existing.premiumExpiresAt.toMillis() : 0;
+    const base = Math.max(Date.now(), existingExpiryMs);
+    const premiumExpiresAt = new Date(base + 30 * 24 * 60 * 60 * 1000);
     await setDoc(
       userDocRef(uid),
       {
-        entitlements: { premium: true },
+        entitlements: { premium: true, premiumExpiresAt: premiumExpiresAt },
         premiumRequest: { status: "approved", reviewedAt: serverTimestamp() }
       },
       { merge: true }

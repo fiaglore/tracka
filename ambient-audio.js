@@ -1,7 +1,8 @@
 // ambient-audio.js
 //
 // Weather-matched ambient sound. Whatever weather effect is picked in
-// Settings (rain, snow, autumn, spring, summer, thunderstorm, windy, harmattan, tropical rain, sandstorm, sunny)
+// Settings (rain, snow, autumn, spring, summer, thunderstorm, windy, harmattan, tropical rain, sandstorm, sunny,
+// plus the achievement-unlocked aurora, rainbow, and starry night)
 // gets a matching soundscape — rain hiss and drips, wind, birdsong,
 // crickets, distant thunder. It replaces the old synthesized music pad.
 //
@@ -232,6 +233,40 @@
       chirpCricket(s, 4300, 0.006);
       chirpCricket(s, 5100, 0.004);
       every(s, 2, 7, function () { bird(s); });
+    },
+    // Achievement unlocks below. Aurora: a slow, shimmering high pad with no
+    // wind or birds — just two faint oscillator layers drifting in and out
+    // of phase, like the lights themselves.
+    aurora: function (s) {
+      var shimmer = filtered(s, "bandpass", 2600, 2.2, false, 0.018);
+      drift(s, shimmer.gain.gain, 0.018, 0.014, 5, 11);
+      [220, 330].forEach(function (f) {
+        var o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+        var g = ctx.createGain(); g.gain.value = 0.02;
+        o.connect(g).connect(s.gain);
+        o.start(); s.nodes.push(o);
+        drift(s, g.gain, 0.02, 0.016, 6, 13);
+      });
+    },
+    // Rainbow: bright and airy — a light breeze plus soft bell-like chimes
+    // instead of birdsong.
+    rainbow: function (s) {
+      var breeze = filtered(s, "lowpass", 550, 0.4, true, 0.03);
+      drift(s, breeze.gain.gain, 0.03, 0.018, 5, 10);
+      every(s, 1.5, 5, function () {
+        blip(s, 1200 + Math.random() * 1600, 1800 + Math.random() * 1600, 0.4, 0.035, "sine");
+      });
+    },
+    // Starry night: like summer/sunny's crickets but quieter and with no
+    // birds (it's nighttime), plus a rare distant owl call.
+    starryNight: function (s) {
+      var breeze = filtered(s, "lowpass", 450, 0.4, true, 0.018);
+      drift(s, breeze.gain.gain, 0.018, 0.01, 7, 14);
+      chirpCricket(s, 4100, 0.004);
+      chirpCricket(s, 4900, 0.003);
+      every(s, 10, 25, function () {
+        blip(s, 500, 380, 0.5, 0.025, "sine");
+      });
     }
   };
 

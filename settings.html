@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Settings - AnchorTrakk</title>
+<!-- Only ever useful signed in, and shows nothing meaningful otherwise —
+     no reason for a search engine to index it alongside the real pages. -->
+<meta name="robots" content="noindex">
 
 <!-- PWA: installability -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -991,7 +994,7 @@ window.__ftSettingsPage = true;
       <div id="premium-unlocked-msg" class="empty-msg" hidden></div>
 
       <div id="premium-request-wrap">
-        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">No card payments yet — subscribe to Premium with a monthly bank transfer, reviewed by hand. Transfer the amount below each month, then upload your receipt as proof. Most requests are reviewed within a day. Premium unlocks everything, with no caps.</p>
+        <p style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px;max-width:600px;">No card payments yet — Premium is ₦3,500 a month, paid by bank transfer and reviewed by hand each time. Transfer the amount below, then upload your receipt as proof. Most requests are reviewed within a day, and a renewal picks up from whenever your current month actually runs out — paying a few days early never wastes anything. Premium unlocks everything, with no caps.</p>
         <div class="payoff-panel" id="premium-bank-details">
           <h3 id="premium-bank-details-title">🏦 Transfer ₦3,500/month to:</h3>
           <p style="font-size:14px;line-height:1.6;margin:8px 0 0;"><b>Bank:</b> Kuda<br><b>Account number:</b> 3004426470<br><b>Account name:</b> Ololade Opemipo Falobi</p>

@@ -82,9 +82,25 @@ window.__ftStart = function(){
   // further down (a separate top-level scope — see begin()'s trusted-device
   // check) — this copy is only for the "X of 6 devices" count below.
   const MAX_TRUSTED_DEVICES = 6;
+  // Premium is a 30-day recurring unlock (see approvePremiumRequest() in
+  // firebase-init.js) — entitlements.premiumExpiresAt is the actual source
+  // of truth for whether it's still active, not just entitlements.premium
+  // on its own. A doc with premium:true but no premiumExpiresAt at all is
+  // treated as permanently active: that's either the admin's forced-true
+  // override (see the sign-in IIFE further down, which never sets an
+  // expiry) or an account granted under the old one-time-unlock model,
+  // grandfathered in rather than silently cut off by a field that didn't
+  // exist yet when their access was granted.
+  function isPremiumActive(){
+    const ent = cloud.entitlements;
+    if(!ent || !ent.premium) return false;
+    const exp = ent.premiumExpiresAt;
+    if(!exp || typeof exp.toDate !== 'function') return true;
+    return exp.toDate().getTime() > Date.now();
+  }
   function isFeatureUnlocked(key){
     if(!PREMIUM_FEATURE_KEYS.includes(key)) return true;
-    return !!(cloud.entitlements && cloud.entitlements.premium);
+    return isPremiumActive();
   }
 
   // ===== Free-tier item caps =====
@@ -116,10 +132,80 @@ window.__ftStart = function(){
   // respective click handlers below.
   const FREE_DAILY_LOG_CAP = 100;
   function dailyLogCap(){
-    return (cloud.entitlements && cloud.entitlements.premium) ? Infinity : FREE_DAILY_LOG_CAP;
+    return isPremiumActive() ? Infinity : FREE_DAILY_LOG_CAP;
   }
   function notifyDailyLogCapReached(){
     showAppNotification('🔒 Daily log limit reached', 'The free plan includes up to '+FREE_DAILY_LOG_CAP+' daily log entries — upgrade in Settings → "💎 Go Premium" to log without limit.');
+  }
+
+  // ===== Premium promo banners (top + side, Overview only) =====
+  // One shared list of blurbs, cycled through by both the top banner and
+  // the side banner (see initPremiumPromo below) — kept here, next to the
+  // rest of the Premium gating, as the one place that describes what
+  // Premium actually includes.
+  const PREMIUM_PROMO_FEATURES = [
+    { icon:'🌍', title:'Auto-updating FX rates', desc:'Live exchange rates, fetched automatically — never type one in by hand.' },
+    { icon:'📈', title:'Net Worth tracking', desc:'Cash, savings, investments and debts rolled into one running number.' },
+    { icon:'💹', title:'Investments tab', desc:'Track holdings and watch their value over time.' },
+    { icon:'🌐', title:'Multi-currency accounts', desc:'Track any income, debt, gift, investment or savings account in a different currency.' },
+    { icon:'🎨', title:'Exclusive themes', desc:'Obsidian and Champagne — two themes reserved for Premium.' },
+    { icon:'🌙', title:'Dark mode', desc:'Switch the whole app to a proper dark theme.' },
+    { icon:'🐾', title:'7 exclusive companions', desc:'Dog, Fox, Owl, Rabbit, Panda, Koala and Unicorn, unlocked instantly.' },
+    { icon:'🌦️', title:'6 exclusive weather effects', desc:'Snow, Thunderstorm, Spring, Summer, Tropical rain and Sandstorm, with matching sounds.' },
+    { icon:'📝', title:'No daily log limit', desc:'The free plan\'s 100-entry cap is removed entirely — log as much as you need to.' },
+    { icon:'🏦', title:'Bank statement import', desc:'Import an OPay, Moniepoint or Kuda statement straight in.' }
+  ];
+  function initPremiumPromo(){
+    const top = document.getElementById('premium-promo-banner');
+    const side = document.getElementById('premium-promo-side');
+    if(!top && !side) return;
+    let topDismissed = false, sideDismissed = false;
+    try{ topDismissed = sessionStorage.getItem('trakkaPromoTopDismissedV1')==='1'; }catch(e){}
+    try{ sideDismissed = sessionStorage.getItem('trakkaPromoSideDismissedV1')==='1'; }catch(e){}
+    const goPremium = function(){ location.href = 'settings.html#premium'; };
+    let idx = 0, timer = null;
+    function paint(){
+      const f = PREMIUM_PROMO_FEATURES[idx % PREMIUM_PROMO_FEATURES.length];
+      ['premium-promo-icon','premium-promo-side-icon'].forEach(function(id){ const el=document.getElementById(id); if(el) el.textContent=f.icon; });
+      ['premium-promo-title','premium-promo-side-title'].forEach(function(id){ const el=document.getElementById(id); if(el) el.textContent=f.title; });
+      ['premium-promo-desc','premium-promo-side-desc'].forEach(function(id){ const el=document.getElementById(id); if(el) el.textContent=f.desc; });
+      const dots = document.getElementById('premium-promo-dots');
+      if(dots){
+        Array.prototype.forEach.call(dots.children, function(d,i){ d.classList.toggle('active', i===(idx % PREMIUM_PROMO_FEATURES.length)); });
+      }
+    }
+    function advance(){ idx++; paint(); }
+    // refreshPremiumPromo() is re-run every render() (see window.__refreshPremiumPromo
+    // below) purely to react to a premium status change mid-session — it never
+    // restarts the rotation if it's already running, same "idempotent toggle"
+    // shape as refreshThemeLocks()/refreshPetLocks() elsewhere.
+    function refresh(){
+      const isPremium = isPremiumActive();
+      if(top) top.hidden = isPremium || topDismissed;
+      if(side) side.hidden = isPremium || sideDismissed;
+      const anyVisible = (top && !top.hidden) || (side && !side.hidden);
+      if(anyVisible && !timer){
+        const dots = document.getElementById('premium-promo-dots');
+        if(dots && !dots.children.length){
+          PREMIUM_PROMO_FEATURES.forEach(function(_,i){
+            const d = document.createElement('button');
+            d.type='button'; d.className='premium-promo-dot'; d.setAttribute('aria-label','Feature '+(i+1));
+            d.addEventListener('click', function(){ idx=i; paint(); });
+            dots.appendChild(d);
+          });
+        }
+        paint();
+        timer = setInterval(advance, 5000);
+      } else if(!anyVisible && timer){
+        clearInterval(timer); timer = null;
+      }
+    }
+    window.__refreshPremiumPromo = refresh;
+    [['premium-promo-dismiss', function(){ topDismissed=true; try{ sessionStorage.setItem('trakkaPromoTopDismissedV1','1'); }catch(e){} refresh(); }],
+     ['premium-promo-side-dismiss', function(){ sideDismissed=true; try{ sessionStorage.setItem('trakkaPromoSideDismissedV1','1'); }catch(e){} refresh(); }],
+     ['premium-promo-cta', goPremium], ['premium-promo-side-cta', goPremium]
+    ].forEach(function(pair){ const el=document.getElementById(pair[0]); if(el) el.addEventListener('click', pair[1]); });
+    refresh();
   }
 
   // ===== Display settings (currency + the day each month starts) =====
@@ -324,22 +410,22 @@ window.__ftStart = function(){
               onTrackSpeech:"You're on track this month — great job!",
               overBudgetSpeech:'A bit tight this month — check off more when you can.',
               milestoneSpeech:'Yesss! New milestone — look at you go! 🎉' },
-    dog:    { name:'Dog',    neutral:'🐶', onTrack:'🐕', overBudget:'🐩', milestone:'🦮', blink:'🐶',
+    dog:    { name:'Dog',    requires:{premium:true}, neutral:'🐶', onTrack:'🐕', overBudget:'🐩', milestone:'🦮', blink:'🐶',
               neutralSpeech:"Tail's waiting to wag — nothing checked yet this month!",
               onTrackSpeech:"Good human — you're on track this month!",
               overBudgetSpeech:'Ruff month — check off more when you can.',
               milestoneSpeech:'WOOF! New milestone unlocked! 🎉' },
-    fox:    { name:'Fox',    neutral:'🦊', onTrack:'✨', overBudget:'🥀', milestone:'🔥', blink:'🦊',
+    fox:    { name:'Fox',    requires:{premium:true}, neutral:'🦊', onTrack:'✨', overBudget:'🥀', milestone:'🔥', blink:'🦊',
               neutralSpeech:"Lying low — nothing checked yet this month!",
               onTrackSpeech:'Sly and on track — nicely done this month.',
               overBudgetSpeech:'Tight month — check off more when you can.',
               milestoneSpeech:'A new milestone! Foxes love a win. 🎉' },
-    owl:    { name:'Owl',    neutral:'🦉', onTrack:'🌟', overBudget:'😵‍💫', milestone:'🌙', blink:'🦉',
+    owl:    { name:'Owl',    requires:{premium:true}, neutral:'🦉', onTrack:'🌟', overBudget:'😵‍💫', milestone:'🌙', blink:'🦉',
               neutralSpeech:"Wide awake — nothing checked yet this month!",
               onTrackSpeech:"Wise choice — you're on track this month.",
               overBudgetSpeech:'A tough month — check off more when you can.',
               milestoneSpeech:'Hoo hoo! New milestone reached! 🎉' },
-    rabbit: { name:'Rabbit', neutral:'🐰', onTrack:'🐇', overBudget:'😔', milestone:'🥕', blink:'🐰',
+    rabbit: { name:'Rabbit', requires:{premium:true}, neutral:'🐰', onTrack:'🐇', overBudget:'😔', milestone:'🥕', blink:'🐰',
               neutralSpeech:"Ears up — nothing checked yet this month!",
               onTrackSpeech:"Hop hop, you're on track this month!",
               overBudgetSpeech:'A bit thin this month — check off more when you can.',
@@ -349,7 +435,7 @@ window.__ftStart = function(){
               onTrackSpeech:'Growing nicely — you’re on track this month!',
               overBudgetSpeech:'Needs some water — check off more when you can.',
               milestoneSpeech:'In full bloom — new milestone reached! 🎉' },
-    panda:  { name:'Panda',  neutral:'🐼', onTrack:'🐼', overBudget:'😮‍💨', milestone:'🎋', blink:'🐼',
+    panda:  { name:'Panda',  requires:{premium:true}, neutral:'🐼', onTrack:'🐼', overBudget:'😮‍💨', milestone:'🎋', blink:'🐼',
               neutralSpeech:"Chilling — nothing checked yet this month!",
               onTrackSpeech:"Bamboo and budgets — you're on track this month!",
               overBudgetSpeech:'A rough patch — check off more when you can.',
@@ -359,7 +445,7 @@ window.__ftStart = function(){
               onTrackSpeech:"Bear necessities covered — you're on track this month!",
               overBudgetSpeech:'A grizzly month — check off more when you can.',
               milestoneSpeech:'Roar! New milestone reached! 🎉' },
-    koala:  { name:'Koala',  neutral:'🐨', onTrack:'🐨', overBudget:'😴', milestone:'🌳', blink:'🐨',
+    koala:  { name:'Koala',  requires:{premium:true}, neutral:'🐨', onTrack:'🐨', overBudget:'😴', milestone:'🌳', blink:'🐨',
               neutralSpeech:"Napping — nothing checked yet this month!",
               onTrackSpeech:"Easygoing and on track this month!",
               overBudgetSpeech:'A sleepy, tight month — check off more when you can.',
@@ -389,11 +475,32 @@ window.__ftStart = function(){
               onTrackSpeech:"Flying high — you're on track this month!",
               overBudgetSpeech:'Wings feeling heavy — check off more when you can.',
               milestoneSpeech:'New milestone — a beautiful transformation! 🎉' },
-    unicorn:{ name:'Unicorn',neutral:'🦄', onTrack:'🦄', overBudget:'😵', milestone:'🌈', blink:'🦄',
+    unicorn:{ name:'Unicorn',requires:{premium:true}, neutral:'🦄', onTrack:'🦄', overBudget:'😵', milestone:'🌈', blink:'🦄',
               neutralSpeech:"Waiting to sparkle — nothing checked yet this month!",
               onTrackSpeech:"Magic budgeting — you're on track this month!",
               overBudgetSpeech:'A little less magical this month — check off more when you can.',
-              milestoneSpeech:'New milestone — pure magic! 🎉' }
+              milestoneSpeech:'New milestone — pure magic! 🎉' },
+    // Three achievement-unlocked companions — not Premium, earned the same
+    // way the gamification theme unlocks above are (requires:{badge}/
+    // {level}, checked by petUnlocked() below).
+    dragon: { name:'Dragon',  requires:{badge:'millionbalance'}, requiresText:'Reach a ₦1,000,000 cumulative balance',
+              neutral:'🐉', onTrack:'🐉', overBudget:'😤', milestone:'💎', blink:'🐉',
+              neutralSpeech:"Guarding the hoard — nothing checked yet this month!",
+              onTrackSpeech:"Hoard secured — you're on track this month!",
+              overBudgetSpeech:'The hoard took a hit — check off more when you can.',
+              milestoneSpeech:'New milestone — the dragon roars in approval! 🎉' },
+    wolf:   { name:'Wolf',    requires:{badge:'streak100'}, requiresText:'Hit a 100-day streak',
+              neutral:'🐺', onTrack:'🐺', overBudget:'😣', milestone:'🌕', blink:'🐺',
+              neutralSpeech:"Scanning the horizon — nothing checked yet this month!",
+              onTrackSpeech:"Running with the pack — you're on track this month!",
+              overBudgetSpeech:'A lean month for the pack — check off more when you can.',
+              milestoneSpeech:'New milestone — the pack howls! 🎉' },
+    peacock:{ name:'Peacock', requires:{level:40}, requiresText:'Reach Level 40',
+              neutral:'🦚', onTrack:'🦚', overBudget:'😮‍💨', milestone:'✨', blink:'🦚',
+              neutralSpeech:"Feathers folded — nothing checked yet this month!",
+              onTrackSpeech:"Feathers on full display — you're on track this month!",
+              overBudgetSpeech:'Feathers a little dull this month — check off more when you can.',
+              milestoneSpeech:'New milestone — what a display! 🎉' }
   };
   function loadPetSpecies(){ return PET_SPECIES[cloud.petSpecies] ? cloud.petSpecies : 'cat'; }
   let petSpeciesId = loadPetSpecies();
@@ -1427,6 +1534,25 @@ window.__ftStart = function(){
   let __undoStack = [];
   let __redoStack = [];
   let __undoBaseline = JSON.stringify(state);
+  // Most hand-written badges' `earned` is purely live (recomputed fresh
+  // every render — see badgeDefs below), so deleting the entry that
+  // crossed one already re-locks it for gating purposes with no extra
+  // work. What ISN'T self-correcting: earnedBadgeCount (XP, then level)
+  // counts badgeMemory's badge_<id> KEYS directly, which render() only
+  // ever adds to (see the "newly-earned" pass below) and never used to
+  // remove — so a badge crossed even for one render permanently inflates
+  // XP/level, which matters most for level-gated unlocks (Premium-style
+  // achievement rewards). Carrying a badge-memory snapshot alongside each
+  // state snapshot lets Undo put both back together; the render-time prune
+  // below (see "prunedAnyBadge") is what gives a plain DELETE — with no
+  // Undo click at all — that same effect, within the same correction
+  // window. Complements confirmNotTypo() above, which tries to stop the
+  // mistake before it's ever committed in the first place.
+  let __undoBadgeBaseline = JSON.stringify(badgeMemory);
+  // Guards the settle-render scheduled when render() prunes a badge this
+  // same pass (see "prunedAnyBadge" below) — prevents stacking more than
+  // one pending settle timer if several saves land in quick succession.
+  let __badgeSettlePending = false;
   let __undoBatchTimer = null;
   const UNDO_BATCH_MS = 800;
   const UNDO_MAX = 50;
@@ -1434,13 +1560,24 @@ window.__ftStart = function(){
   function commitUndoBatch(){
     if(__undoBatchTimer){ clearTimeout(__undoBatchTimer); __undoBatchTimer = null; }
     const current = JSON.stringify(state);
+    const currentBadges = JSON.stringify(badgeMemory);
     if(current !== __undoBaseline){
-      __undoStack.push(__undoBaseline);
+      __undoStack.push({ state: __undoBaseline, badges: __undoBadgeBaseline });
       if(__undoStack.length > UNDO_MAX) __undoStack.shift();
       __redoStack = []; // a real change invalidates whatever could have been redone
     }
     __undoBaseline = current;
+    __undoBadgeBaseline = currentBadges;
     updateUndoRedoButtons();
+  }
+  // Swaps badgeMemory's own contents in place (never reassigns the
+  // variable) — render()'s badge checks and saveBadgeMemory() both close
+  // over this exact object, so replacing its contents is what makes an
+  // undo/redo actually take effect on the next render() and get persisted.
+  function restoreBadgeMemory(snapshotJson){
+    Object.keys(badgeMemory).forEach(function(k){ delete badgeMemory[k]; });
+    Object.assign(badgeMemory, JSON.parse(snapshotJson));
+    saveBadgeMemory(badgeMemory);
   }
   function scheduleUndoCommit(){
     if(__undoBatchTimer) clearTimeout(__undoBatchTimer);
@@ -1466,10 +1603,12 @@ window.__ftStart = function(){
     commitUndoBatch(); // whatever was still "in progress" becomes its own step first
     if(__undoStack.length===0) return;
     const prev = __undoStack.pop();
-    __redoStack.push(JSON.stringify(state));
+    __redoStack.push({ state: JSON.stringify(state), badges: JSON.stringify(badgeMemory) });
     if(__redoStack.length > UNDO_MAX) __redoStack.shift();
-    state = JSON.parse(prev);
-    __undoBaseline = prev;
+    state = JSON.parse(prev.state);
+    restoreBadgeMemory(prev.badges);
+    __undoBaseline = prev.state;
+    __undoBadgeBaseline = prev.badges;
     syncMonthMetaFromState();
     render();
     updateClockAndCountdown();
@@ -1479,10 +1618,12 @@ window.__ftStart = function(){
   function doRedo(){
     if(__redoStack.length===0) return;
     const next = __redoStack.pop();
-    __undoStack.push(JSON.stringify(state));
+    __undoStack.push({ state: JSON.stringify(state), badges: JSON.stringify(badgeMemory) });
     if(__undoStack.length > UNDO_MAX) __undoStack.shift();
-    state = JSON.parse(next);
-    __undoBaseline = next;
+    state = JSON.parse(next.state);
+    restoreBadgeMemory(next.badges);
+    __undoBaseline = next.state;
+    __undoBadgeBaseline = next.badges;
     syncMonthMetaFromState();
     render();
     updateClockAndCountdown();
@@ -1541,6 +1682,22 @@ window.__ftStart = function(){
 
   function fmt(n){ n=Number(n)||0; return CUR+Math.round(n).toLocaleString('en-NG'); }
   function escapeAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ===== Typo guard on single-entry amounts =====
+  // A fat-fingered extra zero (₦10,000 entered as ₦100,000,000) can cross a
+  // badge threshold the instant it's added — and badges stick permanently
+  // the moment they're crossed (see badgeMemory further down), unaffected
+  // by later deleting or fixing the entry. Catching the mistake HERE, before
+  // it's ever committed, is the one point that actually prevents it rather
+  // than just making it easier to undo after the fact (see doUndo() below
+  // for the complementary "I already added it" safety net). ₦100,000,
+  // scaled by currencyScale exactly like every other NGN-denominated
+  // constant in this file (badge thresholds, etc. — see loadCurrencyScale).
+  const LARGE_AMOUNT_THRESHOLD = 100000;
+  function confirmNotTypo(amt){
+    if((Number(amt)||0) < ct(LARGE_AMOUNT_THRESHOLD)) return true;
+    return confirm('That\'s '+fmt(amt)+' — just checking this isn\'t a typo (like an extra zero) before it\'s added. Continue?');
+  }
 
   // ===== Multi-currency (shared across every tab) =====
   // A single item — one income source, one debt/loan, one gift goal, one savings account — can be
@@ -2087,6 +2244,7 @@ window.__ftStart = function(){
       const desc = descEl.value.trim();
       const amt = Number(amtEl.value)||0;
       if(!desc || amt<=0) return;
+      if(!confirmNotTypo(amt)) return;
       addAsset(desc, amt);
       descEl.value=''; amtEl.value='';
     });
@@ -2200,6 +2358,7 @@ window.__ftStart = function(){
       const units = Number(unitsEl.value)||1;
       const cost = Number(costEl.value)||0;
       if(!name || cost<=0) return;
+      if(!confirmNotTypo(cost)) return;
       addInvestment(typeEl.value, name, units, cost, curEl ? curEl.value : null);
       nameEl.value=''; unitsEl.value=''; costEl.value=''; if(curEl) curEl.value = currencyCode();
     });
@@ -2611,8 +2770,14 @@ window.__ftStart = function(){
   // separate async Firestore query, fetched by refreshPremiumAdminList()
   // only when that subpage is actually opened (see the settings-menu click
   // handler below) rather than on every render().
+  // Premium is a 30-day recurring unlock, not a one-time purchase — each
+  // approval (first purchase or a later renewal) stacks another 30 days
+  // onto entitlements.premiumExpiresAt (see approvePremiumRequest() in
+  // firebase-init.js and isPremiumActive() above). Unlimited-logs stays a
+  // genuine one-time add-on on top of Premium, unaffected by whether
+  // Premium itself later lapses.
   const PREMIUM_PRODUCT_LABELS = {
-    premium: { name: '💎 Premium subscription', amount: '₦3,500/month' }
+    premium: { name: '💎 Premium (1 month)', amount: '₦3,500/month' }
   };
   function fmtPremiumRequestStatus(req){
     if(!req || !req.status) return '';
@@ -2622,27 +2787,47 @@ window.__ftStart = function(){
     if(req.status==='rejected') return '❌ Your last request wasn\'t approved' + (req.reason ? ': '+escapeAttr(req.reason) : '.') + ' Feel free to submit a new receipt.';
     return '';
   }
-  // Premium is a single tier with no add-ons — once an account has it,
-  // every Premium feature (and every cap, including the daily log) is
-  // unlocked, so there's nothing left for it to buy.
+  // How much longer the current Premium period has — '' for a free account,
+  // or one grandfathered onto permanent access with no premiumExpiresAt on
+  // record at all (an admin override, or an account granted under the old
+  // one-time-unlock model).
+  function premiumStatusLine(){
+    const ent = cloud.entitlements;
+    if(!ent || !ent.premium) return '';
+    const exp = ent.premiumExpiresAt;
+    if(!exp || typeof exp.toDate !== 'function') return '';
+    const ms = exp.toDate().getTime();
+    const dateStr = new Date(ms).toLocaleDateString('en-NG', {day:'numeric', month:'short', year:'numeric'});
+    const days = Math.ceil((ms-Date.now())/86400000);
+    return days>0
+      ? ' — active until '+dateStr+' ('+days+' day'+(days===1?'':'s')+' left)'
+      : ' — expired on '+dateStr+'; renew below to pick back up';
+  }
+  // Premium is a single tier with no add-ons and no caps — but it's a
+  // 30-day recurring unlock, not a lifetime one, so the bank-transfer flow
+  // stays available even once an account already has it, as the way to
+  // renew before (or after) the current period runs out.
   function renderPremiumBankDetails(){
     const titleEl = document.getElementById('premium-bank-details-title');
     if(!titleEl) return;
     titleEl.textContent = '🏦 Transfer '+PREMIUM_PRODUCT_LABELS.premium.amount+' to:';
   }
   function renderPremiumPanel(){
-    const isPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    const isPremium = isPremiumActive();
     const unlockedMsg = document.getElementById('premium-unlocked-msg');
     const requestWrap = document.getElementById('premium-request-wrap');
     if(unlockedMsg){
       unlockedMsg.hidden = !isPremium;
-      unlockedMsg.textContent = '✅ Premium is active on this account — everything is unlocked, with no caps.';
+      unlockedMsg.textContent = '✅ Premium is active on this account'+premiumStatusLine()+' — everything is unlocked, with no caps.';
     }
-    if(requestWrap) requestWrap.hidden = isPremium;
+    // Always shown now, even once already Premium — the only thing left to
+    // buy is a renewal, and that's always available, before or after the
+    // current period runs out.
+    if(requestWrap) requestWrap.hidden = false;
     renderPremiumBankDetails();
     const statusEl = document.getElementById('premium-request-status');
     if(statusEl){
-      const msg = isPremium ? '' : fmtPremiumRequestStatus(cloud.premiumRequest);
+      const msg = fmtPremiumRequestStatus(cloud.premiumRequest);
       statusEl.textContent = msg;
       statusEl.hidden = !msg;
     }
@@ -3745,8 +3930,11 @@ window.__ftStart = function(){
     window.__ftLevel = level;
     window.__ftTotalXP = totalXP;
     window.__ftEarnedBadgeIds = badgeDefs.filter(b=>b.earned).map(b=>b.id);
-    window.__ftPremium = !!(cloud.entitlements && cloud.entitlements.premium);
+    window.__ftPremium = isPremiumActive();
     if(window.__refreshThemeLocks) window.__refreshThemeLocks();
+    if(window.__refreshWeatherLocks) window.__refreshWeatherLocks();
+    if(window.__refreshPetLocks) window.__refreshPetLocks();
+    if(window.__refreshPremiumPromo) window.__refreshPremiumPromo();
     const badgeRowEl = document.getElementById('badge-row');
     if(badgeRowEl){
       // Icon-only on Overview, and only the ones actually earned — with 100+
@@ -3836,6 +4024,47 @@ window.__ftStart = function(){
     badgeDefs.forEach(b=>{
       if(b.earned && !badgeMemory['badge_'+b.id]){ badgeMemory['badge_'+b.id]=true; newlyEarned = true; newlyEarnedBadges.push(b); }
     });
+    // Un-stick a badge_<id> key the moment it's no longer earned, but only
+    // if it only became true within the CURRENT, not-yet-committed undo
+    // batch (__undoBadgeBaseline, set by commitUndoBatch further up) —
+    // i.e. the same correction window Undo itself can still reach back
+    // into. This is what makes DELETING the entry that crossed a threshold
+    // have the same effect as clicking Undo, without actually having to
+    // click it: restoreBadgeMemory() above only fires on an explicit
+    // Undo/Redo, but this runs on every render, so it also catches a plain
+    // delete (or any other edit) that drops the same badge back below its
+    // line within that window. A key already true as of the last committed
+    // batch is left alone — once that window closes, a badge's XP is meant
+    // to be permanent, same as everywhere else in this gamification system.
+    // (Harmless no-op for the handful of ids — REBALANCED_BADGE_IDS below,
+    // and every endless-ladder id — whose `earned` already folds memory
+    // back in, since `earned` can then never be false while memory is
+    // true, so this condition simply never matches them.)
+    let prunedAnyBadge = false;
+    {
+      let batchBaselineBadges = {};
+      try{ batchBaselineBadges = JSON.parse(__undoBadgeBaseline); }catch(e){}
+      badgeDefs.forEach(b=>{
+        const key = 'badge_'+b.id;
+        if(badgeMemory[key] && !b.earned && !batchBaselineBadges[key]){ delete badgeMemory[key]; newlyEarned = true; prunedAnyBadge = true; }
+      });
+    }
+    // earnedBadgeCount/totalXP/level above were computed from badgeMemory
+    // as it stood at the START of this render — a badge pruned just now
+    // (prunedAnyBadge) means that count was briefly too high, which could
+    // have let a level/XP-dependent badge (a "reached level N" rung, say)
+    // get added to memory THIS render using that stale, inflated level —
+    // permanently, since nothing afterward would ever re-examine it. One
+    // more render, scheduled right after this one finishes rather than
+    // recursively inside it, lets earnedBadgeCount/level recompute from the
+    // now-corrected memory and prune anything that got added on a false
+    // premise — converges in practice within a render or two, same as
+    // deleting the entry that crossed the original threshold in the first
+    // place settles everything else.
+    if(prunedAnyBadge && !__badgeSettlePending){
+      __badgeSettlePending = true;
+      setTimeout(function(){ __badgeSettlePending = false; render(); }, 0);
+    }
     for(let i=0;i<N;i++){
       const mk = monthBadgeKey(i);
       if(monthCompleteness(i)==='complete' && !badgeMemory[mk]){
@@ -3978,6 +4207,39 @@ window.__ftStart = function(){
           null, 'budgetThreshold'
         );
       });
+      if(memoryChanged) saveBadgeMemory(badgeMemory);
+    })();
+
+    // ===== Premium expiry reminder =====
+    // Same one-time-per-key badgeMemory dedup as the bill-due/budget alerts
+    // above — 'premiumexpiring_<ms>'/'premiumexpired_<ms>' are each tied to
+    // one specific premiumExpiresAt value, so a renewal (a fresh, later
+    // expiry) naturally gets its own reminder instead of ever repeating, and
+    // there's no "old news on first run" flood to baseline against the way
+    // bill-due has to — a freshly-approved expiry is never already in the
+    // past relative to when this check first starts running for it. An
+    // account grandfathered onto permanent access (no premiumExpiresAt at
+    // all — see isPremiumActive() above) never reaches either branch.
+    (function checkPremiumExpiry(){
+      const ent = cloud.entitlements;
+      const exp = ent && ent.premium && ent.premiumExpiresAt;
+      if(!exp || typeof exp.toDate !== 'function') return;
+      const ms = exp.toDate().getTime();
+      const daysLeft = Math.ceil((ms-Date.now())/86400000);
+      let memoryChanged = false;
+      if(daysLeft<=3 && daysLeft>0){
+        const key = 'premiumexpiring_'+ms;
+        if(!badgeMemory[key]){
+          badgeMemory[key]=true; memoryChanged = true;
+          showAppNotification('💎 Premium expiring soon', 'Your Premium access runs out in '+daysLeft+' day'+(daysLeft===1?'':'s')+' — renew any time in Settings → "💎 Go Premium".', null, 'premiumExpiry');
+        }
+      } else if(daysLeft<=0){
+        const key = 'premiumexpired_'+ms;
+        if(!badgeMemory[key]){
+          badgeMemory[key]=true; memoryChanged = true;
+          showAppNotification('💎 Premium has expired', 'Your Premium access has run out — renew any time in Settings → "💎 Go Premium" to pick back up.', null, 'premiumExpiry');
+        }
+      }
       if(memoryChanged) saveBadgeMemory(badgeMemory);
     })();
 
@@ -5162,6 +5424,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('income', state.months[activeMonth].income.length)){ notifyItemCapReached('income'); return; }
     if(ongoingEl && ongoingEl.checked){ addRecurringItem('income', desc, amt, 'ongoing', cur); }
     else{ addCustomItem('income', desc, amt, cur); }
@@ -5178,6 +5441,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('debts', state.months[activeMonth].debts.length)){ notifyItemCapReached('debts'); return; }
     if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing', cur); }
     else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur, cur); }
@@ -5193,6 +5457,7 @@ window.__ftStart = function(){
     const categoryId = catEl.value;
     const amount = Number(amtEl.value)||0;
     if(amount<=0) return;
+    if(!confirmNotTypo(amount)) return;
     const desc = descEl.value.trim() || livingCategoryById(categoryId).name;
     if(state.livingEntries.length >= dailyLogCap()){ notifyDailyLogCapReached(); return; }
     // monthIndex is stamped at write time — see entryMonthIndex() for why.
@@ -5223,6 +5488,7 @@ window.__ftStart = function(){
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     if(!desc) return;
+    if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('savingsApps', state.months[activeMonth].savingsApps.length)){ notifyItemCapReached('savingsApps'); return; }
     addSavingsAppAccount(desc, amt);
     descEl.value=''; amtEl.value='';
@@ -5236,6 +5502,7 @@ window.__ftStart = function(){
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-NG', {day:'numeric', month:'short', year:'numeric'});
     const entry = {desc, amount:amt, date:dateStr, monthIndex:activeMonth};
@@ -5266,6 +5533,7 @@ window.__ftStart = function(){
     const cur = (curEl && curEl.value!==currencyCode()) ? curEl.value : null;
     if(!name || total<=0 || months<=0 || Number.isNaN(target)) return;
     if(months > target){ alert("Months to save can't exceed the number of months before the target date."); return; }
+    if(!confirmNotTypo(total)) return;
     if(atFreeItemCap('giftGoals', state.giftGoals.length)){ notifyItemCapReached('giftGoals'); return; }
     const id = 'gift_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,24) + '_' + Date.now();
     const goal = {id, label:name, totalAmount:total, months, targetMonthIndex:target};
@@ -5299,6 +5567,7 @@ window.__ftStart = function(){
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     if(!desc || amt<=0) return;
+    if(!confirmNotTypo(amt)) return;
     state.savings.push({desc, amount:amt, monthIndex:activeMonth});
     descEl.value=''; amtEl.value='';
     save();
@@ -6875,6 +7144,32 @@ window.__ftStart = function(){
   })();
 
   // ===== Pet species picker (same swatch-row look as the theme picker) =====
+  // 'cat' is the mandatory fallback loadPetSpecies() defaults everyone to —
+  // it (and several others) stays free on purpose, so nobody's existing
+  // companion is ever locked out from under them. Premium gates about half
+  // of the roster, the most popular picks, same requires:{premium:true}
+  // shape (and locked-swatch/notification treatment) themes already use.
+  function petUnlocked(id){
+    const sp = PET_SPECIES[id];
+    if(!sp || !sp.requires) return true;
+    if('level' in sp.requires) return (Number(window.__ftLevel)||0) >= sp.requires.level;
+    if('badge' in sp.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(sp.requires.badge)!==-1;
+    if('premium' in sp.requires) return isPremiumActive();
+    return true;
+  }
+  function refreshPetLocks(){
+    const wrap = document.getElementById('pet-swatches');
+    if(!wrap) return;
+    Array.prototype.forEach.call(wrap.children, function(btn){
+      const id = btn.getAttribute('data-pet-id');
+      const sp = PET_SPECIES[id];
+      if(!sp) return;
+      const locked = !petUnlocked(id);
+      btn.classList.toggle('locked', locked);
+      btn.title = locked ? sp.name+' — locked: '+(sp.requires.premium ? '💎 Premium' : sp.requiresText) : sp.name;
+    });
+  }
+  window.__refreshPetLocks = refreshPetLocks;
   (function(){
     const wrap = document.getElementById('pet-swatches');
     if(!wrap) return;
@@ -6889,6 +7184,13 @@ window.__ftStart = function(){
       b.classList.toggle('active', id === petSpeciesId);
       b.addEventListener('click', function(){
         if(petSpeciesId === id) return;
+        if(!petUnlocked(id)){
+          const msg = sp.requires.premium
+            ? sp.name+' is a Premium pet — unlock Premium in Settings → "💎 Go Premium" to use it.'
+            : sp.name+' — '+sp.requiresText+' to unlock.';
+          showAppNotification('🔒 Locked pet', msg);
+          return;
+        }
         petSpeciesId = id;
         saveCloudField('petSpecies', id);
         Array.prototype.forEach.call(wrap.children, function(btn){
@@ -6899,6 +7201,7 @@ window.__ftStart = function(){
       });
       wrap.appendChild(b);
     });
+    refreshPetLocks();
   })();
 
   // ===== Daily visit streak =====
@@ -7131,8 +7434,15 @@ window.__ftStart = function(){
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
     { title: '📅 See your remaining balance as of any day in the month', body: 'The Overview page has a new "📅 Remaining balance as of" card with a date picker — pick any day within the current billing period to see what your balance would be as of that day (everything checked off or logged on or before it, plus every prior month in full), instead of only ever seeing it as of today.' },
-    { title: '💎 Premium is ₦3,500/month', body: '💎 Premium is ₦3,500/month.' },
-    { title: '🐛 Fixed: Kuda statement import failing for real statements', body: 'Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual — AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
+    { title: '🐛 Fixed: sign-in could hang forever on "Loading your tracker…"', body: 'On a slow or flaky connection, the step right after signing in — fetching your data — could sit waiting indefinitely with no error and no way forward except reloading blind. It now gives up after 20 seconds and shows a clear "check your connection and reload" message instead of hanging forever.' },
+    { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. Premium is also now a single tier with no caps at all — the daily log\'s 100-entry free-plan limit is removed entirely while Premium is active, and the separate one-time ₦3,500 "Unlimited logs" add-on is retired along with it.' },
+    { title: '🛟 Deleting a mistaken entry now cleans up after itself too', body: 'The previous update made Undo also revert any badge/XP/level a mistaken entry had triggered — that now also happens when the entry is deleted directly, without touching Undo at all, as long as it\'s within the same short window where the mistake would still be fresh. An achievement earned a while ago and confirmed stable stays exactly as it is either way.' },
+    { title: '🛟 A safety check for big typos, and a smarter Undo', body: 'Adding a single income, debt, gift, savings, investment, or daily-log entry worth ₦100,000 or more now asks "just checking this isn\'t a typo" before it\'s added — easy to dismiss if it\'s genuinely that big, but it catches an accidental extra zero before it\'s committed. Separately, Undo (and Redo) now also reverts any achievement badge, XP, level, or achievement-unlocked pet/weather effect that entry had triggered, not just the entry itself — so undoing a mistake undoes everything it caused, not just the number.' },
+    { title: '💎 A Premium spotlight banner', body: 'A rotating banner now highlights what Premium actually includes — Auto FX rates, Net Worth, Investments, exclusive themes & dark mode, exclusive pets & weather effects, and more — at the top of the tracker, plus a smaller version docked to the side on a wide screen. Both disappear once you\'re Premium, and either can be dismissed for the rest of your visit with its ✕.' },
+    { title: '🌌 3 new pets and weather effects — unlocked by achievements', body: 'Three new pet companions — 🐉 Dragon (reach a ₦1,000,000 cumulative balance), 🐺 Wolf (hit a 100-day streak) and 🦚 Peacock (reach Level 40) — and three new weather effects with matching ambient sounds — 🌌 Aurora (reach Level 60), 🌈 Rainbow (complete every tracked month) and ✨ Starry night (hit a 200-day streak) — join the picker in Settings, each unlocked the same way themes already are: by playing, not paying.' },
+    { title: '💎 Weather, sounds, dark mode and some pets are now Premium', body: 'Half of the weather effects — ❄️ Snow, ⛈️ Thunderstorm, 🌸 Spring, ☀️ Summer, 🌴 Tropical rain, 🏜️ Sandstorm — along with their matching ambient sounds, are now Premium, picked for being the most elaborate ones. 🌙 Dark mode is now Premium too. And 7 of the pet companions — 🐶 Dog, 🦊 Fox, 🦉 Owl, 🐰 Rabbit, 🐼 Panda, 🐨 Koala, 🦄 Unicorn — join them, while your default 🐱 Cat and 7 others stay free. Nothing already picked gets taken away — this only affects switching to a locked one going forward.' },
+    { title: '💎 More Premium features: multi-currency, Investments, item limits', body: 'Tracking an Income, Debt, Gift, Investment or Savings account in a different currency, the whole Investments tab, and Net Worth are now Premium. Free accounts keep up to 5 expense categories, 3 savings accounts, 3 debts, 3 income sources, 3 gift goals and 100 daily-log entries — anything you already have stays exactly as it is, this only limits adding more.' },
+    { title: '🐛 Fixed: Kuda statement import still failing for some real statements', body: 'The previous fix only covered statements secretly saved as HTML — Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
     { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
     { title: '💎 Two Premium-exclusive themes: Obsidian & Champagne', body: 'Settings → Appearance now has two new themes reserved for Premium — a sleek near-black "Obsidian" and a warm gold "Champagne". They unlock the moment Premium does, same as every other Premium feature.' },
     { title: '🐛 Fixed: couldn\'t sign in on a second device', body: 'Signing in on any device beyond your first was wrongly treated as "forgotten" and signed straight back out — a real bug, not a limit. That\'s fixed, and Settings → Security → "💻 Trusted devices" now supports up to 6 devices at once, with a running count. Signing in on a 7th device asks you to pick one of the existing 6 to sign out first, instead of silently failing.' },
@@ -7353,6 +7663,8 @@ window.__ftStart = function(){
     saveCloudField('profileNudgeShown', true);
     logAppNotification('👤', 'Tell us about yourself', 'Add your name and birthday in Settings → Profile to personalize AnchorTrakk and get a birthday shoutout.');
   }
+
+  initPremiumPromo();
 };
 
 
@@ -7590,10 +7902,19 @@ window.__ftStart = function(){
     showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
     let cloudData = null;
     try{
-      cloudData = await window.Trakka.loadUserDoc(user.uid);
+      // A plain await here can hang forever rather than reject — on some
+      // networks Firestore's request just sits pending with no error — so
+      // this is raced against a timeout rather than awaited directly, to
+      // guarantee sign-in never gets stuck on the loading screen for good.
+      cloudData = await Promise.race([
+        window.Trakka.loadUserDoc(user.uid),
+        new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('timeout')); }, 20000); })
+      ]);
     }catch(e){
       console.error(e);
-      setError('Could not reach the server. Check your connection and reload.');
+      setError(e && e.message === 'timeout'
+        ? 'This is taking longer than usual. Check your connection and reload the page.'
+        : 'Could not reach the server. Check your connection and reload.');
       hideAuthLoading();
       started = false;
       window.__ftUid = null;
@@ -8519,6 +8840,14 @@ window.__ftStart = function(){
   }
   window.setThemeMode = function(mode){
     if(mode!=='light' && mode!=='dark') return;
+    // Dark mode is Premium — same "switching stays locked, an already-set
+    // preference keeps working" precedent as a Premium theme: loadThemeMode()
+    // above never re-checks this, so losing Premium never force-reverts
+    // anyone already using dark mode, only blocks switching INTO it fresh.
+    if(mode==='dark' && !window.__ftPremium){
+      showAppNotificationSafe('🔒 Premium feature', 'Dark mode needs Premium — unlock it in Settings → "💎 Go Premium".');
+      return;
+    }
     applyThemeMode(mode);
     saveThemeMode(mode);
   };
@@ -8619,6 +8948,14 @@ window.__ftStart = function(){
       var backBtn = p.querySelector('.settings-back-btn');
       if(backBtn) backBtn.addEventListener('click', showSettingsMenu);
     });
+    // Deep link from the promo banners' "Go Premium" button (settings.html#premium)
+    // straight onto that subpage, instead of always landing on the menu first.
+    var hashId = (location.hash || '').replace('#','');
+    if(hashId && subpages.some(function(p){ return p.getAttribute('data-settings-page')===hashId; })){
+      menu.hidden = true;
+      subpages.forEach(function(p){ p.hidden = (p.getAttribute('data-settings-page') !== hashId); });
+      if(hashId==='premium' && typeof window.refreshPremiumAdminList==='function') window.refreshPremiumAdminList();
+    }
   })();
 
   /* ---------------- Page navigation ---------------- */
@@ -8683,23 +9020,35 @@ window.__ftStart = function(){
    separate settings.
    ================================================================ */
 (function(){
+  // Premium gates about half of these (the most elaborate ones — the ones
+  // with a scripted event in their ambient-audio.js scene, like thunder or
+  // birdsong, rather than just filtered wind noise) — see
+  // window.setWeatherEffect below. The sound follows automatically, since
+  // ambient-audio.js keys its scene off this same weather id, not a
+  // separate pick.
   var WEATHER_EFFECTS = [
     { id:'none',         name:'None (off)',      icon:'🚫', group:'season' },
-    { id:'snow',         name:'Snow',             icon:'❄️', group:'season' },
+    { id:'snow',         name:'Snow',             icon:'❄️', group:'season', requires:{premium:true} },
     { id:'autumn',       name:'Autumn leaves',    icon:'🍂', group:'season' },
     { id:'rain',         name:'Rain',             icon:'🌧️', group:'season' },
-    { id:'thunderstorm', name:'Thunderstorm',     icon:'🌩️', group:'season' },
+    { id:'thunderstorm', name:'Thunderstorm',     icon:'🌩️', group:'season', requires:{premium:true} },
     { id:'windy',        name:'Windy day',        icon:'💨', group:'season' },
-    { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season' },
-    { id:'summer',       name:'Summer fireflies', icon:'🌻', group:'season' },
+    { id:'spring',       name:'Spring blossom',   icon:'🌸', group:'season', requires:{premium:true} },
+    { id:'summer',       name:'Summer fireflies', icon:'🌻', group:'season', requires:{premium:true} },
     { id:'harmattan',    name:'Harmattan haze',   icon:'🌫️', group:'tropical' },
-    { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical' },
-    { id:'sandstorm',    name:'Sandstorm',        icon:'🏜️', group:'tropical' },
-    { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' }
+    { id:'tropicalRain', name:'Tropical rain',    icon:'⛈️', group:'tropical', requires:{premium:true} },
+    { id:'sandstorm',    name:'Sandstorm',        icon:'🏜️', group:'tropical', requires:{premium:true} },
+    { id:'sunny',        name:'Sunny',            icon:'☀️', group:'tropical' },
+    // Three more, achievement-unlocked rather than Premium — same
+    // requires:{badge}/{level} shape the gamification theme unlocks use,
+    // checked by weatherUnlocked() below.
+    { id:'aurora',       name:'Aurora',           icon:'🌌', group:'season', requires:{level:60}, requiresText:'Reach Level 60' },
+    { id:'rainbow',      name:'Rainbow',          icon:'🌈', group:'tropical', requires:{badge:'allmonths'}, requiresText:'Complete every tracked month' },
+    { id:'starryNight',  name:'Starry night',     icon:'✨', group:'season', requires:{badge:'streak200'}, requiresText:'Hit a 200-day streak' }
   ];
   var AUTUMN_COLORS = ['#C1592F', '#D98E2B', '#B8860B', '#8B3A1F', '#C6752F'];
   var SPRING_COLORS = ['#F5C6D6', '#FBEAF0', '#E8A9C0', '#FFFFFF', '#F0D9E4'];
-  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, summer:45, thunderstorm:170, windy:36, sandstorm:230, harmattan:90, sunny:32 };
+  var PARTICLE_COUNTS = { snow:110, autumn:60, rain:140, tropicalRain:200, spring:70, summer:45, thunderstorm:170, windy:36, sandstorm:230, harmattan:90, sunny:32, aurora:16, rainbow:55, starryNight:90 };
 
   function loadWeatherEffect(){
     var cloud = window.__ftCloudData;
@@ -8781,6 +9130,21 @@ window.__ftStart = function(){
         vy:-(0.2+Math.random()*0.35), vx:(Math.random()-0.5)*0.2,
         alpha:0.18+Math.random()*0.32, twinkle:Math.random()*Math.PI*2
       };
+      case 'aurora': return {
+        x:Math.random()*w, y:Math.random()*h*0.55, r:50+Math.random()*70,
+        vx:(Math.random()-0.5)*0.12, hue:140+Math.random()*140,
+        alpha:0.05+Math.random()*0.05, pulse:Math.random()*Math.PI*2, pulseSpeed:0.004+Math.random()*0.004
+      };
+      case 'rainbow': return {
+        x:Math.random()*w, y:h+Math.random()*40, r:1.6+Math.random()*2.2,
+        vy:-(0.25+Math.random()*0.4), vx:(Math.random()-0.5)*0.25,
+        hue:Math.random()*360, alpha:0.4+Math.random()*0.3,
+        twinkle:Math.random()*Math.PI*2, twinkleSpeed:0.02+Math.random()*0.03
+      };
+      case 'starryNight': return {
+        x:Math.random()*w, y:Math.random()*h*0.75, r:0.6+Math.random()*1.4,
+        alpha:0.3+Math.random()*0.5, twinkle:Math.random()*Math.PI*2, twinkleSpeed:0.015+Math.random()*0.025
+      };
       default: return null;
     }
   }
@@ -8801,6 +9165,7 @@ window.__ftStart = function(){
   }
 
   var flashAlpha = 0;
+  var shootingStar = { alpha:0 };
   function step(effect){
     ctx.clearRect(0,0,w,h);
     // Thunderstorm: a rare, quick lightning flash that fades out.
@@ -8819,6 +9184,22 @@ window.__ftStart = function(){
     // soft warm haze wash under the particles.
     if(effect === 'harmattan'){
       ctx.save(); ctx.globalAlpha=0.05; ctx.fillStyle='#D9A056'; ctx.fillRect(0,0,w,h); ctx.restore();
+    }
+    // Starry night: a dark-sky wash under the twinkling stars, plus a rare
+    // shooting star streaking across — same "rare event, fades on its own"
+    // shape as thunderstorm's lightning flash above.
+    if(effect === 'starryNight'){
+      ctx.save(); ctx.globalAlpha=0.08; ctx.fillStyle='#0A1128'; ctx.fillRect(0,0,w,h); ctx.restore();
+      if(shootingStar.alpha<=0 && Math.random()<0.004){
+        shootingStar = { x:Math.random()*w*0.6, y:Math.random()*h*0.3, vx:8+Math.random()*6, vy:3+Math.random()*3, len:60+Math.random()*40, alpha:1 };
+      }
+      if(shootingStar.alpha>0){
+        ctx.save(); ctx.globalAlpha=shootingStar.alpha; ctx.strokeStyle='#FFFFFF'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(shootingStar.x,shootingStar.y);
+        ctx.lineTo(shootingStar.x-shootingStar.len, shootingStar.y-shootingStar.len*0.4);
+        ctx.stroke(); ctx.restore();
+        shootingStar.x += shootingStar.vx; shootingStar.y += shootingStar.vy; shootingStar.alpha -= 0.02;
+      }
     }
     particles.forEach(function(p){
       switch(effect){
@@ -8883,6 +9264,26 @@ window.__ftStart = function(){
           if(p.y < -5){ p.y=h+5; p.x=Math.random()*w; }
           drawDot(p, '#FFE7A8');
           break;
+        case 'aurora':
+          p.pulse += p.pulseSpeed; p.x += p.vx;
+          if(p.x < -p.r){ p.x = w+p.r; } else if(p.x > w+p.r){ p.x = -p.r; }
+          ctx.save(); ctx.globalAlpha = p.alpha * (0.6 + 0.4*Math.sin(p.pulse));
+          ctx.fillStyle = 'hsl(' + p.hue + ',90%,60%)';
+          ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r*0.35, 0, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+          break;
+        case 'rainbow':
+          p.twinkle += p.twinkleSpeed; p.x += p.vx; p.y += p.vy;
+          p.alpha = 0.25 + 0.45*((Math.sin(p.twinkle)+1)/2);
+          if(p.y < -5){ p.y=h+5; p.x=Math.random()*w; }
+          ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = 'hsl(' + p.hue + ',85%,65%)';
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+          break;
+        case 'starryNight':
+          p.twinkle += p.twinkleSpeed;
+          drawDot({ x:p.x, y:p.y, r:p.r, alpha: p.alpha * (0.4 + 0.6*((Math.sin(p.twinkle)+1)/2)) }, '#FFFFFF');
+          break;
       }
     });
     ctx.globalAlpha = 1;
@@ -8893,6 +9294,7 @@ window.__ftStart = function(){
     if(ctx && canvas) ctx.clearRect(0,0,canvas.width,canvas.height);
     particles = [];
     flashAlpha = 0;
+    shootingStar = { alpha:0 };
   }
 
   function updateSwatchActive(id){
@@ -8914,8 +9316,33 @@ window.__ftStart = function(){
     seedParticles(id);
     step(id);
   }
+  // Same three `requires` shapes themes use (level/badge/premium) — see
+  // window.__ftLevel/__ftEarnedBadgeIds/__ftPremium, all set from the main
+  // IIFE on every render() since this IIFE has no access to its locals.
+  function weatherUnlocked(w){
+    if(!w.requires) return true;
+    if('level' in w.requires) return (Number(window.__ftLevel)||0) >= w.requires.level;
+    if('badge' in w.requires) return Array.isArray(window.__ftEarnedBadgeIds) && window.__ftEarnedBadgeIds.indexOf(w.requires.badge)!==-1;
+    if('premium' in w.requires) return !!window.__ftPremium;
+    return true;
+  }
+  // showAppNotification lives in the main IIFE (only defined post-sign-in);
+  // this weather IIFE runs on every page, signed in or not, same fallback
+  // the theme picker's showAppNotificationSafe() already uses.
+  function showWeatherNotificationSafe(title, body){
+    if(typeof window.__ftShowNotification === 'function') window.__ftShowNotification(title, body);
+    else alert(title+' — '+body);
+  }
   window.setWeatherEffect = function(id){
-    if(!WEATHER_EFFECTS.some(function(w){ return w.id === id; })) return;
+    var w = WEATHER_EFFECTS.filter(function(x){ return x.id === id; })[0];
+    if(!w) return;
+    if(!weatherUnlocked(w)){
+      var msg = (w.requires && w.requires.premium)
+        ? w.name+' is a Premium weather effect — unlock Premium in Settings → "💎 Go Premium" to use it.'
+        : w.name+' — '+w.requiresText+' to unlock.';
+      showWeatherNotificationSafe('🔒 Locked weather effect', msg);
+      return;
+    }
     applyWeatherEffect(id);
     saveWeatherEffectPref(id);
   };
@@ -8930,7 +9357,7 @@ window.__ftStart = function(){
     b.type = 'button';
     b.className = 'pet-swatch weather-swatch';
     b.textContent = w.icon;
-    b.title = w.name;
+    b.title = w.requires ? w.name+' — locked: '+(w.requires.premium ? '💎 Premium' : w.requiresText) : w.name;
     b.setAttribute('data-weather-id', w.id);
     b.addEventListener('click', function(){ window.setWeatherEffect(w.id); });
     return b;
@@ -8944,7 +9371,27 @@ window.__ftStart = function(){
     if(tropicalWrap && !tropicalWrap.children.length){
       WEATHER_EFFECTS.filter(function(w){ return w.group === 'tropical'; }).forEach(function(w){ tropicalWrap.appendChild(makeWeatherBtn(w)); });
     }
+    refreshWeatherLocks();
   }
+  // Re-applied every main render() (see window.__refreshWeatherLocks below) —
+  // same "toggle a class + the title, never rebuild the buttons" shape as
+  // refreshThemeLocks(), so a level/badge reached mid-session unlocks its
+  // weather effect instantly.
+  function refreshWeatherLocks(){
+    ['weather-swatches', 'tropical-weather-swatches'].forEach(function(containerId){
+      var wrap = document.getElementById(containerId);
+      if(!wrap) return;
+      Array.prototype.forEach.call(wrap.children, function(btn){
+        if(!btn.hasAttribute('data-weather-id')) return;
+        var w = WEATHER_EFFECTS.filter(function(x){ return x.id===btn.getAttribute('data-weather-id'); })[0];
+        if(!w) return;
+        var locked = !weatherUnlocked(w);
+        btn.classList.toggle('locked', locked);
+        btn.title = locked ? w.name+' — locked: '+(w.requires.premium ? '💎 Premium' : w.requiresText) : w.name;
+      });
+    });
+  }
+  window.__refreshWeatherLocks = refreshWeatherLocks;
 
   function refreshWeatherForCurrentUser(){
     buildWeatherSwatches();
