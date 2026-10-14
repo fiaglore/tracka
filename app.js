@@ -1049,7 +1049,7 @@ window.__ftStart = function(){
       livingCategories: [], livingEntries: [], livingBudgetOverrides: {}, monthStartOverrides: {},
       skippedMonths: {}, ongoingSeries: {}, assets: [], accountCurrency: {}, currencyRates: {},
       currencyRatesUpdatedAt: 0,
-      investments: [], investmentPrices: [], debtPayoffStrategy: 'none', debtInterestRates: {}};
+      investments: [], investmentPrices: [], investmentTopUps: [], debtPayoffStrategy: 'none', debtInterestRates: {}};
   }
 
   function mergeItems(defaultItems, savedItems){
@@ -1118,6 +1118,7 @@ window.__ftStart = function(){
         currencyRatesUpdatedAt: Number(saved.currencyRatesUpdatedAt) || 0,
         investments: Array.isArray(saved.investments) ? saved.investments : [],
         investmentPrices: Array.isArray(saved.investmentPrices) ? saved.investmentPrices : [],
+        investmentTopUps: Array.isArray(saved.investmentTopUps) ? saved.investmentTopUps : [],
         debtPayoffStrategy: ['snowball','avalanche'].includes(saved.debtPayoffStrategy) ? saved.debtPayoffStrategy : 'none',
         debtInterestRates: (saved.debtInterestRates && typeof saved.debtInterestRates === 'object') ? saved.debtInterestRates : {},
       };
@@ -2140,12 +2141,68 @@ window.__ftStart = function(){
     state.investments.push(entry);
     save();
   }
+  // ===== Investment top-ups =====
+  // Adds more money to an EXISTING holding — buying more of the same thing
+  // on a later date, same idea as a savings app's monthly top-up, except an
+  // investment also needs its unit count to grow alongside cost basis so
+  // currentValueOf() (units × latest logged price) still reflects the extra
+  // money invested. The per-unit price used to size that is the latest
+  // logged price if one exists (the best read on what a unit costs right
+  // now), falling back to the holding's own original cost-per-unit when
+  // nothing's been logged yet.
+  // `mi` defaults to activeMonth for the manual "Top up" button, but
+  // addMonth() (below) passes the month it's actually adding explicitly —
+  // activeMonth isn't updated to that month until after it runs. Split from
+  // topUpInvestment() so addMonth() can apply several of these (one per
+  // recurring holding) under its own single save()/render(), the same
+  // "mutate state directly, save once at the end" shape it already uses
+  // for recurring income/debt instalments, instead of one save() per
+  // holding.
+  function applyInvestmentTopUp(investmentId, amount, mi, dateKeyStr){
+    const inv = state.investments.find(i=>i.id===investmentId);
+    if(!inv) return;
+    const amt = Number(amount)||0;
+    if(amt<=0) return;
+    const latest = latestPriceEntry(investmentId);
+    const perUnit = latest ? latest.price : (inv.units>0 ? inv.costBasis/inv.units : 0);
+    const units = perUnit>0 ? amt/perUnit : 0;
+    inv.costBasis += amt;
+    inv.units += units;
+    state.investmentTopUps.push({id: makeCustomId('invtu'), investmentId, monthIndex: (mi===undefined ? activeMonth : mi), amount: amt, units, date: dateKeyStr || todayISO()});
+  }
+  function topUpInvestment(investmentId, amount, mi, dateKeyStr){
+    applyInvestmentTopUp(investmentId, amount, mi, dateKeyStr);
+    save();
+  }
+  // Presence of inv.recurringTopUp means addMonth() below tops this holding
+  // up automatically, at the same amount, every month it adds — same
+  // "set once, keep going until stopped" shape as income/debts' ongoing
+  // series, just scoped to one existing holding instead of creating a new
+  // line item.
+  function setInvestmentRecurringTopUp(investmentId, amount){
+    const inv = state.investments.find(i=>i.id===investmentId);
+    if(!inv) return;
+    const amt = Number(amount)||0;
+    if(amt<=0){ alert('Enter an amount greater than 0.'); return; }
+    inv.recurringTopUp = { amount: amt };
+    save();
+  }
+  function stopInvestmentRecurringTopUp(investmentId){
+    const inv = state.investments.find(i=>i.id===investmentId);
+    if(!inv) return;
+    delete inv.recurringTopUp;
+    save();
+  }
+  function topUpsForInvestment(investmentId){
+    return state.investmentTopUps.filter(t=>t.investmentId===investmentId).sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
+  }
   function deleteInvestment(id){
     const inv = state.investments.find(i=>i.id===id);
     if(!inv) return;
     pinGated('Enter your PIN to delete "'+inv.name+'" and every price you\'ve logged for it. This can\'t be undone.', function(){
       state.investments = state.investments.filter(i=>i.id!==id);
       state.investmentPrices = state.investmentPrices.filter(p=>p.investmentId!==id);
+      state.investmentTopUps = state.investmentTopUps.filter(t=>t.investmentId!==id);
       save();
     });
   }
@@ -2181,10 +2238,19 @@ window.__ftStart = function(){
   function gainPctOf(inv){ return inv.costBasis>0 ? (gainAmountOf(inv)/inv.costBasis)*100 : null; }
   function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+convertToPrimary(currentValueOf(i), i.currency), 0); }
   function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+convertToPrimary(i.costBasis, i.currency), 0); }
-  // Sum of cost basis for holdings first added in month mi — investments added
-  // before this field existed have no monthIndex and so never count toward
-  // any month's figure (indistinguishable from "added who knows when").
-  function investedThisMonth(mi){ return state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0); }
+  // Cost basis of holdings first added in month mi, PLUS any top-up (manual
+  // or recurring) made to an existing holding during that same month —
+  // investments added before monthIndex existed have no monthIndex and so
+  // never count toward any month's figure (indistinguishable from "added
+  // who knows when").
+  function investedThisMonth(mi){
+    const newHoldings = state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0);
+    const topUps = state.investmentTopUps.filter(t=>t.monthIndex===mi).reduce((s,t)=>{
+      const inv = state.investments.find(i=>i.id===t.investmentId);
+      return s + convertToPrimary(Number(t.amount)||0, inv && inv.currency);
+    }, 0);
+    return newHoldings + topUps;
+  }
 
   function renderNetWorth(){
     const content = document.getElementById('networth-content');
@@ -2296,6 +2362,9 @@ window.__ftStart = function(){
       const historyNote = priceHistory.length>1
         ? ` · ${priceHistory.length} prices logged, latest ${formatDateLong(latest.date)}`
         : (latest ? ` · logged ${formatDateLong(latest.date)}` : '');
+      const topUps = topUpsForInvestment(inv.id);
+      const topUpNote = topUps.length ? ` · ${topUps.length} top-up${topUps.length===1?'':'s'} so far` : '';
+      const recurring = inv.recurringTopUp;
       return `<div class="ds-row">
         <div class="ds-top">
           <span class="ds-name">${type.icon} ${escapeAttr(inv.name)} <span class="hint">${type.label}</span></span>
@@ -2303,11 +2372,18 @@ window.__ftStart = function(){
           ${gainHtml}
           <button class="del inv-del-btn" data-id="${inv.id}" title="Delete this investment">✕</button>
         </div>
-        <div class="ds-meta">${inv.units} unit${inv.units===1?'':'s'} · cost basis ${fmtIn(inv.costBasis, inv.currency)} · current value ${fmtIn(value, inv.currency)}${latest ? ' (@ '+fmtIn(latest.price, inv.currency)+'/unit)' : ''}${historyNote}${convertedNote}</div>
+        <div class="ds-meta">${inv.units} unit${inv.units===1?'':'s'} · cost basis ${fmtIn(inv.costBasis, inv.currency)} · current value ${fmtIn(value, inv.currency)}${latest ? ' (@ '+fmtIn(latest.price, inv.currency)+'/unit)' : ''}${historyNote}${convertedNote}${topUpNote}</div>
         <div class="ds-pay">
           <input type="number" min="0" step="0.01" class="inv-price-input" data-id="${inv.id}" placeholder="Today's price/unit ${symbolForCode(inv.currency)}" value="${latest ? latest.price : ''}">
           <input type="date" class="inv-price-date" data-id="${inv.id}" value="${todayISO()}">
           <button class="ds-pay-btn inv-log-price-btn" data-id="${inv.id}">Log price</button>
+        </div>
+        <div class="ds-pay">
+          <input type="number" min="0" step="0.01" class="inv-topup-input" data-id="${inv.id}" placeholder="Top up ${symbolForCode(inv.currency)}" value="${recurring ? recurring.amount : ''}">
+          <button class="ds-pay-btn inv-topup-btn" data-id="${inv.id}">💰 Top up</button>
+          ${recurring
+            ? `<span class="ds-left" style="color:var(--muted)">🔁 Tops up ${fmtIn(recurring.amount, inv.currency)} every month</span><button class="ds-pay-btn inv-topup-stop-btn" data-id="${inv.id}" title="Stop topping this up automatically — months already added keep it">⏹ Stop repeating</button>`
+            : `<label class="recurring-toggle" title="Tops this holding up by the amount above automatically, every month, until you stop it"><input type="checkbox" class="inv-topup-recurring-toggle" data-id="${inv.id}"> 🔁 Repeat monthly</label>`}
         </div>
       </div>`;
     }).join('');
@@ -2323,6 +2399,27 @@ window.__ftStart = function(){
       logInvestmentPrice(id, priceInput ? priceInput.value : 0, dateInput ? dateInput.value : todayISO());
       return;
     }
+    const topUpBtn = e.target.closest ? e.target.closest('.inv-topup-btn') : null;
+    if(topUpBtn){
+      const id = topUpBtn.dataset.id;
+      const amtInput = document.querySelector('.inv-topup-input[data-id="'+id+'"]');
+      const amt = amtInput ? Number(amtInput.value)||0 : 0;
+      if(amt<=0){ if(amtInput) amtInput.focus(); return; }
+      topUpInvestment(id, amt);
+      return;
+    }
+    const topUpStopBtn = e.target.closest ? e.target.closest('.inv-topup-stop-btn') : null;
+    if(topUpStopBtn){ stopInvestmentRecurringTopUp(topUpStopBtn.dataset.id); return; }
+  });
+  document.addEventListener('change', function(e){
+    const toggle = e.target.closest ? e.target.closest('.inv-topup-recurring-toggle') : null;
+    if(!toggle) return;
+    if(!toggle.checked) return;
+    const id = toggle.dataset.id;
+    const amtInput = document.querySelector('.inv-topup-input[data-id="'+id+'"]');
+    const amt = amtInput ? Number(amtInput.value)||0 : 0;
+    if(amt<=0){ alert('Enter the monthly top-up amount above first.'); toggle.checked = false; if(amtInput) amtInput.focus(); return; }
+    setInvestmentRecurringTopUp(id, amt);
   });
   (function populateInvestmentTypeSelect(){
     const sel = document.getElementById('inv-type');
@@ -2530,7 +2627,8 @@ window.__ftStart = function(){
   // Appends one more month right after the last tracked one. Blank except for whichever
   // recurring income/bill series are still marked ongoing (state.ongoingSeries) — those get one
   // more instalment stamped in automatically, at their current amount, so a real bill (rent, a
-  // subscription) doesn't have to be re-added by hand every single month.
+  // subscription) doesn't have to be re-added by hand every single month — and any investment
+  // holding with a recurringTopUp set gets topped up the same way.
   function addMonth(){
     extendMonthsTo(N+1);
     const mi = N-1;
@@ -2546,6 +2644,9 @@ window.__ftStart = function(){
       const cur = (latest && latest.currency) || series.currency;
       if(cur) item.currency = cur;
       state.months[mi][series.kind].push(item);
+    });
+    state.investments.forEach(inv=>{
+      if(inv.recurringTopUp) applyInvestmentTopUp(inv.id, inv.recurringTopUp.amount, mi);
     });
     activeMonth = mi;
     populateTargetSelect();
@@ -7433,6 +7534,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '💰 Top up an investment, monthly if you want', body: 'Each holding on the Investments tab now has a "💰 Top up" box — add more money to an existing investment (with enough extra units added to match, at the latest logged price) instead of only being able to log a price. Tick "🔁 Repeat monthly" to have it top up by the same amount automatically every month you add, the same way an income source or bill already could.' },
     { title: '📅 See your remaining balance as of any day in the month', body: 'The Overview page has a new "📅 Remaining balance as of" card with a date picker — pick any day within the current billing period to see what your balance would be as of that day (everything checked off or logged on or before it, plus every prior month in full), instead of only ever seeing it as of today.' },
     { title: '🐛 Fixed: sign-in could hang forever on "Loading your tracker…"', body: 'On a slow or flaky connection, the step right after signing in — fetching your data — could sit waiting indefinitely with no error and no way forward except reloading blind. It now gives up after 20 seconds and shows a clear "check your connection and reload" message instead of hanging forever.' },
     { title: '💎 Premium is now ₦3,500/month, not a ₦1,000 one-time unlock', body: 'Premium is now a genuine monthly subscription — ₦3,500 unlocks every Premium feature for 30 days from whenever your receipt is approved, with everything else working exactly as before: no card payment yet, just a bank transfer and a receipt upload in Settings → "💎 Go Premium", reviewed by hand. Renewing (any time, including before the current month runs out) always adds 30 more days on top of whatever\'s left, so paying early never wastes anything. A reminder shows up a few days before a month runs out, and again if it actually does — losing Premium only blocks switching to something new (a locked theme, pet, or weather effect), it never takes away whatever was already picked. Premium is also now a single tier with no caps at all — the daily log\'s 100-entry free-plan limit is removed entirely while Premium is active, and the separate one-time ₦3,500 "Unlimited logs" add-on is retired along with it.' },
