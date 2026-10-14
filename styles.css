@@ -586,7 +586,13 @@ button,input,select,textarea{font-family:inherit;}
    TOP BAR — brand, clock/countdown, excel + settings toolbar
    ============================================================ */
 .topbar{padding:16px 0 10px;}
-.brand-row{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+/* Sticky, not just fixed-at-top-of-page: stays put as the chips/overall
+   progress/month bar beneath it scroll away, the way a native app's top bar
+   persists over its own scrolling content — paired with the fixed bottom
+   tab bar on mobile (see .page-nav's mobile rule), that's the full
+   top-bar-content-bottom-nav app shell. Needs its own background since
+   whatever's below it now scrolls underneath. */
+.brand-row{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; position:sticky; top:0; z-index:30; background:var(--surface); padding:4px 10px; margin:-4px -10px 0; border-radius:0 0 var(--radius-md) var(--radius-md); box-shadow:var(--shadow-sm);}
 .brand{display:flex; align-items:center; gap:8px; text-decoration:none; color:inherit;}
 .brand-mark{line-height:1;}
 .brand-mark img{width:28px; height:28px; display:block; border-radius:7px;}
@@ -847,6 +853,20 @@ button,input,select,textarea{font-family:inherit;}
 .overall-nums{display:flex; gap:18px; flex-wrap:wrap;}
 .overall-track{height:8px; background:var(--bg-soft); border-radius:6px; overflow:hidden; margin-top:9px;}
 .overall-fill{height:100%; background:var(--good); border-radius:6px; transition:width .3s ease;}
+/* App-like cleanup on a phone: trim the top down to what's actually needed
+   at a glance. The tagline and quote are pure flavor text, not data; the
+   all-time income/expense/extra/complete breakdown is still one tap away
+   (just scroll — nothing here is deleted, only hidden) but doesn't need to
+   sit above the fold on every single visit; and the chip row goes from a
+   multi-row wrapped grid to a single swipeable strip, the same horizontal-
+   stat-pill pattern most native finance apps use. */
+@media (max-width:640px){
+  .brand-text .tag{display:none;}
+  .profile-banner .quote-banner{display:none;}
+  .meta-chips{display:flex; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:8px; padding-bottom:2px; box-shadow:inset -18px 0 12px -12px rgba(0,0,0,.12);}
+  .meta-chips .chip{flex:0 0 auto; min-width:118px;}
+  .overall-nums{display:none;}
+}
 
 .summary-grid{display:flex; flex-direction:column; gap:1px; margin-bottom:15px;}
 .summary-row{display:grid; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden;}
