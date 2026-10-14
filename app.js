@@ -7209,6 +7209,10 @@ window.__ftStart = function(){
       // meant it never appeared at all on touch devices.
       companion.addEventListener('click', function(e){
         e.stopPropagation();
+        // A drag ending on this same element still fires a native click right
+        // after — skip just that one so finishing a drag doesn't also toggle
+        // the speech bubble. See makeCompanionDraggable() below.
+        if(companion.dataset.justDragged){ delete companion.dataset.justDragged; return; }
         companion.classList.toggle('show-speech');
         pulseCatCompanion('💕');
       });
@@ -7243,6 +7247,77 @@ window.__ftStart = function(){
       })();
     }
   })();
+
+  // ===== Movable companions (pet + growth tree) =====
+  // Both are fixed corner widgets, which on a phone now sits right where the
+  // bottom tab bar (see .page-nav's mobile rule in styles.css) lives too —
+  // dragging one elsewhere on screen is the way out of that, rather than
+  // picking one fixed spot that's bound to clash with something for someone.
+  // Position is per-device (localStorage, same pattern as every other
+  // device-only UI preference above), not synced to the account.
+  function makeCompanionDraggable(el, storageKey){
+    if(!el) return;
+    let startX=0, startY=0, startLeft=0, startTop=0, moved=false;
+    function clamp(left, top){
+      const w = el.offsetWidth, h = el.offsetHeight;
+      const maxLeft = Math.max(0, window.innerWidth - w);
+      const maxTop = Math.max(0, window.innerHeight - h);
+      return { left: Math.min(Math.max(left, 0), maxLeft), top: Math.min(Math.max(top, 0), maxTop) };
+    }
+    function applyPosition(left, top){
+      const c = clamp(left, top);
+      el.style.left = c.left+'px';
+      el.style.top = c.top+'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+      return c;
+    }
+    function loadSavedPosition(){
+      let saved = null;
+      try{ saved = JSON.parse(localStorage.getItem(storageKey)); }catch(e){}
+      if(saved && typeof saved.left==='number' && typeof saved.top==='number') applyPosition(saved.left, saved.top);
+    }
+    function savePosition(left, top){
+      try{ localStorage.setItem(storageKey, JSON.stringify({left:left, top:top})); }catch(e){}
+    }
+    // Re-clamp (never save) on resize/rotation, so a position picked on a
+    // wide screen can't leave the widget stranded off-screen on a narrower
+    // one — but a device the user hasn't dragged on yet keeps using the
+    // plain CSS corner anchor instead of jumping to a clamped pixel position
+    // the first time its window happens to resize.
+    window.addEventListener('resize', function(){
+      if(el.style.left && el.style.left!=='auto') applyPosition(parseFloat(el.style.left)||0, parseFloat(el.style.top)||0);
+    });
+    el.addEventListener('pointerdown', function(e){
+      if(e.button!==undefined && e.button!==0) return; // left click / primary touch only
+      const rect = el.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY;
+      startLeft = rect.left; startTop = rect.top;
+      moved = false;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('dragging');
+    });
+    el.addEventListener('pointermove', function(e){
+      if(!el.classList.contains('dragging')) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if(!moved && (Math.abs(dx)>5 || Math.abs(dy)>5)) moved = true;
+      if(moved) applyPosition(startLeft+dx, startTop+dy);
+    });
+    function endDrag(e){
+      if(!el.classList.contains('dragging')) return;
+      el.classList.remove('dragging');
+      if(moved){
+        const c = clamp(parseFloat(el.style.left)||startLeft, parseFloat(el.style.top)||startTop);
+        savePosition(c.left, c.top);
+        el.dataset.justDragged = '1';
+      }
+    }
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    loadSavedPosition();
+  }
+  makeCompanionDraggable(document.getElementById('cat-companion'), 'trakkaCompanionPosV1');
+  makeCompanionDraggable(document.getElementById('growth-tree'), 'trakkaGrowthTreePosV1');
 
   // ===== Pet species picker (same swatch-row look as the theme picker) =====
   // 'cat' is the mandatory fallback loadPetSpecies() defaults everyone to —
@@ -7534,6 +7609,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🐾 Drag your pet or growth tree out of the way, and bigger bottom tabs', body: 'On a phone, the pet companion and growth tree used to sit fixed in the bottom corners — right where the new bottom tab bar now lives too. Both can now be dragged anywhere on screen (tap-and-hold, then move) to get them out of the way; wherever you leave one stays put on this device. The bottom tab bar\'s buttons are also bigger now, for an easier tap.' },
     { title: '🐛 Fixed: biometric unlock and "too many devices" popups appearing at the top of the page', body: 'Two of the overlay screens — "🫆 Set up biometric unlock" (Settings → Security) and the "too many devices signed in" gate during sign-in — were missing the CSS that actually centers a popup over the page; both showed up stuck at the very top instead, inline with whatever else was on screen. They now center and dim the background like every other popup in the app.' },
     { title: '📱 A more compact, app-like feel', body: 'Tighter spacing throughout the tracker — cards, buttons, the top bar, forms — so more fits on screen with less scrolling, plus rounder corners across the board. On a phone, the page tabs (Overview, Income, Debts…) now sit in a fixed bar at the bottom of the screen, the way a native app\'s navigation usually does, instead of a row under the month picker.' },
     { title: '💰 Top up an investment, monthly if you want', body: 'Each holding on the Investments tab now has a "💰 Top up" box — add more money to an existing investment (with enough extra units added to match, at the latest logged price) instead of only being able to log a price. Tick "🔁 Repeat monthly" to have it top up by the same amount automatically every month you add, the same way an income source or bill already could.' },
