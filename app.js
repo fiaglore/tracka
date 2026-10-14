@@ -2773,9 +2773,9 @@ window.__ftStart = function(){
   // Premium is a 30-day recurring unlock, not a one-time purchase — each
   // approval (first purchase or a later renewal) stacks another 30 days
   // onto entitlements.premiumExpiresAt (see approvePremiumRequest() in
-  // firebase-init.js and isPremiumActive() above). Unlimited-logs stays a
-  // genuine one-time add-on on top of Premium, unaffected by whether
-  // Premium itself later lapses.
+  // firebase-init.js and isPremiumActive() above). It's also a single tier
+  // with no add-ons and no caps of any kind — the old one-time "Unlimited
+  // logs" add-on is retired.
   const PREMIUM_PRODUCT_LABELS = {
     premium: { name: '💎 Premium (1 month)', amount: '₦3,500/month' }
   };
