@@ -820,17 +820,17 @@ button,input,select,textarea{font-family:inherit;}
   .page-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:40;
     margin:0; border-bottom:none; border-top:1px solid var(--line);
-    padding:4px 6px calc(4px + env(safe-area-inset-bottom)) 6px;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom)) 6px;
     background:var(--surface);
     box-shadow:0 -4px 14px rgba(0,0,0,.1);
   }
-  .page-nav-btn{flex-direction:column; gap:2px; font-size:10px; padding:5px 10px; border-radius:var(--radius-sm); top:0;}
-  .page-nav-btn .ic{font-size:17px;}
+  .page-nav-btn{flex-direction:column; gap:3px; font-size:11.5px; padding:8px 14px; border-radius:var(--radius-sm); top:0; min-width:60px;}
+  .page-nav-btn .ic{font-size:21px;}
   .page-nav-btn.active{border:none; background:var(--bg-soft);}
   .page-nav-btn-right{margin-left:0;}
   /* Room at the bottom of the page so content doesn't disappear behind the
      now-fixed tab bar. */
-  .app-shell{padding-bottom:calc(58px + env(safe-area-inset-bottom));}
+  .app-shell{padding-bottom:calc(74px + env(safe-area-inset-bottom));}
 }
 .app-page{display:none; animation:pageIn .18s ease;}
 .app-page.active{display:block;}
@@ -1457,7 +1457,12 @@ footer{padding:20px 0 27px; color:var(--muted); font-size:11.5px; border-top:1px
 .prestige-stars{font-size:18px; letter-spacing:2px; margin-bottom:8px; color:var(--muted);}
 
 /* ===== Growing garden companion (alongside the pet) ===== */
-.growth-tree{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:16px; z-index:25; display:flex; flex-direction:column; align-items:center; gap:4px;}
+/* touch-action:none so dragging it doesn't also scroll the page on a
+   phone; user-select/-webkit-user-drag:none so a drag doesn't instead
+   select its text or kick off a native "drag this image" ghost. See
+   makeCompanionDraggable() in app.js. */
+.growth-tree{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:16px; z-index:25; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:grab; touch-action:none; user-select:none; -webkit-user-drag:none;}
+.growth-tree.dragging{cursor:grabbing;}
 .growth-tree-face{width:72px; height:72px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:32px; box-shadow:var(--shadow-md);}
 .growth-tree-label{font-family:var(--font-display); font-weight:700; font-size:10px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:2px 7px;}
 @media (max-width:640px){
@@ -1491,10 +1496,14 @@ footer{padding:20px 0 27px; color:var(--muted); font-size:11.5px; border-top:1px
 .xp-badge-all-earned{font-size:13px; color:var(--muted); margin:4px 0 0;}
 
 /* ===== Cat companion ===== */
-.cat-companion{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); right:16px; z-index:25; display:flex; align-items:flex-end; gap:6px;}
+/* touch-action:none/user-select:none/-webkit-user-drag:none for the same
+   reason as .growth-tree above — see makeCompanionDraggable() in app.js. */
+.cat-companion{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); right:16px; z-index:25; display:flex; align-items:flex-end; gap:6px; touch-action:none; user-select:none; -webkit-user-drag:none;}
+.cat-companion.dragging{cursor:grabbing;}
+.cat-companion.dragging .cat-face{animation:none;}
 .cat-speech{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:6px 9px; font-size:11.5px; max-width:165px; box-shadow:var(--shadow-md); display:none; color:var(--ink);}
 .cat-companion:hover .cat-speech,.cat-companion.show-speech .cat-speech{display:block;}
-.cat-face{width:150px; height:150px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:78px; box-shadow:var(--shadow-md); cursor:pointer; animation:catBob 3s ease-in-out infinite;}
+.cat-face{width:150px; height:150px; border-radius:50%; background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:78px; box-shadow:var(--shadow-md); cursor:grab; animation:catBob 3s ease-in-out infinite;}
 @keyframes catBob{0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);}}
 /* .petted replaces the idle catBob loop with a one-shot bounce (higher
    specificity than .cat-face alone, so it wins for the animation's
