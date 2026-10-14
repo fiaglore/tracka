@@ -1787,6 +1787,65 @@ window.__ftStart = function(){
     return incomeChecked - (debtChecked + livingChecked + giftChecked);
   }
 
+  // ===== Remaining balance as of any day within a month =====
+  // Same shape as netForMonth() above, but only counts an item if it was
+  // actually ticked (lastTicked) or dated on or before a given day — lets
+  // "remaining balance" be shown as of any day in the period, not just
+  // "everything checked off so far" (today). dateKeyStr is a 'YYYY-MM-DD'
+  // key; plain string comparison works since every key is zero-padded.
+  function sumCheckedUpToDate(items, dateKeyStr){
+    return items.filter(i=>i.checked && i.lastTicked && i.lastTicked<=dateKeyStr)
+      .reduce((s,i)=>s+convertToPrimary(i.amount, i.currency),0);
+  }
+  function sumExtraForMonthUpToDate(mi, dateKeyStr){
+    return extraForMonth(mi).filter(e=>e.date && e.date<=dateKeyStr)
+      .reduce((s,e)=>s+convertToPrimary(e.amount, e.currency),0);
+  }
+  function sumLivingForMonthUpToDate(mi, dateKeyStr){
+    return livingEntriesForMonth(mi).filter(e=>e.date && e.date<=dateKeyStr)
+      .reduce((s,e)=>s+Number(e.amount||0),0);
+  }
+  function netForMonthUpToDate(mi, dateKeyStr){
+    const mm = state.months[mi];
+    const incomeChecked = sumCheckedUpToDate(mm.income, dateKeyStr) + sumExtraForMonthUpToDate(mi, dateKeyStr);
+    const debtChecked = sumCheckedUpToDate(mm.debts, dateKeyStr);
+    const livingChecked = sumLivingForMonthUpToDate(mi, dateKeyStr);
+    const giftChecked = sumCheckedUpToDate(giftItemsForMonth(mi), dateKeyStr);
+    return incomeChecked - (debtChecked + livingChecked + giftChecked);
+  }
+  // Every prior month counts in full (nothing partial about a month
+  // that's already over), plus only what's dated/ticked by dateKeyStr in
+  // the month actually being viewed.
+  function balanceAsOfDate(mi, dateKeyStr){
+    return cumulativeBalanceUpTo(mi-1) + netForMonthUpToDate(mi, dateKeyStr);
+  }
+  // Overview's "📅 Remaining balance as of" card — a date picker (bounded to
+  // the viewed month's own billing period) next to the figure above, so the
+  // same running balance the rest of Overview shows "as of today" can be
+  // checked for any day already past, or planned ahead to any day still to
+  // come, within this period.
+  function renderBalanceAsOf(){
+    const dateInput = document.getElementById('balance-asof-date');
+    const amtEl = document.getElementById('balance-asof-amt');
+    const subEl = document.getElementById('balance-asof-sub');
+    if(!dateInput || !amtEl) return;
+    const {start, end} = periodBounds(activeMonth);
+    const minKey = dateKey(start), maxKey = dateKey(end);
+    dateInput.min = minKey;
+    dateInput.max = maxKey;
+    if(!dateInput.value || dateInput.value<minKey || dateInput.value>maxKey){
+      const todayK = todayKey();
+      dateInput.value = (todayK>=minKey && todayK<=maxKey) ? todayK : (todayK>maxKey ? maxKey : minKey);
+    }
+    const bal = balanceAsOfDate(activeMonth, dateInput.value);
+    amtEl.textContent = (bal<0?'-':'') + fmt(Math.abs(bal));
+    amtEl.style.color = bal>=0 ? 'var(--good)' : 'var(--bad)';
+    if(subEl) subEl.textContent = 'Income, debts, living & gifts checked off or logged on or before '+fmtTickDate(dateInput.value)+', plus every prior month in full';
+  }
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.id==='balance-asof-date') renderBalanceAsOf();
+  });
+
   // Running total saved (all top-ups made) from month 0 through mi (inclusive).
   // Combines the free-form savings ledger with everything ticked off in the savings apps.
   function cumulativeSavingsUpTo(mi){
@@ -3260,6 +3319,7 @@ window.__ftStart = function(){
     document.getElementById('sum-cumulative').textContent = (cumBalance<0?'-':'') + fmt(Math.abs(cumBalance));
     document.getElementById('sum-cumulative').style.color = cumBalance>=0 ? 'var(--good)' : 'var(--bad)';
     document.getElementById('sum-cumulative-sub').textContent = 'through '+monthLabels[activeMonth]+' '+yearTags[activeMonth]+', after debts, living & gifts';
+    renderBalanceAsOf();
 
     const savedPct = cumBalance>0 ? (cumSavings/cumBalance*100) : 0;
     document.getElementById('sum-savings-pct').textContent = cumBalance>0 ? savedPct.toFixed(1)+'%' : '—';
@@ -7070,6 +7130,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '📅 See your remaining balance as of any day in the month', body: 'The Overview page has a new "📅 Remaining balance as of" card with a date picker — pick any day within the current billing period to see what your balance would be as of that day (everything checked off or logged on or before it, plus every prior month in full), instead of only ever seeing it as of today.' },
     { title: '💎 Premium is ₦3,500/month', body: '💎 Premium is ₦3,500/month.' },
     { title: '🐛 Fixed: Kuda statement import failing for real statements', body: 'Kuda\'s real export is a genuine Excel file, just written by a tool that names its internal parts slightly differently than usual — AnchorTrakk\'s parser was rejecting it outright with a confusing "could not read that file" error. The importer now reads those directly instead of giving up, and also understands Kuda\'s "Date/Time" column and 2-digit years.' },
     { title: '💎 Auto-updating FX rates', body: 'Premium accounts no longer have to type in exchange rates by hand — Settings → "🌍 Currency rates" now fetches live rates automatically (roughly every 6 hours) for every foreign currency you use. Picking a new foreign currency on an Income, Debt, Gift or Investment row looks up its rate live too, instead of asking you to type one in.' },
