@@ -1609,6 +1609,24 @@ footer{padding:20px 0 27px; color:var(--muted); font-size:11.5px; border-top:1px
 #pin-setup-overlay .auth-link{margin-top:8px;}
 #pin-unlock-card .auth-link{margin-top:8px;}
 
+/* Same fixed-overlay pattern as #pin-setup-overlay above — was missing
+   entirely, which left this overlay rendering inline at its spot in the
+   document instead of centered over the page (it'd appear pinned to the
+   top, right where its <div> sits in the HTML, the moment JS cleared its
+   `hidden` attribute). Settings → Security's "🫆 Set up biometric unlock".
+   See setupBiometric()/clearBiometric() in firebase-init.js. */
+#bio-setup-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:15px; background:rgba(0,0,0,.4);}
+#bio-setup-overlay .auth-card{max-width:380px;}
+#bio-setup-overlay .auth-submit{margin-top:4px;}
+#bio-setup-overlay .auth-link{margin-top:8px;}
+
+/* Same fixed-overlay pattern, same missing-rule bug as #bio-setup-overlay
+   above — the "too many devices signed in" gate opened mid-sign-in from
+   begin() in app.js. */
+#device-limit-overlay{position:fixed; inset:0; z-index:6000; display:flex; align-items:center; justify-content:center; padding:15px; background:rgba(0,0,0,.4);}
+#device-limit-overlay .auth-card{max-width:420px;}
+#device-limit-overlay .auth-link{margin-top:8px;}
+
 /* Same fixed-overlay pattern as #pin-setup-overlay above — the security PIN
    gate confirming a sensitive action (deleting an entry, revealing hidden
    data, finishing a password sign-in). See openPinGate() in app.js. */
