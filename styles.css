@@ -1298,6 +1298,10 @@ body.ft-locked #auth-overlay{display:flex;}
 .ds-fill{height:100%; background:var(--accent); border-radius:6px; transition:width .3s ease;}
 .ds-meta{font-size:11.5px; color:var(--muted); font-family:var(--font-mono);}
 .ds-pay{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);}
+/* A tickable top-up line (see renderInvestments() in app.js) sits in a
+   .ds-pay row rather than a full .item-row, so its checkbox needs its own
+   sizing instead of inheriting .item-row's scoped one. */
+.ds-pay input[type=checkbox].checkbox{width:18px; height:18px; accent-color:var(--accent); flex:0 0 auto; cursor:pointer;}
 .ds-extra-input,.acct-wd-input,.ds-total-input,.acct-rate-input,.ri-amt-input,.inv-price-input,.inv-price-date{font-family:var(--font-body); font-size:13px; padding:6px 8px; border-radius:9px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink); width:160px;}
 .ds-extra-input:focus,.acct-wd-input:focus,.ds-total-input:focus,.acct-rate-input:focus,.ri-amt-input:focus,.inv-price-input:focus,.inv-price-date:focus{border-color:var(--accent);}
 .acct-currency-select,.item-currency-select{font-family:var(--font-body); font-size:13px; padding:4px 7px; border-radius:9px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink);}
