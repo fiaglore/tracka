@@ -3592,8 +3592,14 @@ window.__ftStart = function(){
     }, 0);
     const savingsLoggedThisMonth = savingsForMonth(activeMonth).reduce((s,e)=>s+Number(e.amount||0),0);
     const savingsCommitted = savingsAppsCommitted + savingsLoggedThisMonth;
+    const investHoldingsThisMonth = state.investments.filter(i=>i.monthIndex===activeMonth).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0);
+    const investTopUpsThisMonth = state.investmentTopUps.filter(t=>t.monthIndex===activeMonth).reduce((s,t)=>{
+      const inv = state.investments.find(i=>i.id===t.investmentId);
+      return s + convertToPrimary(Number(t.amount)||0, inv && inv.currency);
+    }, 0);
+    const investmentsCommitted = investHoldingsThisMonth + investTopUpsThisMonth;
     const maxIncomeThisMonth = incomeTotal + extraMonth;
-    const totalCommitted = debtTotal + livingCommitted + giftTotal + savingsCommitted;
+    const totalCommitted = debtTotal + livingCommitted + giftTotal + savingsCommitted + investmentsCommitted;
     const bhDiff = maxIncomeThisMonth - totalCommitted;
     const bhOver = bhDiff < 0;
     const bhCard = document.getElementById('budget-health');
@@ -3603,15 +3609,15 @@ window.__ftStart = function(){
       ? 'Over budget for ' + monthLabels[activeMonth] + ' ' + yearTags[activeMonth]
       : 'Within budget for ' + monthLabels[activeMonth] + ' ' + yearTags[activeMonth];
     document.getElementById('bh-sub').textContent = bhOver
-      ? 'Debts + living + gifts + savings exceed max income + windfalls for this month'
-      : 'Max income + windfalls covers debts, living, gifts & savings for this month';
+      ? 'Debts + living + gifts + savings + investments exceed max income + windfalls for this month'
+      : 'Max income + windfalls covers debts, living, gifts, savings & investments for this month';
     document.getElementById('bh-amt').textContent = (bhDiff<0?'-':'') + fmt(Math.abs(bhDiff));
     document.getElementById('bh-amt-lbl').textContent = bhOver ? 'shortfall' : 'headroom';
     document.getElementById('bh-breakdown').innerHTML =
       `Max income: <b>${fmt(maxIncomeThisMonth)}</b>` +
       ` (income ${fmt(incomeTotal)} + extra ${fmt(extraMonth)})` +
       ` &nbsp;|&nbsp; Committed: <b>${fmt(totalCommitted)}</b>` +
-      ` (debts ${fmt(debtTotal)} + living ${fmt(livingCommitted)} + gifts ${fmt(giftTotal)} + savings ${fmt(savingsCommitted)})`;
+      ` (debts ${fmt(debtTotal)} + living ${fmt(livingCommitted)} + gifts ${fmt(giftTotal)} + savings ${fmt(savingsCommitted)} + investments ${fmt(investmentsCommitted)})`;
 
     document.getElementById('income-totals').innerHTML = `<b>${fmt(incomeChecked)}</b> / ${fmt(incomeTotal)} received`;
     document.getElementById('debt-totals').innerHTML = `<b>${fmt(debtChecked)}</b> / ${fmt(debtTotal)} paid`;
@@ -7665,6 +7671,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '✅ The "within budget" card now accounts for investments', body: 'The Budget Health card (the ✅/⚠️ "within budget" / "over budget" summary on Overview) used to weigh only debts, living, gifts and savings against your max income — investments weren\'t in the picture at all, so planning a top-up or opening a new holding never moved that number. It now also counts a new holding opened this month, plus every top-up queued for this month (whether ticked yet or not), the same "planned counts, not just confirmed" treatment every other line in this card already gets.' },
     { title: '📱 Settings on the bottom tab bar, and a tidier top', body: '"⚙️ Settings" now also sits at the far right of the mobile bottom tab bar, alongside the existing gear icon in the top bar. The top of the tracker is also tidier on a phone: the tagline and daily quote are tucked away, the "Overall progress" card shows just the percentage and bar (its full income/expense breakdown is still there, just not fighting for space on every visit), and the row of stat chips is now one swipeable strip instead of wrapping onto several rows. The top bar itself now stays pinned in place as you scroll, the way a native app\'s header does.' },
     { title: '🐾 Drag your pet or growth tree out of the way, and bigger bottom tabs', body: 'On a phone, the pet companion and growth tree used to sit fixed in the bottom corners — right where the new bottom tab bar now lives too. Both can now be dragged anywhere on screen (tap-and-hold, then move) to get them out of the way; wherever you leave one stays put on this device. The bottom tab bar\'s buttons are also bigger now, for an easier tap.' },
     { title: '🐛 Fixed: biometric unlock and "too many devices" popups appearing at the top of the page', body: 'Two of the overlay screens — "🫆 Set up biometric unlock" (Settings → Security) and the "too many devices signed in" gate during sign-in — were missing the CSS that actually centers a popup over the page; both showed up stuck at the very top instead, inline with whatever else was on screen. They now center and dim the background like every other popup in the app.' },
