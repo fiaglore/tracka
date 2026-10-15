@@ -2272,6 +2272,16 @@ window.__ftStart = function(){
   function gainPctOf(inv){ return inv.costBasis>0 ? (gainAmountOf(inv)/inv.costBasis)*100 : null; }
   function totalInvestmentsValue(){ return state.investments.reduce((s,i)=>s+convertToPrimary(currentValueOf(i), i.currency), 0); }
   function totalInvestmentsCost(){ return state.investments.reduce((s,i)=>s+convertToPrimary(i.costBasis, i.currency), 0); }
+  // inv.costBasis keeps growing for as long as top-ups get ticked against a holding — it's a
+  // running total, not a snapshot of what was put in when the holding was first opened. Any
+  // ticked top-up is already counted on its OWN month via investedThisMonth/the Budget Health
+  // card below, so counting it again here (folded into costBasis, on the holding's own month)
+  // would double it — and worse, inflate a past month's figure every time a LATER top-up gets
+  // ticked. Subtracting every ticked top-up's amount back out recovers the true original amount.
+  function originalCostBasisOf(inv){
+    const tickedTopUps = topUpsForInvestment(inv.id).filter(t=>t.checked).reduce((s,t)=>s+(Number(t.amount)||0), 0);
+    return inv.costBasis - tickedTopUps;
+  }
   // Cost basis of holdings first added in month mi, PLUS any CHECKED top-up
   // (manual or recurring) made to an existing holding that same month — a
   // still-pending, unticked top-up hasn't actually happened yet, so it
@@ -2280,7 +2290,7 @@ window.__ftStart = function(){
   // monthIndex existed have no monthIndex and so never count toward any
   // month's figure (indistinguishable from "added who knows when").
   function investedThisMonth(mi){
-    const newHoldings = state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0);
+    const newHoldings = state.investments.filter(i=>i.monthIndex===mi).reduce((s,i)=>s+convertToPrimary(originalCostBasisOf(i), i.currency), 0);
     const topUps = state.investmentTopUps.filter(t=>t.monthIndex===mi && t.checked).reduce((s,t)=>{
       const inv = state.investments.find(i=>i.id===t.investmentId);
       return s + convertToPrimary(Number(t.amount)||0, inv && inv.currency);
@@ -3592,7 +3602,7 @@ window.__ftStart = function(){
     }, 0);
     const savingsLoggedThisMonth = savingsForMonth(activeMonth).reduce((s,e)=>s+Number(e.amount||0),0);
     const savingsCommitted = savingsAppsCommitted + savingsLoggedThisMonth;
-    const investHoldingsThisMonth = state.investments.filter(i=>i.monthIndex===activeMonth).reduce((s,i)=>s+convertToPrimary(Number(i.costBasis)||0, i.currency), 0);
+    const investHoldingsThisMonth = state.investments.filter(i=>i.monthIndex===activeMonth).reduce((s,i)=>s+convertToPrimary(originalCostBasisOf(i), i.currency), 0);
     const investTopUpsThisMonth = state.investmentTopUps.filter(t=>t.monthIndex===activeMonth).reduce((s,t)=>{
       const inv = state.investments.find(i=>i.id===t.investmentId);
       return s + convertToPrimary(Number(t.amount)||0, inv && inv.currency);
@@ -7671,7 +7681,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
-    { title: '✅ The "within budget" card now accounts for investments', body: 'The Budget Health card (the ✅/⚠️ "within budget" / "over budget" summary on Overview) used to weigh only debts, living, gifts and savings against your max income — investments weren\'t in the picture at all, so planning a top-up or opening a new holding never moved that number. It now also counts a new holding opened this month, plus every top-up queued for this month (whether ticked yet or not), the same "planned counts, not just confirmed" treatment every other line in this card already gets.' },
+    { title: '✅ The "within budget" card now accounts for investments', body: 'The Budget Health card (the ✅/⚠️ "within budget" / "over budget" summary on Overview) used to weigh only debts, living, gifts and savings against your max income — investments weren\'t in the picture at all, so planning a top-up or opening a new holding never moved that number. It now also counts a new holding opened this month, plus every top-up queued for this month (whether ticked yet or not), the same "planned counts, not just confirmed" treatment every other line in this card already gets. Fixed along the way: ticking a top-up was double-counting it (once via the holding\'s own, now-larger cost basis, again as the top-up itself), and a holding\'s cost basis kept growing with every top-up ever ticked against it, so a past month\'s figure could creep up whenever a much-later top-up got ticked — both now use the amount actually committed in that specific month.' },
     { title: '📱 Settings on the bottom tab bar, and a tidier top', body: '"⚙️ Settings" now also sits at the far right of the mobile bottom tab bar, alongside the existing gear icon in the top bar. The top of the tracker is also tidier on a phone: the tagline and daily quote are tucked away, the "Overall progress" card shows just the percentage and bar (its full income/expense breakdown is still there, just not fighting for space on every visit), and the row of stat chips is now one swipeable strip instead of wrapping onto several rows. The top bar itself now stays pinned in place as you scroll, the way a native app\'s header does.' },
     { title: '🐾 Drag your pet or growth tree out of the way, and bigger bottom tabs', body: 'On a phone, the pet companion and growth tree used to sit fixed in the bottom corners — right where the new bottom tab bar now lives too. Both can now be dragged anywhere on screen (tap-and-hold, then move) to get them out of the way; wherever you leave one stays put on this device. The bottom tab bar\'s buttons are also bigger now, for an easier tap.' },
     { title: '🐛 Fixed: biometric unlock and "too many devices" popups appearing at the top of the page', body: 'Two of the overlay screens — "🫆 Set up biometric unlock" (Settings → Security) and the "too many devices signed in" gate during sign-in — were missing the CSS that actually centers a popup over the page; both showed up stuck at the very top instead, inline with whatever else was on screen. They now center and dim the background like every other popup in the app.' },
