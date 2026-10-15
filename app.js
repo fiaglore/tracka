@@ -7609,6 +7609,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '📱 Settings on the bottom tab bar, and a tidier top', body: '"⚙️ Settings" now also sits at the far right of the mobile bottom tab bar, alongside the existing gear icon in the top bar. The top of the tracker is also tidier on a phone: the tagline and daily quote are tucked away, the "Overall progress" card shows just the percentage and bar (its full income/expense breakdown is still there, just not fighting for space on every visit), and the row of stat chips is now one swipeable strip instead of wrapping onto several rows. The top bar itself now stays pinned in place as you scroll, the way a native app\'s header does.' },
     { title: '🐾 Drag your pet or growth tree out of the way, and bigger bottom tabs', body: 'On a phone, the pet companion and growth tree used to sit fixed in the bottom corners — right where the new bottom tab bar now lives too. Both can now be dragged anywhere on screen (tap-and-hold, then move) to get them out of the way; wherever you leave one stays put on this device. The bottom tab bar\'s buttons are also bigger now, for an easier tap.' },
     { title: '🐛 Fixed: biometric unlock and "too many devices" popups appearing at the top of the page', body: 'Two of the overlay screens — "🫆 Set up biometric unlock" (Settings → Security) and the "too many devices signed in" gate during sign-in — were missing the CSS that actually centers a popup over the page; both showed up stuck at the very top instead, inline with whatever else was on screen. They now center and dim the background like every other popup in the app.' },
     { title: '📱 A more compact, app-like feel', body: 'Tighter spacing throughout the tracker — cards, buttons, the top bar, forms — so more fits on screen with less scrolling, plus rounder corners across the board. On a phone, the page tabs (Overview, Income, Debts…) now sit in a fixed bar at the bottom of the screen, the way a native app\'s navigation usually does, instead of a row under the month picker.' },
@@ -9161,7 +9162,11 @@ window.__ftStart = function(){
 
   document.addEventListener('click', function(e){
     var btn = e.target.closest && e.target.closest('.page-nav-btn');
-    if(btn) showPage(btn.getAttribute('data-page'));
+    // #page-nav-settings-btn (the mobile bottom-tab-bar's "Settings") is a
+    // real navigation, not a data-page tab — see its own listener below —
+    // so it's deliberately excluded here rather than calling showPage()
+    // with an empty data-page and blanking out whatever page was showing.
+    if(btn && btn.hasAttribute('data-page')) showPage(btn.getAttribute('data-page'));
   });
 
   // Settings is its own document (settings.html), not a tab among the
@@ -9171,9 +9176,13 @@ window.__ftStart = function(){
   // the bottom of settings.html) and shows a "back to tracker" link here
   // in place of this button. So from THIS document (sign-in.html) the
   // gear does a real page navigation rather than calling showPage()
-  // in-place.
+  // in-place. #page-nav-settings-btn is the same button, just also reachable
+  // from the mobile bottom tab bar (desktop keeps using the gear alone,
+  // since that tab bar is mobile-only — see styles.css).
   var settingsNavBtn = document.getElementById('settings-nav-btn');
   if(settingsNavBtn) settingsNavBtn.addEventListener('click', function(){ location.href = 'settings.html'; });
+  var pageNavSettingsBtn = document.getElementById('page-nav-settings-btn');
+  if(pageNavSettingsBtn) pageNavSettingsBtn.addEventListener('click', function(){ location.href = 'settings.html'; });
 
   document.addEventListener('DOMContentLoaded', function(){
     var last = null;

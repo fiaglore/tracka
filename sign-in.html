@@ -405,7 +405,12 @@
     <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
     <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
     <button type="button" class="page-nav-btn" data-page="investments"><span class="ic">💹</span>Investments</button>
-    <button type="button" class="page-nav-btn page-nav-btn-right" data-page="whatsnew"><span class="ic">✨</span>What's New<span class="whatsnew-tab-dot" hidden></span></button>
+    <button type="button" class="page-nav-btn" data-page="whatsnew"><span class="ic">✨</span>What's New<span class="whatsnew-tab-dot" hidden></span></button>
+    <!-- Mobile bottom tab bar only (desktop still uses the ⚙️ button in the
+         top bar — see #settings-nav-btn above) — a real navigation to
+         settings.html, not an in-place tab swap, same reasoning as
+         #settings-nav-btn's own click handler in app.js. -->
+    <button type="button" class="page-nav-btn page-nav-btn-right" id="page-nav-settings-btn"><span class="ic">⚙️</span>Settings</button>
   </nav>
 
   <!-- ============ OVERVIEW ============ -->
