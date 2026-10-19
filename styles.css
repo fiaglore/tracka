@@ -792,6 +792,8 @@ button,input,select,textarea{font-family:inherit;}
 .month-picker-row-label{flex:1;}
 .month-picker-skip-btn{flex:0 0 auto; border:none; background:transparent; cursor:pointer; font-size:12px; padding:2px 4px; border-radius:6px; opacity:.6;}
 .month-picker-skip-btn:hover{opacity:1; background:var(--bg-soft);}
+.month-picker-del-btn{flex:0 0 auto; border:none; background:transparent; cursor:pointer; font-size:12px; padding:2px 4px; border-radius:6px; opacity:.6;}
+.month-picker-del-btn:hover{opacity:1; background:var(--bg-soft);}
 .month-picker-add{border-top:1px dashed var(--line); margin-top:4px; padding-top:8px; color:var(--accent);}
 .month-picker-add .dot{display:none;}
 .month-period{font-size:12.5px; color:var(--muted); font-family:var(--font-mono);}
