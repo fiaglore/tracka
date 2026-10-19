@@ -2004,6 +2004,57 @@ window.__ftStart = function(){
     if(e.target && e.target.id==='balance-asof-date') renderBalanceAsOf();
   });
 
+  // ===== Balance reconciliation =====
+  // For whenever real-world spending has gotten ahead of what's actually been logged (a day,
+  // or a few, with nothing entered) — rather than reconstructing every missed purchase from
+  // memory, this closes the gap in one shot: tell it what your account actually shows right
+  // now, and the difference between that and what the tracker expects gets logged today as a
+  // single 💸 Lost balance entry (or, if you somehow have MORE than expected, a negative entry
+  // in that same bucket — found money is the rarer direction, but it's still just a gap to
+  // close either way). A fixed, reserved category id means it's found and reused every time,
+  // never duplicated, and it's exempt from the free-plan living-category cap since it's
+  // infrastructure for a core feature, not a category the user is choosing to add.
+  function reconcileBalanceCategoryId(){
+    const id = 'lcat_lostbalance';
+    if(!state.livingCategories.find(c=>c.id===id)){
+      const color = livingCategoryPalette[state.livingCategories.length % livingCategoryPalette.length];
+      state.livingCategories.push({id, name:'💸 Lost balance', color, budget:0});
+    }
+    return id;
+  }
+  function reconcileBalance(actualBalanceRaw){
+    const actual = Number(actualBalanceRaw);
+    if(!isFinite(actual)){ alert('Enter your real balance as a number.'); return; }
+    const date = todayISO();
+    const mi = dateToMonthIndex(date);
+    const expected = balanceAsOfDate(mi, date);
+    const diff = actual - expected; // positive = you have MORE than tracked, negative = LESS
+    if(Math.abs(diff) < 0.005){
+      showAppNotification('⚖️ Already matches', 'Your real balance already matches what\'s tracked for today — nothing to log.');
+      return;
+    }
+    const amount = -diff; // a shortfall (diff<0) logs as a positive expense; a surplus (diff>0)
+                           // logs as a negative one — either way the ledger lands exactly on
+                           // what was actually typed in.
+    const verb = diff<0 ? 'lost' : 'found';
+    if(!confirm('Tracked spending balance for today: '+fmt(expected)+'. Your real spending/cash balance: '+fmt(actual)+'. That\'s '+fmt(Math.abs(diff))+' '+verb+' — log it as 💸 Lost balance, dated today?')) return;
+    if(!confirmNotTypo(Math.abs(amount))) return;
+    if(state.livingEntries.length >= dailyLogCap()){ notifyDailyLogCapReached(); return; }
+    const categoryId = reconcileBalanceCategoryId();
+    state.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date, monthIndex:mi, categoryId, desc: diff<0 ? 'Reconciled: unaccounted spending' : 'Reconciled: unaccounted surplus', amount});
+    activeMonth = mi;
+    save();
+    showAppNotification('⚖️ Balance reconciled', 'Logged '+fmt(Math.abs(diff))+' '+verb+' as 💸 Lost balance for today.');
+  }
+  { const reconcileBtn = document.getElementById('reconcile-balance-btn');
+    if(reconcileBtn) reconcileBtn.addEventListener('click', function(){
+      const input = document.getElementById('reconcile-balance-input');
+      if(!input || input.value==='') { if(input) input.focus(); return; }
+      reconcileBalance(input.value);
+      input.value = '';
+    });
+  }
+
   // Running total saved (all top-ups made) from month 0 through mi (inclusive).
   // Combines the free-form savings ledger with everything ticked off in the savings apps.
   function cumulativeSavingsUpTo(mi){
@@ -7692,6 +7743,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '⚖️ Reconcile your balance instead of reconstructing a missed day', body: 'New "⚖️ Reconcile your balance" card on Overview, right below "Remaining balance as of" — for whenever real spending has gotten ahead of what\'s logged. Type what your spending/cash account actually shows right now (the same figure "Remaining balance as of" already tracks — not savings, investments, or other assets) and the gap between that and today\'s expected balance gets logged in one shot as a single "💸 Lost balance" daily-log entry, dated today, instead of reconstructing every purchase from memory. More than expected counts too, logged the same way.' },
     { title: '📈 Net worth no longer looks ahead to a future month', body: 'Net worth — the Net Worth tab, the top-bar "📈 Net worth" chip, and how fast your growth tree companion grows — used to follow the month picker wherever it went, including a future month you\'ve already set up for planning (next month\'s bills, a top-up queued ahead of time). It now always reflects today\'s real date: parking the picker on a future month shows your real net worth right now instead of a projection, while looking back at a past month still shows that month\'s own real snapshot.' },
     { title: '✅ The "within budget" card now accounts for investments', body: 'The Budget Health card (the ✅/⚠️ "within budget" / "over budget" summary on Overview) used to weigh only debts, living, gifts and savings against your max income — investments weren\'t in the picture at all, so planning a top-up or opening a new holding never moved that number. It now also counts a new holding opened this month, plus every top-up queued for this month (whether ticked yet or not), the same "planned counts, not just confirmed" treatment every other line in this card already gets. Fixed along the way: ticking a top-up was double-counting it (once via the holding\'s own, now-larger cost basis, again as the top-up itself), and a holding\'s cost basis kept growing with every top-up ever ticked against it, so a past month\'s figure could creep up whenever a much-later top-up got ticked — both now use the amount actually committed in that specific month.' },
     { title: '📱 Settings on the bottom tab bar, and a tidier top', body: '"⚙️ Settings" now also sits at the far right of the mobile bottom tab bar, alongside the existing gear icon in the top bar. The top of the tracker is also tidier on a phone: the tagline and daily quote are tucked away, the "Overall progress" card shows just the percentage and bar (its full income/expense breakdown is still there, just not fighting for space on every visit), and the row of stat chips is now one swipeable strip instead of wrapping onto several rows. The top bar itself now stays pinned in place as you scroll, the way a native app\'s header does.' },
