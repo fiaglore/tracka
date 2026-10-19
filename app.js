@@ -72,7 +72,7 @@ window.__ftStart = function(){
   // this gate is "on" in the sense that it locks the feature for everyone, with no self-serve way
   // to unlock it — that's expected for now, not a bug.
   const PREMIUM_FEATURE_KEYS = [
-    'bankStatementImport', 'autoFxRates', 'netWorth', 'investments', 'multiCurrency',
+    'bankStatementImport', 'autoFxRates', 'netWorth', 'investments', 'multiCurrency', 'deleteMonth',
     // One shared key for every free-tier item cap below (categories, savings
     // accounts, debts, income sources, gift goals) — there's only one
     // Premium tier, so there's no reason for these to unlock separately.
@@ -2658,8 +2658,10 @@ window.__ftStart = function(){
       const row = document.createElement('div');
       row.className = 'month-picker-row'+(i===activeMonth?' active':'')+(st==='complete'?' complete':st==='partial'?' partial':st==='skipped'?' skipped':'');
       row.setAttribute('role','option');
+      const isDeletableFutureMonth = i===N-1 && i>currentRealMonthIndex();
       row.innerHTML = `<span class="dot"></span><span class="month-picker-row-label">${monthLabels[i]} ${yearTags[i]}</span>
-        <button type="button" class="month-picker-skip-btn" title="${st==='skipped' ? 'Not tracked — click to include it again' : 'Mark as not tracked (excludes it from comparisons)'}">${st==='skipped' ? '🔇' : '🔊'}</button>`;
+        <button type="button" class="month-picker-skip-btn" title="${st==='skipped' ? 'Not tracked — click to include it again' : 'Mark as not tracked (excludes it from comparisons)'}">${st==='skipped' ? '🔇' : '🔊'}</button>
+        ${isDeletableFutureMonth ? `<button type="button" class="month-picker-del-btn" title="Delete this future month">🗑️</button>` : ''}`;
       row.title = monthPeriodLabel(i);
       row.addEventListener('click', ()=>{ activeMonth=i; closeMonthPicker(); render(); });
       row.querySelector('.month-picker-skip-btn').addEventListener('click', (e)=>{
@@ -2667,6 +2669,12 @@ window.__ftStart = function(){
         setMonthSkipped(i, monthCompleteness(i)!=='skipped');
         save();
         renderMonthPicker();
+      });
+      const delBtn = row.querySelector('.month-picker-del-btn');
+      if(delBtn) delBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        closeMonthPicker();
+        deleteMonth();
       });
       menu.appendChild(row);
     }
@@ -2779,6 +2787,44 @@ window.__ftStart = function(){
     activeMonth = mi;
     populateTargetSelect();
     save();
+  }
+  // Removes a month you've added ahead of time but no longer want tracked — only ever the
+  // LAST tracked month, and only when it's still in the future (strictly after today's real
+  // month), so there's no way to touch the current or any past month, and no index-shifting
+  // to worry about elsewhere (every other month keeps the same position). Premium, same as
+  // Net Worth/Investments — this is a power-planning tool, not a everyday-use feature.
+  function deleteMonth(){
+    if(!isFeatureUnlocked('deleteMonth')){
+      showAppNotification('🔒 Premium feature', 'Deleting a future month is a Premium feature — upgrade in Settings → "💎 Go Premium".');
+      return;
+    }
+    const mi = N-1;
+    if(mi<=currentRealMonthIndex()) return; // not a future month — nothing to do
+    const targetingGoal = state.giftGoals.find(g=>g.targetMonthIndex===mi);
+    if(targetingGoal){
+      alert('"'+targetingGoal.label+'" targets '+monthLabels[mi]+' '+yearTags[mi]+' — change or delete that gift goal first.');
+      return;
+    }
+    const label = monthLabels[mi]+' '+yearTags[mi];
+    const overrideKey = monthOverrideKey(monthLabels[mi], yearTags[mi]);
+    pinGated('Enter your PIN to delete '+label+' and everything logged in it — income, debts, savings-app rows, daily log entries, investments, and any top-up queued for it. This can\'t be undone.', function(){
+      state.months.pop();
+      monthLabels.pop(); yearTags.pop();
+      N--;
+      delete state.monthStartOverrides[overrideKey];
+      delete state.skippedMonths[overrideKey];
+      const removedInvIds = new Set(state.investments.filter(iv=>iv.monthIndex===mi).map(iv=>iv.id));
+      state.investments = state.investments.filter(iv=>iv.monthIndex!==mi);
+      state.investmentPrices = state.investmentPrices.filter(p=>!removedInvIds.has(p.investmentId));
+      state.investmentTopUps = state.investmentTopUps.filter(t=>t.monthIndex!==mi && !removedInvIds.has(t.investmentId));
+      state.extra = state.extra.filter(e=>e.monthIndex!==mi);
+      state.savings = state.savings.filter(s=>s.monthIndex!==mi);
+      state.livingEntries = state.livingEntries.filter(e=>entryMonthIndex(e)!==mi);
+      Object.keys(state.giftProgress).forEach(key=>{ if(key.endsWith('_'+mi)) delete state.giftProgress[key]; });
+      if(activeMonth>=N) activeMonth = N-1;
+      save();
+      showAppNotification('🗓️ Month deleted', label+' and everything in it has been removed.');
+    });
   }
 
   function renderList(containerId, items, kind){
@@ -5892,6 +5938,7 @@ window.__ftStart = function(){
   const XL_DATE = 'yyyy-mm-dd';
   const XL_MONTH_LIST = 'Months!$A$2:$A$61';
   const XL_CAT_LIST = "'Living Categories'!$A$2:$A$61";
+  const XL_INVESTMENT_TYPE_LIST = '"'+INVESTMENT_TYPES.map(t=>t.label).join(',')+'"';
   const XL_GIFT_LIST = "'Gift Goals'!$A$2:$A$61";
 
   // kind: text | month | money | int | yesno | date | list
@@ -5955,6 +6002,26 @@ window.__ftStart = function(){
       {key:'cat', h:'Category', w:30, kind:'list', list:XL_CAT_LIST},
       {key:'desc', h:'Description', w:36, kind:'text'},
       {key:'amount', h:'Amount', w:16, kind:'money'}]},
+    investments: {name:'Investments', cols:[
+      {key:'name', h:'Holding name', w:30, kind:'text'},
+      {key:'type', h:'Type', w:18, kind:'list', list:XL_INVESTMENT_TYPE_LIST},
+      {key:'units', h:'Units', w:14, kind:'money'},
+      {key:'cost', h:'Cost basis', w:16, kind:'money'},
+      {key:'month', h:'Month added', w:14, kind:'month', dv:XL_MONTH_LIST},
+      {key:'currency', h:'Currency (optional)', w:18, kind:'text'}]},
+    invprices: {name:'Investment Prices', cols:[
+      {key:'name', h:'Holding name', w:30, kind:'list', list:"'Investments'!$A$2:$A$61"},
+      {key:'date', h:'Date', w:16, kind:'date'},
+      {key:'price', h:'Price per unit', w:16, kind:'money'}]},
+    invtopups: {name:'Investment Top-ups', cols:[
+      {key:'name', h:'Holding name', w:30, kind:'list', list:"'Investments'!$A$2:$A$61"},
+      {key:'month', h:'Month', w:14, kind:'month', dv:XL_MONTH_LIST},
+      {key:'amount', h:'Amount', w:16, kind:'money'},
+      {key:'done', h:'Ticked?', w:13, kind:'yesno'},
+      {key:'date', h:'Date ticked', w:16, kind:'date'}]},
+    assets: {name:'Other Assets', cols:[
+      {key:'desc', h:'What is it?', w:36, kind:'text'},
+      {key:'amount', h:'Value', w:16, kind:'money'}]},
   };
 
   const XL_README = [
@@ -5979,6 +6046,10 @@ window.__ftStart = function(){
     ['Living Categories — your spending categories with an optional default monthly budget and colour.', ''],
     ['Living Budgets — OPTIONAL. Only for months where a category\'s budget differs from its default.', ''],
     ['Living Expenses — daily spending: date, category, description, amount. Its month is worked out from the date.', ''],
+    ['Investments — one row per holding: name, type, units, cost basis (what was actually paid), the month it was added, and an optional currency. Keep holding names unique.', ''],
+    ['Investment Prices — OPTIONAL. One row per day you logged a price for a holding, for its gain/loss history.', ''],
+    ['Investment Top-ups — OPTIONAL. One row per top-up queued for a holding, the month it is for, and whether it has been ticked off yet.', ''],
+    ['Other Assets — anything valued by hand on the Net Worth tab (a property, a vehicle) that is not an Investments holding.', ''],
     ['', ''],
     ['TIPS', 'head'],
     ['Type Month values like "Aug 2026" (or pick from the dropdown). Amounts are plain numbers — no currency symbols needed.', ''],
@@ -6063,7 +6134,7 @@ window.__ftStart = function(){
   function xlExportData(){
     const mk = mi => xlMonthKey(monthLabels[mi], yearTags[mi]);
     const yn = b => b ? 'Yes' : 'No';
-    const d = {months:[], settings:[], income:[], debts:[], extra:[], gifts:[], giftpay:[], apps:[], ledger:[], cats:[], budgets:[], living:[]};
+    const d = {months:[], settings:[], income:[], debts:[], extra:[], gifts:[], giftpay:[], apps:[], ledger:[], cats:[], budgets:[], living:[], investments:[], invprices:[], invtopups:[], assets:[]};
 
     for(let mi=0; mi<N; mi++) d.months.push([mk(mi), monthPeriodLabel(mi)]);
     d.settings.push(['Savings goal', Number(state.savingsGoal)||0]);
@@ -6131,6 +6202,24 @@ window.__ftStart = function(){
     state.livingEntries.slice().sort((a,b)=> a.date<b.date ? -1 : a.date>b.date ? 1 : 0).forEach(e=>{
       d.living.push([xlDateFromKey(e.date), livingCategoryById(e.categoryId).name, e.desc, Number(e.amount)||0]);
     });
+    // Investments: holdings, their price history, and any top-up queued against them — joined
+    // back together on import by holding name, the same "name ties rows together" convention
+    // Debts/Savings Accounts already use.
+    const invName = {};
+    state.investments.forEach(iv=>{ invName[iv.id] = iv.name; });
+    state.investments.forEach(iv=>{
+      d.investments.push([iv.name, investmentTypeInfo(iv.type).label, Number(iv.units)||0, Number(iv.costBasis)||0, typeof iv.monthIndex==='number' ? mk(iv.monthIndex) : '', iv.currency||'']);
+    });
+    state.investmentPrices.forEach(p=>{
+      const name = invName[p.investmentId]; if(!name) return;
+      d.invprices.push([name, xlDateFromKey(p.date), Number(p.price)||0]);
+    });
+    state.investmentTopUps.forEach(t=>{
+      const name = invName[t.investmentId]; if(!name) return;
+      d.invtopups.push([name, mk(t.monthIndex), Number(t.amount)||0, yn(t.checked), t.checked ? xlDateFromKey(t.lastTicked) : null]);
+    });
+    // Other assets (Net Worth tab)
+    state.assets.forEach(a=>{ d.assets.push([a.label, Number(a.amount)||0]); });
     return d;
   }
 
@@ -6253,12 +6342,20 @@ window.__ftStart = function(){
       return mi;
     };
 
+    // Every field live state can have — not just the ones this workbook format has sheets for
+    // (skippedMonths, ongoingSeries, accountCurrency, currencyRates, debtPayoffStrategy,
+    // debtInterestRates) — so applying this never leaves state missing a field something else
+    // in the tracker reads unconditionally. Settings-only fields with no sheet of their own
+    // reset to their fresh-signup default on import; everything else round-trips.
     const ns = {
       months: newLabels.map(()=>({income:[], debts:[], savingsApps:[]})),
       extra:[], giftGoals:[], giftProgress:{}, savings:[], savingsGoal:0,
       livingCategories:[], livingEntries:[], livingBudgetOverrides:{}, monthStartOverrides:{},
+      skippedMonths:{}, ongoingSeries:{}, assets:[], accountCurrency:{}, currencyRates:{},
+      currencyRatesUpdatedAt:0, investments:[], investmentPrices:[], investmentTopUps:[],
+      debtPayoffStrategy:'none', debtInterestRates:{},
     };
-    const counts = {income:0, debts:0, extra:0, gifts:0, apps:0, ledger:0, cats:0, living:0};
+    const counts = {income:0, debts:0, extra:0, gifts:0, apps:0, ledger:0, cats:0, living:0, investments:0, invprices:0, invtopups:0, assets:0};
 
     // 2. settings
     let impCur = null, impPay = null;
@@ -6380,6 +6477,43 @@ window.__ftStart = function(){
       const cat = addCat(xlStr(rec.cat) || 'Uncategorized', 0, '');
       const dkey = xlPartsKey(p);
       ns.livingEntries.push({id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), date:dkey, monthIndex:dateToMonthIndex(dkey), categoryId:cat.id, desc: xlStr(rec.desc) || cat.name, amount:amt}); counts.living++;
+    });
+
+    // 10. investments, their price history, and any top-up queued against them
+    const invIds = {};
+    R('investments').rows.forEach(rec=>{
+      const name = xlStr(rec.name); if(!name){ warn('Investments', rec, 'no holding name — row skipped'); return; }
+      const typeLabel = xlStr(rec.type);
+      const typeMatch = INVESTMENT_TYPES.find(t=>t.label.toLowerCase()===typeLabel.toLowerCase());
+      const mi = rec.month ? monthIdx(rec.month) : -1;
+      const entry = {id: makeCustomId('inv'), type: typeMatch ? typeMatch.id : 'stock', name, units: Math.max(0.000001, xlNum(rec.units)||1), costBasis: Math.max(0, xlNum(rec.cost))};
+      if(mi>=0) entry.monthIndex = mi;
+      const cur = xlStr(rec.currency); if(cur && cur.length<=5) entry.currency = cur;
+      ns.investments.push(entry); invIds[name.toLowerCase()] = entry.id; counts.investments++;
+    });
+    R('invprices').rows.forEach(rec=>{
+      const invId = invIds[xlStr(rec.name).toLowerCase()];
+      if(!invId){ warn('Investment Prices', rec, 'holding "'+xlStr(rec.name)+'" is not on the Investments sheet — row skipped'); return; }
+      const p = xlDateParts(rec.date);
+      if(!p){ warn('Investment Prices', rec, 'date "'+xlStr(rec.date)+'" not understood — row skipped'); return; }
+      const price = xlNum(rec.price); if(price<=0){ warn('Investment Prices', rec, 'price must be more than 0 — row skipped'); return; }
+      ns.investmentPrices.push({id: makeCustomId('invp'), investmentId: invId, date: xlPartsKey(p), price}); counts.invprices++;
+    });
+    R('invtopups').rows.forEach(rec=>{
+      const invId = invIds[xlStr(rec.name).toLowerCase()];
+      if(!invId){ warn('Investment Top-ups', rec, 'holding "'+xlStr(rec.name)+'" is not on the Investments sheet — row skipped'); return; }
+      const mi = need('Investment Top-ups', rec, rec.month); if(mi<0) return;
+      const amount = xlNum(rec.amount); if(amount<=0){ warn('Investment Top-ups', rec, 'amount must be more than 0 — row skipped'); return; }
+      const done = xlBool(rec.done);
+      const t = {id: makeCustomId('invtu'), investmentId: invId, monthIndex: mi, amount, checked: done};
+      const dk = xlPartsKey(xlDateParts(rec.date)); if(done && dk) t.lastTicked = dk;
+      ns.investmentTopUps.push(t); counts.invtopups++;
+    });
+
+    // 11. other assets (Net Worth tab)
+    R('assets').rows.forEach(rec=>{
+      const label = xlStr(rec.desc); if(!label){ warn('Other Assets', rec, 'no description — row skipped'); return; }
+      ns.assets.push({id: makeCustomId('asset'), label, amount: xlNum(rec.amount)}); counts.assets++;
     });
 
     return {newLabels, newTags, ns, counts, warnings, impCur, impPay};
@@ -6509,7 +6643,8 @@ window.__ftStart = function(){
       const c = parsed.counts;
       let msg = 'Import "'+file.name+'"?\n\n' +
         'Found ' + parsed.newLabels.length + ' months, ' + c.income + ' income rows, ' + c.debts + ' debt rows, ' + c.extra + ' extra-income rows, ' +
-        c.gifts + ' gift goals, ' + c.apps + ' savings-account rows, ' + c.ledger + ' ledger rows, ' + c.cats + ' living categories and ' + c.living + ' living expenses.\n\n' +
+        c.gifts + ' gift goals, ' + c.apps + ' savings-account rows, ' + c.ledger + ' ledger rows, ' + c.cats + ' living categories, ' + c.living + ' living expenses, ' +
+        c.investments + ' investments and ' + c.assets + ' other assets.\n\n' +
         'This REPLACES everything currently in the tracker. (Tip: press Export first if you want a backup.)';
       if(parsed.warnings.length){
         msg += '\n\n⚠ ' + parsed.warnings.length + ' row(s) will be skipped:\n' + parsed.warnings.slice(0,8).map(w=>'• '+w).join('\n') + (parsed.warnings.length>8 ? '\n• …and '+(parsed.warnings.length-8)+' more' : '');
@@ -7743,6 +7878,8 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🗑️ Delete a future month you added by mistake or changed your mind on', body: 'A small 🗑️ now shows up next to whichever future month sits last in the picker (one you added ahead of time to plan a bill or top-up) — only that one, and only once it\'s actually in the future, so the current or any past month can never be deleted this way. It\'s a ✨ Premium feature, PIN-gated like every other delete, and removes everything logged in it (income, debts, savings-app rows, daily log entries, investments, queued top-ups) along with it.' },
+    { title: '📁 Export & import now cover Investments and Other Assets', body: 'The Excel export/import (Settings → "📁 Data") was missing two sheets entirely — every investment holding (plus its price history and queued top-ups) and anything added under "🏺 Other assets" on the Net Worth tab. Both now round-trip through export, the blank template, and import, same as everything else. Fixed along the way: importing a workbook could leave a few settings (like recurring-bill tracking and currency rates) in a broken state that only showed up as errors elsewhere in the tracker afterward — those now reset cleanly to their defaults on import instead.' },
     { title: '⚖️ Reconcile your balance instead of reconstructing a missed day', body: 'New "⚖️ Reconcile your balance" card on Overview, right below "Remaining balance as of" — for whenever real spending has gotten ahead of what\'s logged. Type what your spending/cash account actually shows right now (the same figure "Remaining balance as of" already tracks — not savings, investments, or other assets) and the gap between that and today\'s expected balance gets logged in one shot as a single "💸 Lost balance" daily-log entry, dated today, instead of reconstructing every purchase from memory. More than expected counts too, logged the same way.' },
     { title: '📈 Net worth no longer looks ahead to a future month', body: 'Net worth — the Net Worth tab, the top-bar "📈 Net worth" chip, and how fast your growth tree companion grows — used to follow the month picker wherever it went, including a future month you\'ve already set up for planning (next month\'s bills, a top-up queued ahead of time). It now always reflects today\'s real date: parking the picker on a future month shows your real net worth right now instead of a projection, while looking back at a past month still shows that month\'s own real snapshot.' },
     { title: '✅ The "within budget" card now accounts for investments', body: 'The Budget Health card (the ✅/⚠️ "within budget" / "over budget" summary on Overview) used to weigh only debts, living, gifts and savings against your max income — investments weren\'t in the picture at all, so planning a top-up or opening a new holding never moved that number. It now also counts a new holding opened this month, plus every top-up queued for this month (whether ticked yet or not), the same "planned counts, not just confirmed" treatment every other line in this card already gets. Fixed along the way: ticking a top-up was double-counting it (once via the holding\'s own, now-larger cost basis, again as the top-up itself), and a holding\'s cost basis kept growing with every top-up ever ticked against it, so a past month\'s figure could creep up whenever a much-later top-up got ticked — both now use the amount actually committed in that specific month.' },
