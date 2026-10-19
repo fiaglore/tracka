@@ -2133,8 +2133,16 @@ window.__ftStart = function(){
   function manualAssetsTotal(){
     return state.assets.reduce((s,a)=>s+(Number(a.amount)||0), 0);
   }
+  // Which tracked month today's real-world date actually falls in — distinct from activeMonth,
+  // which the month picker can move ahead to a future month set up for planning purposes.
+  function currentRealMonthIndex(){ return dateToMonthIndex(todayISO()); }
+  // Net worth is "what you actually have right now" — it shouldn't run ahead just because the
+  // month picker is parked on a future month you've already set up (income, bills, a planned
+  // top-up) that hasn't arrived yet. Capping at today's real month means viewing that future
+  // month still shows today's real figure, while a past month still shows its own snapshot.
   function netWorthForMonth(mi){
-    return cumulativeBalanceUpTo(mi) + totalAppsBalanceUpToConverted(mi) - outstandingDebtsAsOf(mi) + manualAssetsTotal() + totalInvestmentsValue();
+    const cappedMi = Math.min(mi, currentRealMonthIndex());
+    return cumulativeBalanceUpTo(cappedMi) + totalAppsBalanceUpToConverted(cappedMi) - outstandingDebtsAsOf(cappedMi) + manualAssetsTotal() + totalInvestmentsValue();
   }
   // Confirms a destructive action with the security PIN gate (or biometric,
   // as its faster alternative) before running it — see the "security PIN
@@ -2361,9 +2369,12 @@ window.__ftStart = function(){
     if(locked) locked.hidden = true;
     content.hidden = false;
 
-    const cash = cumulativeBalanceUpTo(activeMonth);
-    const savings = totalAppsBalanceUpToConverted(activeMonth) + state.savings.filter(s=>s.monthIndex<=activeMonth).reduce((s,e)=>s+Number(e.amount||0),0);
-    const debts = outstandingDebtsAsOf(activeMonth);
+    // Capped at today's real month even if the picker is parked on a future month set up for
+    // planning — see netWorthForMonth() above for why.
+    const nwMonthIndex = Math.min(activeMonth, currentRealMonthIndex());
+    const cash = cumulativeBalanceUpTo(nwMonthIndex);
+    const savings = totalAppsBalanceUpToConverted(nwMonthIndex) + state.savings.filter(s=>s.monthIndex<=nwMonthIndex).reduce((s,e)=>s+Number(e.amount||0),0);
+    const debts = outstandingDebtsAsOf(nwMonthIndex);
     const assets = manualAssetsTotal();
     const investmentsValue = totalInvestmentsValue();
     const total = cash + savings - debts + assets + investmentsValue;
@@ -7733,6 +7744,7 @@ window.__ftStart = function(){
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
     { title: '⚖️ Reconcile your balance instead of reconstructing a missed day', body: 'New "⚖️ Reconcile your balance" card on Overview, right below "Remaining balance as of" — for whenever real spending has gotten ahead of what\'s logged. Type what your spending/cash account actually shows right now (the same figure "Remaining balance as of" already tracks — not savings, investments, or other assets) and the gap between that and today\'s expected balance gets logged in one shot as a single "💸 Lost balance" daily-log entry, dated today, instead of reconstructing every purchase from memory. More than expected counts too, logged the same way.' },
+    { title: '📈 Net worth no longer looks ahead to a future month', body: 'Net worth — the Net Worth tab, the top-bar "📈 Net worth" chip, and how fast your growth tree companion grows — used to follow the month picker wherever it went, including a future month you\'ve already set up for planning (next month\'s bills, a top-up queued ahead of time). It now always reflects today\'s real date: parking the picker on a future month shows your real net worth right now instead of a projection, while looking back at a past month still shows that month\'s own real snapshot.' },
     { title: '✅ The "within budget" card now accounts for investments', body: 'The Budget Health card (the ✅/⚠️ "within budget" / "over budget" summary on Overview) used to weigh only debts, living, gifts and savings against your max income — investments weren\'t in the picture at all, so planning a top-up or opening a new holding never moved that number. It now also counts a new holding opened this month, plus every top-up queued for this month (whether ticked yet or not), the same "planned counts, not just confirmed" treatment every other line in this card already gets. Fixed along the way: ticking a top-up was double-counting it (once via the holding\'s own, now-larger cost basis, again as the top-up itself), and a holding\'s cost basis kept growing with every top-up ever ticked against it, so a past month\'s figure could creep up whenever a much-later top-up got ticked — both now use the amount actually committed in that specific month.' },
     { title: '📱 Settings on the bottom tab bar, and a tidier top', body: '"⚙️ Settings" now also sits at the far right of the mobile bottom tab bar, alongside the existing gear icon in the top bar. The top of the tracker is also tidier on a phone: the tagline and daily quote are tucked away, the "Overall progress" card shows just the percentage and bar (its full income/expense breakdown is still there, just not fighting for space on every visit), and the row of stat chips is now one swipeable strip instead of wrapping onto several rows. The top bar itself now stays pinned in place as you scroll, the way a native app\'s header does.' },
     { title: '🐾 Drag your pet or growth tree out of the way, and bigger bottom tabs', body: 'On a phone, the pet companion and growth tree used to sit fixed in the bottom corners — right where the new bottom tab bar now lives too. Both can now be dragged anywhere on screen (tap-and-hold, then move) to get them out of the way; wherever you leave one stays put on this device. The bottom tab bar\'s buttons are also bigger now, for an easier tap.' },
