@@ -4810,7 +4810,10 @@ window.__ftStart = function(){
   }
 
   // A withdrawal is logged as a ticked negative movement in the month you're viewing, so it
-  // drops the balance from that month forward without touching the history before it.
+  // drops the balance from that month forward without touching the history before it. Withdrawn
+  // money doesn't just vanish from savings — it becomes spendable cash again — so it's also
+  // logged as an Extra Income entry for the same amount, the same way any other one-off windfall
+  // is, rather than leaving the cash/"Remaining balance" side of the tracker unaware it exists.
   function withdrawFromApp(key, rawAmount){
     const amount = Number(rawAmount)||0;
     if(amount<=0) return;
@@ -4829,6 +4832,11 @@ window.__ftStart = function(){
       withdrawal: true,
       lastTicked: todayKey()
     });
+    const dateStr = new Date().toLocaleDateString('en-NG', {day:'numeric', month:'short', year:'numeric'});
+    const extraEntry = {desc: 'Withdrawn from ' + (acct ? acct.label : 'savings'), amount: applied, date: dateStr, monthIndex: activeMonth};
+    const cur = getAccountCurrencyCode(key);
+    if(cur && cur!==currencyCode()) extraEntry.currency = cur;
+    state.extra.push(extraEntry);
     save();
     if(amount>applied) alert('Only ' + fmt(applied) + ' was available — the rest wasn\'t withdrawn.');
   }
@@ -7878,6 +7886,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🐷 Withdrawing from savings now logs it as Extra Income too', body: 'Withdrawing from a savings app dropped that account\'s balance, but the cash side of the tracker never found out the money was back in your pocket — so your "Remaining balance" and Net Worth would understate what you actually had. A withdrawal now also logs an Extra Income entry for the same amount automatically, labeled "Withdrawn from [account name]," so the two sides stay in sync without typing it in twice. Net Worth itself is unaffected either way — this only moves the same money from the savings bucket to the cash one, exactly as a real withdrawal does.' },
     { title: '🗑️ Delete a future month you added by mistake or changed your mind on', body: 'A small 🗑️ now shows up next to whichever future month sits last in the picker (one you added ahead of time to plan a bill or top-up) — only that one, and only once it\'s actually in the future, so the current or any past month can never be deleted this way. It\'s a ✨ Premium feature, PIN-gated like every other delete, and removes everything logged in it (income, debts, savings-app rows, daily log entries, investments, queued top-ups) along with it.' },
     { title: '📁 Export & import now cover Investments and Other Assets', body: 'The Excel export/import (Settings → "📁 Data") was missing two sheets entirely — every investment holding (plus its price history and queued top-ups) and anything added under "🏺 Other assets" on the Net Worth tab. Both now round-trip through export, the blank template, and import, same as everything else. Fixed along the way: importing a workbook could leave a few settings (like recurring-bill tracking and currency rates) in a broken state that only showed up as errors elsewhere in the tracker afterward — those now reset cleanly to their defaults on import instead.' },
     { title: '⚖️ Reconcile your balance instead of reconstructing a missed day', body: 'New "⚖️ Reconcile your balance" card on Overview, right below "Remaining balance as of" — for whenever real spending has gotten ahead of what\'s logged. Type what your spending/cash account actually shows right now (the same figure "Remaining balance as of" already tracks — not savings, investments, or other assets) and the gap between that and today\'s expected balance gets logged in one shot as a single "💸 Lost balance" daily-log entry, dated today, instead of reconstructing every purchase from memory. More than expected counts too, logged the same way.' },
