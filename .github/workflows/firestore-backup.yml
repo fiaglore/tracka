@@ -1,0 +1,36 @@
+name: Firestore backup
+
+# PRD-00: daily Firestore export to a Cloud Storage bucket (30-day retention is
+# set on the BUCKET as a lifecycle rule — see ops/BACKUP.md). NOT ACTIVE until the
+# one-time setup in ops/BACKUP.md is done: it needs the Firebase Blaze plan, a
+# bucket, and two repo secrets. Until then the job exits early without failing.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT  — already used by notify.yml; also needs the roles
+#                               in ops/BACKUP.md.
+#   BACKUP_BUCKET             — e.g. gs://tracka-app-f97e1-backups
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+    steps:
+      - name: Skip until configured
+        if: env.BACKUP_BUCKET == ''
+        run: echo "BACKUP_BUCKET secret not set; see ops/BACKUP.md. Skipping."
+      - uses: google-github-actions/auth@v2
+        if: env.BACKUP_BUCKET != ''
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: env.BACKUP_BUCKET != ''
+      - name: Export
+        if: env.BACKUP_BUCKET != ''
+        run: |
+          gcloud firestore export "$BACKUP_BUCKET/$(date -u +%F)" --project=tracka-app-f97e1

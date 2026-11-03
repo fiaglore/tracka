@@ -334,6 +334,19 @@ window.Trakka = {
     }
     return data;
   },
+  // Feature flags (PRD-00): featureFlags/global is a plain map of
+  // { flagName: true|false }. Missing doc, missing flag, or any error (offline,
+  // rules) all mean "off", so a new feature written against a flag ships dark
+  // and can never break the app by failing to load. Only the admin account can
+  // write it (firestore.rules) — flip flags in the Firebase console.
+  async loadFeatureFlags() {
+    try {
+      const snap = await getDoc(doc(db, "featureFlags", "global"));
+      return snap.exists() ? snap.data() : {};
+    } catch (e) {
+      return {};
+    }
+  },
   async saveUserDoc(uid, patch) {
     await setDoc(userDocRef(uid), patch, { merge: true });
   },
