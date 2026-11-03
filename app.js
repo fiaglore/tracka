@@ -47,6 +47,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 /* ===== next script block ===== */
 
+// Catches anything that slips past every try/catch already in the app and
+// logs it for admin.html to review — a crash nobody can describe precisely
+// from memory is still useful if it's captured. Listens from the moment
+// this script loads (sign-in flow included), not just once __ftStart()
+// runs, since window.Trakka.reportClientError() is itself a safe no-op
+// until someone's actually signed in (see firebase-init.js).
+window.addEventListener('error', function(e){
+  if(!window.Trakka || typeof window.Trakka.reportClientError !== 'function') return;
+  window.Trakka.reportClientError({
+    message: (e.error && e.error.message) || e.message || 'Uncaught error',
+    stack: e.error && e.error.stack,
+    context: 'window.onerror'
+  });
+});
+window.addEventListener('unhandledrejection', function(e){
+  if(!window.Trakka || typeof window.Trakka.reportClientError !== 'function') return;
+  const reason = e.reason;
+  window.Trakka.reportClientError({
+    message: (reason && reason.message) || String(reason) || 'Unhandled promise rejection',
+    stack: reason && reason.stack,
+    context: 'unhandledrejection'
+  });
+});
+
 window.__ftStart = function(){
   // Everything that used to be a per-user localStorage key now lives in one
   // Firestore document (users/{uid}), fetched into window.__ftCloudData
@@ -6638,7 +6662,7 @@ window.__ftStart = function(){
       const buf = await xlBuildWorkbook(xlExportData()).xlsx.writeBuffer();
       xlDownload('Financial_Tracker_'+xlStamp()+'.xlsx', buf);
       xlSetStatus('Exported your tracker to Excel.', 'ok');
-    }catch(e){ console.error(e); xlSetStatus('Export failed: '+e.message, 'err'); }
+    }catch(e){ console.error(e); xlSetStatus('Export failed: '+e.message, 'err'); if(window.Trakka) window.Trakka.reportClientError({message:'Excel export failed: '+e.message, stack:e.stack, context:'xlDoExport'}); }
   }
   async function xlDoImport(file){
     if(!xlReady() || !file) return;
@@ -6664,6 +6688,7 @@ window.__ftStart = function(){
       console.error(e);
       xlSetStatus('Import failed: '+e.message, 'err');
       alert('Import failed — nothing was changed.\n\n'+e.message);
+      if(window.Trakka) window.Trakka.reportClientError({message:'Excel import failed: '+e.message, stack:e.stack, context:'xlDoImport'});
     }
   }
 
@@ -7250,7 +7275,10 @@ window.__ftStart = function(){
             updateAvatarRemoveBtn();
             avatarUploadStatus('Photo updated.');
           })
-          .catch(function(e){ avatarUploadStatus((e && e.message) || 'Could not upload that photo.', true); })
+          .catch(function(e){
+            avatarUploadStatus((e && e.message) || 'Could not upload that photo.', true);
+            if(window.Trakka) window.Trakka.reportClientError({message:'Avatar upload failed: '+((e&&e.message)||'unknown'), stack:e&&e.stack, context:'avatar-upload'});
+          })
           .finally(function(){ uploadBtn.disabled = false; });
       });
     }
@@ -7886,6 +7914,7 @@ window.__ftStart = function(){
   // each, so there's a single place to add an entry. Newest first.
   // >>> Add a new entry here whenever a user-facing change ships. <<<
   const WHATSNEW_ITEMS = [
+    { title: '🐛 Crashes are now reported so bugs get found faster', body: 'If the app crashes, or a specific action (an import, a photo upload) fails, a short technical report is now logged automatically — the error message, where it happened, and your account identifier, never your financial figures or personal fields — reviewed by hand, by the one admin account, solely to find and fix real bugs. See the updated Privacy Policy (Terms & Privacy) for exactly what\'s captured; you can request these be deleted the same way as the rest of your data.' },
     { title: '🐷 Withdrawing from savings now logs it as Extra Income too', body: 'Withdrawing from a savings app dropped that account\'s balance, but the cash side of the tracker never found out the money was back in your pocket — so your "Remaining balance" and Net Worth would understate what you actually had. A withdrawal now also logs an Extra Income entry for the same amount automatically, labeled "Withdrawn from [account name]," so the two sides stay in sync without typing it in twice. Net Worth itself is unaffected either way — this only moves the same money from the savings bucket to the cash one, exactly as a real withdrawal does.' },
     { title: '🗑️ Delete a future month you added by mistake or changed your mind on', body: 'A small 🗑️ now shows up next to whichever future month sits last in the picker (one you added ahead of time to plan a bill or top-up) — only that one, and only once it\'s actually in the future, so the current or any past month can never be deleted this way. It\'s a ✨ Premium feature, PIN-gated like every other delete, and removes everything logged in it (income, debts, savings-app rows, daily log entries, investments, queued top-ups) along with it.' },
     { title: '📁 Export & import now cover Investments and Other Assets', body: 'The Excel export/import (Settings → "📁 Data") was missing two sheets entirely — every investment holding (plus its price history and queued top-ups) and anything added under "🏺 Other assets" on the Net Worth tab. Both now round-trip through export, the blank template, and import, same as everything else. Fixed along the way: importing a workbook could leave a few settings (like recurring-bill tracking and currency rates) in a broken state that only showed up as errors elsewhere in the tracker afterward — those now reset cleanly to their defaults on import instead.' },

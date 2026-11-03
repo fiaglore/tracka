@@ -26,6 +26,26 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
     }
 
+    // Crash/error reports (see firebase-init.js's reportClientError() and
+    // admin.html) — anyone signed in can file one about themselves, but
+    // only the admin account can read, resolve, or delete any of them.
+    // Deliberately no update rule for the reporting user: a report can't be
+    // edited after the fact by the person it's about, only reviewed by the
+    // admin, who also needs delete (admin.html lets them clear out old
+    // resolved/dismissed reports).
+    match /errorReports/{reportId} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
+    }
+
+    // Admin action audit log (see firebase-init.js's logAdminActionImpl()
+    // and admin.html) — a record of every account fix the admin makes.
+    // Admin-only, both ways: nobody else should even know this collection
+    // exists, let alone read or write to it.
+    match /adminActions/{actionId} {
+      allow read, create: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
+    }
+
     // Everything else is denied by default (no matching rule = no access).
   }
 }

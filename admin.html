@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnchorTrakk Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Scoped entirely under .admin-* / #admin-* so nothing here can collide
+     with the tracker's own styles.css rules — this page only borrows
+     styles.css for its CSS variables (colors, radii, fonts), not its
+     tracker-specific classes. */
+  body{background:var(--bg); color:var(--ink); font-family:var(--font-body); margin:0; min-height:100vh;}
+  .admin-shell{max-width:980px; margin:0 auto; padding:24px 16px 60px;}
+  .admin-gate{max-width:380px; margin:80px auto; padding:28px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-md); text-align:center;}
+  .admin-gate h1{font-size:20px; margin:0 0 4px;}
+  .admin-gate p{color:var(--muted); font-size:13px; margin:0 0 18px;}
+  .admin-gate input{width:100%; box-sizing:border-box; font-family:inherit; font-size:14px; padding:10px 12px; margin-bottom:10px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--bg-soft); color:var(--ink);}
+  .admin-gate button{width:100%; font-family:var(--font-display); font-weight:700; font-size:14px; padding:10px; border:none; border-radius:var(--radius-sm); background:var(--accent); color:#fff; cursor:pointer;}
+  .admin-gate button:hover{filter:brightness(.95);}
+  .admin-gate-err{color:var(--bad); font-size:12.5px; margin-top:10px; min-height:1em;}
+  .admin-top{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap;}
+  .admin-top h1{font-size:19px; margin:0;}
+  .admin-top .sub{font-size:12px; color:var(--muted);}
+  .admin-signout{font-family:inherit; font-size:12.5px; padding:6px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); color:var(--ink); cursor:pointer;}
+  .admin-tabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; border-bottom:1px solid var(--line); padding-bottom:0;}
+  .admin-tab-btn{font-family:var(--font-display); font-weight:600; font-size:13px; padding:8px 14px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;}
+  .admin-tab-btn.active{color:var(--accent-ink); border-bottom-color:var(--accent);}
+  .admin-panel{display:none;}
+  .admin-panel.active{display:block;}
+  .admin-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:10px; box-shadow:var(--shadow-sm);}
+  .admin-card.resolved{opacity:.6;}
+  .admin-row{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;}
+  .admin-msg{font-weight:600; font-size:13.5px;}
+  .admin-meta{font-size:11.5px; color:var(--muted); margin-top:3px;}
+  .admin-badge{display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:20px; background:var(--bg-soft); color:var(--muted); margin-right:6px;}
+  .admin-badge.open{background:rgba(210,96,63,.15); color:var(--bad);}
+  .admin-badge.resolved{background:rgba(78,143,90,.15); color:var(--good);}
+  .admin-badge.dismissed{background:var(--bg-soft); color:var(--muted);}
+  .admin-actions{display:flex; gap:6px; flex-wrap:wrap; flex:0 0 auto;}
+  .admin-btn{font-family:inherit; font-size:12px; padding:5px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer;}
+  .admin-btn:hover{background:var(--bg-soft);}
+  .admin-btn.primary{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .admin-btn.danger{border-color:var(--bad); color:var(--bad);}
+  .admin-stack{margin-top:8px; font-family:var(--font-mono); font-size:11px; white-space:pre-wrap; background:var(--bg-soft); border-radius:8px; padding:8px; color:var(--muted); max-height:240px; overflow:auto;}
+  .admin-filters{display:flex; gap:6px; margin-bottom:12px;}
+  .admin-filters button.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .admin-empty{color:var(--muted); font-size:13px; padding:16px; text-align:center;}
+  .admin-lookup{display:flex; gap:8px; margin-bottom:16px;}
+  .admin-lookup input{flex:1; font-family:inherit; font-size:13.5px; padding:8px 10px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); color:var(--ink);}
+  .admin-user-card h3{margin:0 0 4px; font-size:15px;}
+  .admin-user-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:12px 0;}
+  .admin-stat{background:var(--bg-soft); border-radius:10px; padding:8px 10px;}
+  .admin-stat .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted);}
+  .admin-stat .val{font-size:14px; font-weight:700; margin-top:2px;}
+  .admin-device-row{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:12.5px;}
+  .admin-device-row:last-child{border-bottom:none;}
+  .admin-note{font-size:11.5px; color:var(--muted); margin-top:10px;}
+  .admin-section-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin:16px 0 8px;}
+  textarea.admin-note-input{width:100%; box-sizing:border-box; font-family:inherit; font-size:12.5px; border:1px solid var(--line); border-radius:8px; padding:6px 8px; margin-top:6px; resize:vertical; min-height:40px;}
+</style>
+</head>
+<body>
+
+  <!-- Starts hidden — like sign-in.html's own auth-overlay, whether this
+       device already has a session to resume takes a moment to resolve,
+       and flashing the sign-in form first would be worse than a blank
+       page for that instant. -->
+  <div class="admin-gate" id="admin-gate" hidden>
+    <h1>🔧 AnchorTrakk Admin</h1>
+    <p>Sign in with the admin account.</p>
+    <form id="admin-signin-form">
+      <input type="text" id="admin-email" placeholder="Admin email" autocomplete="username" required>
+      <input type="password" id="admin-password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+    <div class="admin-gate-err" id="admin-gate-err"></div>
+  </div>
+
+  <div class="admin-gate" id="admin-denied" hidden>
+    <h1>🔒 Not an admin account</h1>
+    <p id="admin-denied-msg"></p>
+    <button type="button" id="admin-denied-signout">Sign out</button>
+  </div>
+
+  <div class="admin-shell" id="admin-shell" hidden>
+    <div class="admin-top">
+      <div>
+        <h1>🔧 AnchorTrakk Admin</h1>
+        <div class="sub" id="admin-whoami"></div>
+      </div>
+      <button type="button" class="admin-signout" id="admin-signout-btn">Sign out</button>
+    </div>
+
+    <div class="admin-tabs">
+      <button type="button" class="admin-tab-btn active" data-tab="errors">🐞 Error reports</button>
+      <button type="button" class="admin-tab-btn" data-tab="user">👤 User tools</button>
+      <button type="button" class="admin-tab-btn" data-tab="premium">💎 Premium requests</button>
+      <button type="button" class="admin-tab-btn" data-tab="log">📜 Audit log</button>
+    </div>
+
+    <!-- ===== Error reports ===== -->
+    <div class="admin-panel active" id="admin-panel-errors">
+      <div class="admin-filters" id="admin-error-filters">
+        <button type="button" class="admin-btn active" data-status="open">Open</button>
+        <button type="button" class="admin-btn" data-status="resolved">Resolved</button>
+        <button type="button" class="admin-btn" data-status="dismissed">Dismissed</button>
+        <button type="button" class="admin-btn" data-status="all">All</button>
+        <button type="button" class="admin-btn" id="admin-errors-refresh" style="margin-left:auto;">↻ Refresh</button>
+      </div>
+      <div id="admin-errors-list"><div class="admin-empty">Loading…</div></div>
+    </div>
+
+    <!-- ===== User tools ===== -->
+    <div class="admin-panel" id="admin-panel-user">
+      <div class="admin-lookup">
+        <input type="text" id="admin-uid-input" placeholder="User ID (uid) — e.g. from an error report">
+        <button type="button" class="admin-btn primary" id="admin-uid-lookup-btn">Look up</button>
+      </div>
+      <div class="admin-note">User lookup is by uid only — this page has no way to search by email, since that needs a server-side Firebase Admin SDK this app doesn't have. Find a uid from an error report's "View user" button, or from the account's own Settings → Security panel.</div>
+      <div id="admin-user-result"></div>
+    </div>
+
+    <!-- ===== Premium requests ===== -->
+    <div class="admin-panel" id="admin-panel-premium">
+      <div id="admin-premium-list"><div class="admin-empty">Loading…</div></div>
+    </div>
+
+    <!-- ===== Audit log ===== -->
+    <div class="admin-panel" id="admin-panel-log">
+      <div id="admin-log-list"><div class="admin-empty">Loading…</div></div>
+    </div>
+  </div>
+
+<script type="module" src="firebase-init.js"></script>
+<script type="module">
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTs(ts){
+  if(!ts) return '';
+  if(typeof ts.toDate === 'function') return ts.toDate().toLocaleString();
+  return '';
+}
+
+let currentErrorFilter = 'open';
+let allErrorReports = [];
+
+function showGate(){ el('admin-gate').hidden = false; el('admin-denied').hidden = true; el('admin-shell').hidden = true; }
+function showDenied(email){
+  el('admin-gate').hidden = true; el('admin-denied').hidden = false; el('admin-shell').hidden = true;
+  el('admin-denied-msg').textContent = 'Signed in as ' + email + ', which is not the admin account.';
+}
+function showShell(email){
+  el('admin-gate').hidden = true; el('admin-denied').hidden = true; el('admin-shell').hidden = false;
+  el('admin-whoami').textContent = 'Signed in as ' + email;
+  refreshErrors(); refreshPremium(); refreshLog();
+}
+function el(id){ return document.getElementById(id); }
+
+function init(){
+  if(!window.Trakka){ setTimeout(init, 50); return; }
+  const Trakka = window.Trakka;
+
+  el('admin-signin-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const email = el('admin-email').value.trim();
+    const pw = el('admin-password').value;
+    el('admin-gate-err').textContent = '';
+    Trakka.signIn(email, pw, true).catch(function(err){
+      el('admin-gate-err').textContent = (err && err.message) || 'Could not sign in.';
+    });
+  });
+  el('admin-denied-signout').addEventListener('click', function(){ Trakka.signOutUser(); });
+  el('admin-signout-btn').addEventListener('click', function(){ Trakka.signOutUser(); });
+
+  Trakka.onAuthChange(function(user){
+    if(!user){ showGate(); return; }
+    if(user.email !== Trakka.ADMIN_EMAIL){ showDenied(user.email); return; }
+    showShell(user.email);
+  });
+
+  // ----- tabs -----
+  document.querySelectorAll('.admin-tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.admin-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
+      btn.classList.add('active');
+      el('admin-panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ----- error reports -----
+  function renderErrors(){
+    const listEl = el('admin-errors-list');
+    const filtered = currentErrorFilter === 'all' ? allErrorReports : allErrorReports.filter(function(r){ return (r.status||'open') === currentErrorFilter; });
+    if(filtered.length === 0){ listEl.innerHTML = '<div class="admin-empty">Nothing here.</div>'; return; }
+    listEl.innerHTML = filtered.map(function(r){
+      const status = r.status || 'open';
+      return '<div class="admin-card' + (status!=='open' ? ' resolved' : '') + '" data-id="' + r.id + '">' +
+        '<div class="admin-row">' +
+          '<div>' +
+            '<span class="admin-badge ' + status + '">' + status + '</span>' +
+            '<span class="admin-msg">' + esc(r.message) + '</span>' +
+            '<div class="admin-meta">' + esc(r.context||'') + ' · ' + esc(r.page||'') + ' · ' + esc(r.email||r.uid||'') + ' · ' + fmtTs(r.createdAt) + '</div>' +
+          '</div>' +
+          '<div class="admin-actions">' +
+            '<button type="button" class="admin-btn admin-view-user-btn" data-uid="' + esc(r.uid) + '">View user</button>' +
+            (status!=='resolved' ? '<button type="button" class="admin-btn primary admin-resolve-btn" data-id="' + r.id + '">✅ Resolve</button>' : '') +
+            (status!=='dismissed' ? '<button type="button" class="admin-btn admin-dismiss-btn" data-id="' + r.id + '">Dismiss</button>' : '') +
+            (status!=='open' ? '<button type="button" class="admin-btn danger admin-delete-report-btn" data-id="' + r.id + '">🗑️ Delete</button>' : '') +
+          '</div>' +
+        '</div>' +
+        (r.stack ? '<details><summary style="cursor:pointer;font-size:11.5px;color:var(--muted);margin-top:6px;">Stack trace</summary><div class="admin-stack">' + esc(r.stack) + '</div></details>' : '') +
+        (r.note ? '<div class="admin-meta">Note: ' + esc(r.note) + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+  function refreshErrors(){
+    el('admin-errors-list').innerHTML = '<div class="admin-empty">Loading…</div>';
+    Trakka.listErrorReports().then(function(list){ allErrorReports = list; renderErrors(); })
+      .catch(function(e){ el('admin-errors-list').innerHTML = '<div class="admin-empty">Could not load: ' + esc(e.message) + '</div>'; });
+  }
+  document.querySelectorAll('#admin-error-filters button[data-status]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#admin-error-filters button[data-status]').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentErrorFilter = btn.dataset.status;
+      renderErrors();
+    });
+  });
+  el('admin-errors-refresh').addEventListener('click', refreshErrors);
+  el('admin-errors-list').addEventListener('click', function(e){
+    const resolveBtn = e.target.closest('.admin-resolve-btn');
+    const dismissBtn = e.target.closest('.admin-dismiss-btn');
+    const deleteBtn = e.target.closest('.admin-delete-report-btn');
+    const viewBtn = e.target.closest('.admin-view-user-btn');
+    if(resolveBtn){
+      Trakka.setErrorReportStatus(resolveBtn.dataset.id, 'resolved').then(refreshErrors);
+    } else if(dismissBtn){
+      Trakka.setErrorReportStatus(dismissBtn.dataset.id, 'dismissed').then(refreshErrors);
+    } else if(deleteBtn){
+      if(confirm('Delete this error report permanently?')) Trakka.deleteErrorReport(deleteBtn.dataset.id).then(refreshErrors);
+    } else if(viewBtn && viewBtn.dataset.uid){
+      el('admin-uid-input').value = viewBtn.dataset.uid;
+      document.querySelector('.admin-tab-btn[data-tab="user"]').click();
+      lookupUser(viewBtn.dataset.uid);
+    }
+  });
+
+  // ----- user tools -----
+  function renderUser(uid, data, errors){
+    const resultEl = el('admin-user-result');
+    if(!data){ resultEl.innerHTML = '<div class="admin-empty">No account found for that uid.</div>'; return; }
+    const ent = data.entitlements || {};
+    const premiumActive = !!ent.premium && (!ent.premiumExpiresAt || (typeof ent.premiumExpiresAt.toMillis === 'function' && ent.premiumExpiresAt.toMillis() > Date.now()));
+    const devices = Array.isArray(data.trustedDevices) ? data.trustedDevices : [];
+    const hasPin = !!data.pinAuth;
+    errors = errors.slice().sort(function(a,b){
+      const at = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const bt = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return bt - at;
+    });
+    // The user doc itself never stores email (it lives only in Firebase
+    // Auth, which this page has no server-side way to query) — but any of
+    // this uid's own error reports already carry the reporter's email, so
+    // that's used as a fallback display value when one exists.
+    const knownEmail = data.email || (errors[0] && errors[0].email) || '';
+    resultEl.innerHTML =
+      '<div class="admin-card admin-user-card">' +
+        '<h3>' + esc(data.displayName || uid) + '</h3>' +
+        '<div class="admin-meta">uid: ' + esc(uid) + (knownEmail ? ' · ' + esc(knownEmail) : '') + '</div>' +
+        '<div class="admin-user-grid">' +
+          '<div class="admin-stat"><div class="lbl">Premium</div><div class="val">' + (premiumActive ? '✅ Active' : '— Not active') + '</div></div>' +
+          '<div class="admin-stat"><div class="lbl">Trusted devices</div><div class="val">' + devices.length + '</div></div>' +
+          '<div class="admin-stat"><div class="lbl">PIN lock</div><div class="val">' + (hasPin ? '🔒 Set' : '— None') + '</div></div>' +
+          '<div class="admin-stat"><div class="lbl">Error reports</div><div class="val">' + errors.length + '</div></div>' +
+        '</div>' +
+        (devices.length ? devices.map(function(d){
+          return '<div class="admin-device-row"><span>' + esc(d.label||d.id) + ' · last seen ' + (d.lastSeen ? new Date(d.lastSeen).toLocaleString() : '—') + '</span></div>';
+        }).join('') : '') +
+        '<div class="admin-actions" style="margin-top:12px;">' +
+          '<button type="button" class="admin-btn danger" id="admin-clear-devices-btn">Clear all devices</button>' +
+          '<button type="button" class="admin-btn danger" id="admin-clear-pin-btn">Clear PIN lock</button>' +
+        '</div>' +
+        '<div class="admin-note">Clearing the PIN lock only clears the Firestore-side copy — a device already stuck at its own PIN screen still needs that device\'s own site data cleared, or its "sign in with password instead" option, since the actual check happens against a cache on that one device, nothing this page can reach remotely.</div>' +
+      '</div>' +
+      (errors.length ? '<div class="admin-section-title">Recent error reports from this user</div>' + errors.map(function(r){
+        return '<div class="admin-card"><span class="admin-badge ' + (r.status||'open') + '">' + (r.status||'open') + '</span><span class="admin-msg">' + esc(r.message) + '</span><div class="admin-meta">' + esc(r.context||'') + ' · ' + fmtTs(r.createdAt) + '</div></div>';
+      }).join('') : '');
+
+    const clearDevBtn = el('admin-clear-devices-btn');
+    if(clearDevBtn) clearDevBtn.addEventListener('click', function(){
+      if(!confirm('Clear all trusted devices for this account? They will need to sign in again.')) return;
+      Trakka.adminClearDevices(uid).then(function(){ lookupUser(uid); });
+    });
+    const clearPinBtn = el('admin-clear-pin-btn');
+    if(clearPinBtn) clearPinBtn.addEventListener('click', function(){
+      if(!confirm('Clear this account\'s PIN lock record?')) return;
+      Trakka.adminClearPin(uid).then(function(){ lookupUser(uid); });
+    });
+  }
+  function lookupUser(uid){
+    if(!uid) return;
+    el('admin-user-result').innerHTML = '<div class="admin-empty">Loading…</div>';
+    Promise.all([Trakka.adminGetUser(uid), Trakka.listErrorReportsForUser(uid)])
+      .then(function(results){ renderUser(uid, results[0], results[1]); })
+      .catch(function(e){ el('admin-user-result').innerHTML = '<div class="admin-empty">Could not load: ' + esc(e.message) + '</div>'; });
+  }
+  el('admin-uid-lookup-btn').addEventListener('click', function(){ lookupUser(el('admin-uid-input').value.trim()); });
+  el('admin-uid-input').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); lookupUser(el('admin-uid-input').value.trim()); } });
+
+  // ----- premium requests -----
+  function refreshPremium(){
+    const listEl = el('admin-premium-list');
+    listEl.innerHTML = '<div class="admin-empty">Loading…</div>';
+    Trakka.listPendingPremiumRequests().then(function(list){
+      listEl.innerHTML = list.length === 0 ? '<div class="admin-empty">No pending requests.</div>' : list.map(function(r){
+        const req = r.premiumRequest || {};
+        return '<div class="admin-card"><div class="admin-row">' +
+          '<div><span class="admin-msg">' + esc(r.displayName || r.uid) + '</span><div class="admin-meta">' + esc(req.product||'premium') + ' · ' + fmtTs(req.submittedAt) + '</div></div>' +
+          '<div class="admin-actions">' +
+            '<button type="button" class="admin-btn admin-view-receipt-btn" data-uid="' + esc(r.uid) + '">View receipt</button>' +
+            '<button type="button" class="admin-btn primary admin-approve-btn" data-uid="' + esc(r.uid) + '" data-product="' + esc(req.product||'premium') + '">✅ Approve</button>' +
+            '<button type="button" class="admin-btn danger admin-reject-btn" data-uid="' + esc(r.uid) + '">✕ Reject</button>' +
+          '</div>' +
+        '</div></div>';
+      }).join('');
+    }).catch(function(e){ listEl.innerHTML = '<div class="admin-empty">Could not load: ' + esc(e.message) + '</div>'; });
+  }
+  el('admin-premium-list').addEventListener('click', function(e){
+    const approveBtn = e.target.closest('.admin-approve-btn');
+    const rejectBtn = e.target.closest('.admin-reject-btn');
+    const viewBtn = e.target.closest('.admin-view-receipt-btn');
+    if(approveBtn){
+      Trakka.approvePremiumRequest(approveBtn.dataset.uid, approveBtn.dataset.product).then(refreshPremium);
+    } else if(rejectBtn){
+      const reason = prompt('Reason for rejecting (optional):') || '';
+      Trakka.rejectPremiumRequest(rejectBtn.dataset.uid, reason).then(refreshPremium);
+    } else if(viewBtn){
+      Trakka.fetchReceiptBlob(viewBtn.dataset.uid).then(function(blob){
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+      }).catch(function(err){ alert((err && err.message) || 'Could not load that receipt.'); });
+    }
+  });
+
+  // ----- audit log -----
+  function refreshLog(){
+    const listEl = el('admin-log-list');
+    listEl.innerHTML = '<div class="admin-empty">Loading…</div>';
+    Trakka.listAdminActions().then(function(list){
+      listEl.innerHTML = list.length === 0 ? '<div class="admin-empty">No actions logged yet.</div>' : list.map(function(a){
+        return '<div class="admin-card"><span class="admin-msg">' + esc(a.action) + '</span>' +
+          '<div class="admin-meta">' + esc(a.adminEmail) + ' → uid ' + esc(a.targetUid) + (a.details ? ' · ' + esc(a.details) : '') + ' · ' + fmtTs(a.at) + '</div></div>';
+      }).join('');
+    }).catch(function(e){ listEl.innerHTML = '<div class="admin-empty">Could not load: ' + esc(e.message) + '</div>'; });
+  }
+}
+window.addEventListener('trakka:ready', init);
+init();
+</script>
+</body>
+</html>
