@@ -16,6 +16,7 @@
 node_modules
 tests
 ops
+compliance
 .git
 .github
 .wrangler

@@ -1731,3 +1731,6 @@ body.settings-only-view .app-shell > footer{
 .landing-trust-strip{text-align:center; margin:0 auto; max-width:none;}
 .landing-fun-strip{text-align:center; font-size:14px; color:var(--muted); margin:22px 0 0;}
 .landing-fun-strip b{color:var(--ink);}
+/* GRW-03: static Premium benefit list replaces the one-at-a-time rotator */
+.landing-premium-list{list-style:none; margin:0 auto 22px; padding:0; max-width:520px; text-align:left; display:grid; gap:10px;}
+.landing-premium-list li{font-size:14.5px; line-height:1.45; padding-left:2px;}
