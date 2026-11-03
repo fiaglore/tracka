@@ -40,6 +40,12 @@
   ],
   "routes": [
     {
+      "pattern": "www.anchortrakk.com.ng",
+      "custom_domain": true
+    },
+    // Old domain kept attached so existing links, installed PWAs and the
+    // Digital Asset Links origin keep working. Remove once nothing uses it.
+    {
       "pattern": "www.trakka.com.ng",
       "custom_domain": true
     }

@@ -4418,9 +4418,9 @@ window.__ftStart = function(){
       // badge/quest, so it stays special rather than popping up constantly.
       const savingsGoalJustHit = newlyEarnedBadges.some(b=>b.id==='savingsgoalhit');
       if(newlyClearedDebts.length){
-        showMilestoneCard('🎉 Debt-Free!', newlyClearedDebts.map(d=>'"'+d.label+'"').join(' & ')+' fully paid off', 'trakka.com.ng');
+        showMilestoneCard('🎉 Debt-Free!', newlyClearedDebts.map(d=>'"'+d.label+'"').join(' & ')+' fully paid off', 'anchortrakk.com.ng');
       } else if(savingsGoalJustHit){
-        showMilestoneCard('🌻 Goal Reached!', 'Savings goal of '+fmt(goal)+' hit', 'trakka.com.ng');
+        showMilestoneCard('🌻 Goal Reached!', 'Savings goal of '+fmt(goal)+' hit', 'anchortrakk.com.ng');
       }
     }
 
