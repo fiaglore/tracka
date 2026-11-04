@@ -8395,6 +8395,10 @@ window.__ftStart = function(){
       setError(e && e.message === 'timeout'
         ? 'This is taking longer than usual. Check your connection and reload the page.'
         : 'Could not reach the server. Check your connection and reload.');
+      // Also show the real reason (Firestore code such as permission-denied,
+      // unavailable, resource-exhausted, failed-precondition, or "timeout"),
+      // which the friendly line above hides and which is what support needs.
+      showFatalBanner('Could not load your data (' + ((e && (e.code || e.message)) || 'unknown error') + '). Reload to try again; if it keeps happening, send this message to support@anchortrakk.com.ng.');
       hideAuthLoading();
       started = false;
       window.__ftUid = null;
