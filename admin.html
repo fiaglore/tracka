@@ -158,21 +158,32 @@ function fmtTs(ts){
 let currentErrorFilter = 'open';
 let allErrorReports = [];
 
-function showGate(){ el('admin-gate').hidden = false; el('admin-denied').hidden = true; el('admin-shell').hidden = true; }
-function showDenied(email){
-  el('admin-gate').hidden = true; el('admin-denied').hidden = false; el('admin-shell').hidden = true;
-  el('admin-denied-msg').textContent = 'Signed in as ' + email + ', which is not the admin account.';
-}
-function showShell(email){
-  el('admin-gate').hidden = true; el('admin-denied').hidden = true; el('admin-shell').hidden = false;
-  el('admin-whoami').textContent = 'Signed in as ' + email;
-  refreshErrors(); refreshPremium(); refreshLog();
-}
 function el(id){ return document.getElementById(id); }
 
 function init(){
   if(!window.Trakka){ setTimeout(init, 50); return; }
   const Trakka = window.Trakka;
+
+  // showGate/showDenied/showShell live inside init(), not at module scope,
+  // because showShell() calls refreshErrors()/refreshPremium()/refreshLog()
+  // below, which are themselves only defined inside this same closure —
+  // calling them from outside it would throw "not defined" the moment
+  // anyone signs in, which is exactly what happened here once already (see
+  // the PR's own end-to-end test for how this was actually caught: the
+  // dashboard appeared to open — the hidden-flag flips above the throw
+  // still ran — but every panel sat on "Loading…" forever, since the
+  // ReferenceError landed as a rejected signIn() promise and got written
+  // into #admin-gate-err, which was already hidden by then).
+  function showGate(){ el('admin-gate').hidden = false; el('admin-denied').hidden = true; el('admin-shell').hidden = true; }
+  function showDenied(email){
+    el('admin-gate').hidden = true; el('admin-denied').hidden = false; el('admin-shell').hidden = true;
+    el('admin-denied-msg').textContent = 'Signed in as ' + email + ', which is not the admin account.';
+  }
+  function showShell(email){
+    el('admin-gate').hidden = true; el('admin-denied').hidden = true; el('admin-shell').hidden = false;
+    el('admin-whoami').textContent = 'Signed in as ' + email;
+    refreshErrors(); refreshPremium(); refreshLog();
+  }
 
   el('admin-signin-form').addEventListener('submit', function(e){
     e.preventDefault();
@@ -193,19 +204,37 @@ function init(){
   });
 
   // ----- tabs -----
+  // Error reports/Premium requests/Audit log each only refresh themselves
+  // after their OWN actions (resolve, approve, etc.) — nothing re-fetches
+  // them just from switching tabs. Audit log has no actions of its own at
+  // all, so without this it would only ever show whatever existed at the
+  // moment the admin signed in, never anything logged afterward, for the
+  // entire session. Re-fetching on every switch keeps all three current
+  // without needing a per-panel refresh button. User tools is left alone —
+  // it has no standing list to go stale, only a uid search the admin
+  // re-runs themselves.
+  const TAB_REFRESH = { errors: refreshErrors, premium: refreshPremium, log: refreshLog };
   document.querySelectorAll('.admin-tab-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       document.querySelectorAll('.admin-tab-btn').forEach(function(b){ b.classList.remove('active'); });
       document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
       btn.classList.add('active');
       el('admin-panel-' + btn.dataset.tab).classList.add('active');
+      const refresh = TAB_REFRESH[btn.dataset.tab];
+      if(refresh) refresh();
     });
   });
 
   // ----- error reports -----
   function renderErrors(){
     const listEl = el('admin-errors-list');
-    const filtered = currentErrorFilter === 'all' ? allErrorReports : allErrorReports.filter(function(r){ return (r.status||'open') === currentErrorFilter; });
+    // safeStatus() here too, not just when rendering the badge below — a
+    // report whose status is neither a known value nor "open" would
+    // otherwise match NONE of the three specific filters (invisible under
+    // Open, Resolved, or Dismissed alike) while still showing under All
+    // with a badge that claims "open", which is confusing even though
+    // nothing unsafe renders either way.
+    const filtered = currentErrorFilter === 'all' ? allErrorReports : allErrorReports.filter(function(r){ return safeStatus(r.status) === currentErrorFilter; });
     if(filtered.length === 0){ listEl.innerHTML = '<div class="admin-empty">Nothing here.</div>'; return; }
     listEl.innerHTML = filtered.map(function(r){
       const status = safeStatus(r.status);
