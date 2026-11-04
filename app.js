@@ -8180,6 +8180,22 @@ window.__ftStart = function(){
     setError('');
   }
   function setError(msg){ $('auth-error').textContent = msg || ''; }
+  // Always-visible error strip, independent of which screen state the page is
+  // stuck in (the sign-in form's own error line can be hidden behind the gate).
+  function showFatalBanner(msg){
+    try{
+      hideAuthLoading();
+      var b = document.getElementById('ft-fatal-banner');
+      if(!b){
+        b = document.createElement('div');
+        b.id = 'ft-fatal-banner';
+        b.setAttribute('role','alert');
+        b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;padding:14px 16px;background:#b3261e;color:#fff;font:600 14px/1.4 system-ui,sans-serif;text-align:center;';
+        document.body.appendChild(b);
+      }
+      b.textContent = msg;
+    }catch(e){ console.error(e); }
+  }
 
   // Covers the gap between submitting sign-in/create-account and the tracker
   // actually being ready — both the Firebase Auth round trip and the
@@ -9027,7 +9043,15 @@ window.__ftStart = function(){
     checkPinUnlockEligibility();
     window.Trakka.onAuthChange(function(user){
       authReported = true;
-      if(user){ begin(user); }
+      if(user){
+        begin(user).catch(function(e){
+          // begin() is async and nothing awaited it, so any error thrown after
+          // sign-in (loading data, the device/PIN gates, starting the tracker)
+          // vanished and left the spinner or a half-drawn tracker with no clue.
+          console.error('AnchorTrakk: failed after sign-in', e);
+          showFatalBanner('Signed in, but loading your data failed: ' + (e && e.message ? e.message : String(e)) + '. Reload to try again; if it keeps happening, send this message to support@anchortrakk.com.ng.');
+        });
+      }
       // Signed out while the tracker was open (auto-logout, or sign-out in another tab):
       // nothing else re-locks the UI, so leave for the signed-out page instead of
       // leaving the tracker visible with no session behind it. If auto-logout.js just
