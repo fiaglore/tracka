@@ -58,7 +58,17 @@ service cloud.firestore {
     // — reportClientError() in firebase-init.js has to keep writing this
     // exact shape, or every report will simply fail to save.
     match /errorReports/{reportId} {
+      // reportClientError() always writes through addDoc(), which lets
+      // Firestore pick an auto-ID (alphanumeric, ~20 chars) — nothing
+      // about the DATA above constrains the id itself, since that's a
+      // path segment, not a field. A caller going around this app
+      // entirely (a raw SDK/REST call) could otherwise choose any string
+      // as the document id, including one admin.html would render
+      // unescaped-looking if a future edit ever missed esc()-ing it (as
+      // happened with `status` above) — this closes that off at the one
+      // place it can be, independent of whatever admin.html does.
       allow create: if request.auth != null
+        && reportId.matches('^[A-Za-z0-9_-]{1,64}$')
         && request.resource.data.keys().hasOnly(['uid', 'email', 'message', 'stack', 'context', 'page', 'userAgent', 'status', 'createdAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email

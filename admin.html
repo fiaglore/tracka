@@ -209,7 +209,15 @@ function init(){
     if(filtered.length === 0){ listEl.innerHTML = '<div class="admin-empty">Nothing here.</div>'; return; }
     listEl.innerHTML = filtered.map(function(r){
       const status = safeStatus(r.status);
-      return '<div class="admin-card' + (status!=='open' ? ' resolved' : '') + '" data-id="' + r.id + '">' +
+      // r.id is normally a Firestore auto-ID (addDoc() picks it, see
+      // reportClientError()) but the document ID itself is outside what
+      // firestore.rules' create rule can constrain by data shape alone —
+      // anyone calling setDoc() directly, rather than through this app,
+      // could in principle choose their own id string. Escaped here for
+      // the same reason `status` is: this page must never trust ANY field
+      // on a report, including the id, to already be safe to interpolate.
+      const rid = esc(r.id);
+      return '<div class="admin-card' + (status!=='open' ? ' resolved' : '') + '" data-id="' + rid + '">' +
         '<div class="admin-row">' +
           '<div>' +
             '<span class="admin-badge ' + status + '">' + status + '</span>' +
@@ -218,9 +226,9 @@ function init(){
           '</div>' +
           '<div class="admin-actions">' +
             '<button type="button" class="admin-btn admin-view-user-btn" data-uid="' + esc(r.uid) + '">View user</button>' +
-            (status!=='resolved' ? '<button type="button" class="admin-btn primary admin-resolve-btn" data-id="' + r.id + '">✅ Resolve</button>' : '') +
-            (status!=='dismissed' ? '<button type="button" class="admin-btn admin-dismiss-btn" data-id="' + r.id + '">Dismiss</button>' : '') +
-            (status!=='open' ? '<button type="button" class="admin-btn danger admin-delete-report-btn" data-id="' + r.id + '">🗑️ Delete</button>' : '') +
+            (status!=='resolved' ? '<button type="button" class="admin-btn primary admin-resolve-btn" data-id="' + rid + '">✅ Resolve</button>' : '') +
+            (status!=='dismissed' ? '<button type="button" class="admin-btn admin-dismiss-btn" data-id="' + rid + '">Dismiss</button>' : '') +
+            (status!=='open' ? '<button type="button" class="admin-btn danger admin-delete-report-btn" data-id="' + rid + '">🗑️ Delete</button>' : '') +
           '</div>' +
         '</div>' +
         (r.stack ? '<details><summary style="cursor:pointer;font-size:11.5px;color:var(--muted);margin-top:6px;">Stack trace</summary><div class="admin-stack">' + esc(r.stack) + '</div></details>' : '') +

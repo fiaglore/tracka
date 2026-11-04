@@ -123,6 +123,16 @@ test('errorReports: cannot spoof status away from "open", or send extra/oversize
   await assertFails(setDoc(doc(db, 'errorReports/r7'), { ...validReport('alice'), message: 'x'.repeat(2001) }));
 });
 
+// A normal addDoc() always gets a safe, Firestore-generated auto-ID — this
+// is specifically about a caller going around the app entirely with a raw
+// setDoc() and choosing the id itself, same GHAS finding as above but
+// about the path segment rather than a field value.
+test('errorReports: cannot choose a document id containing HTML-breaking characters', async () => {
+  const db = user('alice', 'alice@example.com');
+  await assertFails(setDoc(doc(db, 'errorReports/"><img src=x onerror=alert(1)>'), validReport('alice')));
+  await assertSucceeds(setDoc(doc(db, 'errorReports/aB3-valid_id99'), validReport('alice')));
+});
+
 test('errorReports: the reporting user cannot read, update, or delete it back', async () => {
   await seed('errorReports/r1', { uid: 'alice', message: 'boom', status: 'open' });
   const db = user('alice');
