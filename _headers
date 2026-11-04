@@ -1,6 +1,6 @@
 # _headers
 #
-# Cloudflare Pages header rules. Most-specific path wins; a request that
+# Cloudflare header rules (read by Workers static assets; same format as Pages). Most-specific path wins; a request that
 # matches more than one block gets the union of their headers.
 #
 # The service worker and manifest must never be served stale — the SW file
@@ -37,3 +37,12 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Resource-Policy: same-site
+  # Report-Only on purpose (LEG-07): this logs violations in the browser console
+  # without blocking anything, so Firebase sign-in, ExcelJS/JSZip (bundled in
+  # app.js) and the Spotify embed can't silently break. Load every page, watch
+  # the console for "[Report Only]" violations, tighten, then rename this header
+  # to Content-Security-Policy to enforce. 'unsafe-inline' is needed today because
+  # the pages use inline <script>/<style>; removing it means moving those to files.
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://www.gstatic.com https://open.er-api.com https://securetoken.google.com; frame-src https://open.spotify.com https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

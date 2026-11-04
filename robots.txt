@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin.html
 
-Sitemap: https://www.trakka.com.ng/sitemap.xml
+Sitemap: https://www.anchortrakk.com.ng/sitemap.xml

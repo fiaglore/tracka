@@ -11,8 +11,23 @@ rules_version = '2';
 // signed-out request can't touch any of it.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Fields only the server (Cloud Function / Worker / Admin SDK) or the admin
+    // account may write. Before this, any signed-in user could write
+    // `entitlements` on their own doc and grant themselves Premium.
+    //   entitlements  — current Premium entitlement (premium, premiumExpiresAt)
+    //   billing       — planned Paystack entitlement (PAY-01); reserved now
+    //   admin         — reserved for operator-only flags
+    function touchesProtected(keys) {
+      return keys.hasAny(['entitlements', 'billing', 'admin']);
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+        && !touchesProtected(request.resource.data.keys());
+      allow update: if request.auth != null && request.auth.uid == userId
+        && !touchesProtected(request.resource.data.diff(resource.data).affectedKeys());
+      allow delete: if request.auth != null && request.auth.uid == userId;
 
       // One admin account reviews manual bank-transfer receipts (Settings →
       // "Go Premium") and approves/rejects them — see
@@ -44,6 +59,14 @@ service cloud.firestore {
     // exists, let alone read or write to it.
     match /adminActions/{actionId} {
       allow read, create: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
+    }
+
+    // Feature flags (PRD-00): new features ship dark behind a flag in
+    // featureFlags/global. Any signed-in user may read; only the admin
+    // account (or the Admin SDK, which bypasses rules) may change them.
+    match /featureFlags/{flagDoc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
     }
 
     // Everything else is denied by default (no matching rule = no access).
