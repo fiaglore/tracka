@@ -850,14 +850,22 @@ window.Trakka = {
     const user = auth.currentUser;
     if (!user) return;
     try {
+      // Every field here, and its size cap, is enforced again server-side
+      // by firestore.rules' errorReports create rule (hasOnly + exact
+      // equality on uid/email/status + per-field size limits) — this
+      // client-side shape has to match that exactly, or every report
+      // would just fail to write. email is pinned to the signed-in
+      // token's own claim, never a value the caller could override,
+      // since this is the one field besides uid a report is identified
+      // by once admin.html reviews it.
       await addDoc(collection(db, "errorReports"), {
         uid: user.uid,
         email: user.email || "",
         message: String((info && info.message) || "Unknown error").slice(0, 2000),
         stack: String((info && info.stack) || "").slice(0, 8000),
         context: String((info && info.context) || "").slice(0, 200),
-        page: typeof location !== "undefined" ? location.pathname : "",
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+        page: (typeof location !== "undefined" ? location.pathname : "").slice(0, 500),
+        userAgent: (typeof navigator !== "undefined" ? navigator.userAgent : "").slice(0, 500),
         status: "open",
         createdAt: serverTimestamp()
       });

@@ -48,8 +48,26 @@ service cloud.firestore {
     // edited after the fact by the person it's about, only reviewed by the
     // admin, who also needs delete (admin.html lets them clear out old
     // resolved/dismissed reports).
+    //
+    // The create rule is this specific (exact field set, pinned email,
+    // fixed status, capped sizes) on purpose: admin.html renders several of
+    // these fields back into the DOM when the admin reviews a report, so
+    // this is the one collection where ANY signed-in caller gets to choose
+    // what gets shown inside the admin's own authenticated session the
+    // next time they open that page. Loosening this re-opens exactly that
+    // — reportClientError() in firebase-init.js has to keep writing this
+    // exact shape, or every report will simply fail to save.
     match /errorReports/{reportId} {
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'message', 'stack', 'context', 'page', 'userAgent', 'status', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'open'
+        && request.resource.data.message is string && request.resource.data.message.size() <= 2000
+        && request.resource.data.stack is string && request.resource.data.stack.size() <= 8000
+        && request.resource.data.context is string && request.resource.data.context.size() <= 200
+        && request.resource.data.page is string && request.resource.data.page.size() <= 500
+        && request.resource.data.userAgent is string && request.resource.data.userAgent.size() <= 500;
       allow read, update, delete: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
     }
 

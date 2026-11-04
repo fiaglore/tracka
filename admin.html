@@ -139,6 +139,16 @@
 <script type="module" src="firebase-init.js"></script>
 <script type="module">
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// A report's `status` comes straight out of Firestore and firestore.rules
+// only constrains it on CREATE (always 'open') — an admin-side update can
+// set it to 'resolved'/'dismissed', so by the time this renders, every
+// value here was written by this page itself. Still allow-listed, not
+// just esc()'d, before it's used as a CSS class name or badge text: class
+// names are never a safe place to interpolate even an escaped string
+// (esc() doesn't touch spaces or most other characters attribute escaping
+// doesn't need to), and this is the one field admin.html puts in both
+// positions.
+function safeStatus(s){ return (s==='resolved'||s==='dismissed') ? s : 'open'; }
 function fmtTs(ts){
   if(!ts) return '';
   if(typeof ts.toDate === 'function') return ts.toDate().toLocaleString();
@@ -198,7 +208,7 @@ function init(){
     const filtered = currentErrorFilter === 'all' ? allErrorReports : allErrorReports.filter(function(r){ return (r.status||'open') === currentErrorFilter; });
     if(filtered.length === 0){ listEl.innerHTML = '<div class="admin-empty">Nothing here.</div>'; return; }
     listEl.innerHTML = filtered.map(function(r){
-      const status = r.status || 'open';
+      const status = safeStatus(r.status);
       return '<div class="admin-card' + (status!=='open' ? ' resolved' : '') + '" data-id="' + r.id + '">' +
         '<div class="admin-row">' +
           '<div>' +
@@ -288,7 +298,8 @@ function init(){
         '<div class="admin-note">Clearing the PIN lock only clears the Firestore-side copy — a device already stuck at its own PIN screen still needs that device\'s own site data cleared, or its "sign in with password instead" option, since the actual check happens against a cache on that one device, nothing this page can reach remotely.</div>' +
       '</div>' +
       (errors.length ? '<div class="admin-section-title">Recent error reports from this user</div>' + errors.map(function(r){
-        return '<div class="admin-card"><span class="admin-badge ' + (r.status||'open') + '">' + (r.status||'open') + '</span><span class="admin-msg">' + esc(r.message) + '</span><div class="admin-meta">' + esc(r.context||'') + ' · ' + fmtTs(r.createdAt) + '</div></div>';
+        const st = safeStatus(r.status);
+        return '<div class="admin-card"><span class="admin-badge ' + st + '">' + st + '</span><span class="admin-msg">' + esc(r.message) + '</span><div class="admin-meta">' + esc(r.context||'') + ' · ' + fmtTs(r.createdAt) + '</div></div>';
       }).join('') : '');
 
     const clearDevBtn = el('admin-clear-devices-btn');

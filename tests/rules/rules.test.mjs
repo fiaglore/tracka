@@ -94,10 +94,33 @@ test('every other collection is denied by default', async () => {
   await assertFails(getDoc(doc(user('alice'), 'misc/x')));
 });
 
-test('errorReports: a signed-in user can only create their own report', async () => {
-  const db = user('alice');
-  await assertSucceeds(setDoc(doc(db, 'errorReports/r1'), { uid: 'alice', message: 'boom' }));
-  await assertFails(setDoc(doc(db, 'errorReports/r2'), { uid: 'bob', message: 'boom' }));
+// Exactly the shape firebase-init.js's reportClientError() writes — the
+// create rule requires every one of these fields, with these types, so a
+// test payload missing any of them would be denied for the wrong reason.
+const validReport = (uid) => ({
+  uid, email: uid + '@example.com', message: 'boom', stack: 'at x', context: 'window.onerror',
+  page: '/sign-in.html', userAgent: 'test-agent', status: 'open', createdAt: serverTimestamp()
+});
+
+test('errorReports: a signed-in user can only create their own report, with their own email', async () => {
+  const db = user('alice', 'alice@example.com');
+  await assertSucceeds(setDoc(doc(db, 'errorReports/r1'), validReport('alice')));
+  await assertFails(setDoc(doc(db, 'errorReports/r2'), validReport('bob')));
+  await assertFails(setDoc(doc(db, 'errorReports/r3'), { ...validReport('alice'), email: 'someoneelse@example.com' }));
+});
+
+// GHAS flagged this exact gap on the PR that introduced errorReports: the
+// create rule originally only checked uid, so any other field — including
+// status, which admin.html renders straight into a CSS class name and
+// badge text without an allow-list — was attacker-controlled. A malicious
+// status value would execute in the ADMIN's own session the next time
+// they opened the review page, inheriting everything ADMIN_EMAIL can do.
+test('errorReports: cannot spoof status away from "open", or send extra/oversized fields', async () => {
+  const db = user('alice', 'alice@example.com');
+  await assertFails(setDoc(doc(db, 'errorReports/r4'), { ...validReport('alice'), status: '"><img src=x onerror=alert(1)>' }));
+  await assertFails(setDoc(doc(db, 'errorReports/r5'), { ...validReport('alice'), status: 'resolved' }));
+  await assertFails(setDoc(doc(db, 'errorReports/r6'), { ...validReport('alice'), extraField: 'nope' }));
+  await assertFails(setDoc(doc(db, 'errorReports/r7'), { ...validReport('alice'), message: 'x'.repeat(2001) }));
 });
 
 test('errorReports: the reporting user cannot read, update, or delete it back', async () => {
