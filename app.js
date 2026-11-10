@@ -71,29 +71,6 @@ window.addEventListener('unhandledrejection', function(e){
   });
 });
 
-/* Sign-in trace: a short, timestamped log of each sign-in step, kept in
-   localStorage so it survives the redirect/reload that makes a failed sign-in
-   look like "it just sent me back". Show it by opening sign-in.html?debug=1. */
-window.__ftTrace = function(msg){
-  try{
-    var arr = JSON.parse(localStorage.getItem('ftTraceV1') || '[]');
-    arr.push(new Date().toISOString().slice(11,23) + ' ' + String(msg).slice(0,200));
-    localStorage.setItem('ftTraceV1', JSON.stringify(arr.slice(-60)));
-  }catch(e){}
-};
-(function(){
-  window.__ftTrace('page load ' + location.pathname);
-  if(!/[?&]debug=1/.test(location.search)) return;
-  document.addEventListener('DOMContentLoaded', function(){
-    var pre = document.createElement('pre');
-    pre.id = 'ft-trace-panel';
-    pre.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;margin:0;padding:10px 12px;background:#111;color:#9f9;font:11px/1.4 monospace;z-index:99998;white-space:pre-wrap;';
-    var render = function(){ try{ pre.textContent = 'AnchorTrakk sign-in trace (newest last):\n' + JSON.parse(localStorage.getItem('ftTraceV1')||'[]').join('\n'); }catch(e){} };
-    render(); setInterval(render, 1000);
-    document.body.appendChild(pre);
-  });
-})();
-
 window.__ftStart = function(){
   // Everything that used to be a per-user localStorage key now lives in one
   // Firestore document (users/{uid}), fetched into window.__ftCloudData
@@ -3052,7 +3029,8 @@ window.__ftStart = function(){
   const SECURITY_EVENT_LABELS = {
     signin: '🔓 Signed in', pin_setup: '🔢 PIN set up', pin_removed: '🔢 PIN removed',
     biometric_setup: '🫆 Biometric unlock set up', device_removed: '🗑️ Device removed',
-    password_changed: '🔑 Password changed'
+    password_changed: '🔑 Password changed',
+    device_auto_removed: '🧹 Inactive device removed to free a slot'
   };
   function fmtSecurityTs(ts){
     return new Date(ts).toLocaleString('en-GB', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -8425,13 +8403,24 @@ window.__ftStart = function(){
   }
 
   // Fires once per sign-in, from the Firebase auth-state listener below.
+  // The least-recently-seen trusted device, if it hasn't opened the app for
+  // STALE_DEVICE_DAYS or more; otherwise null. lastSeen is refreshed on every
+  // sign-in/page load (registerDevice()), so an entry this old is a device
+  // that has stopped using the app, not one that is merely idle today. A
+  // missing/invalid lastSeen counts as oldest.
+  const STALE_DEVICE_DAYS = 7;
+  function staleDeviceToEvict(devices, nowMs){
+    if(!Array.isArray(devices) || !devices.length) return null;
+    const seen = function(d){ const n = Number(d && d.lastSeen); return n > 0 ? n : 0; };
+    const oldest = devices.slice().sort(function(a,b){ return seen(a)-seen(b); })[0];
+    return (nowMs - seen(oldest)) >= STALE_DEVICE_DAYS*24*60*60*1000 ? oldest : null;
+  }
   // Fetches this user's Firestore document, then hands off to the tracker.
   async function begin(user){
     if(started) return;
     started = true;
     window.__ftUid = user.uid;
     window.__ftEmail = user.email || null;
-    window.__ftTrace('begin: loading user doc');
     showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
     let cloudData = null;
     try{
@@ -8445,7 +8434,6 @@ window.__ftStart = function(){
       ]);
     }catch(e){
       console.error(e);
-      window.__ftTrace('begin: loadUserDoc FAILED ' + (e && (e.code||e.message)));
       setError(e && e.message === 'timeout'
         ? 'This is taking longer than usual. Check your connection and reload the page.'
         : 'Could not reach the server. Check your connection and reload.');
@@ -8458,7 +8446,6 @@ window.__ftStart = function(){
       window.__ftUid = null;
       return;
     }
-    window.__ftTrace('begin: user doc loaded, keys=' + Object.keys(cloudData||{}).length);
     window.__ftCloudData = cloudData || {};
     // This one account always has every premium feature unlocked, regardless
     // of what's actually in Firestore — see isFeatureUnlocked() above and
@@ -8488,9 +8475,7 @@ window.__ftStart = function(){
       const alreadyTrusted = trusted.some(function(d){ return d.id===deviceId; });
       let everTrustedHere = false;
       try{ everTrustedHere = localStorage.getItem('trakkaDeviceTrustedFor_'+user.uid) === '1'; }catch(e){}
-      window.__ftTrace('device check: alreadyTrusted=' + alreadyTrusted + ' everTrustedHere=' + everTrustedHere + ' trusted=' + trusted.length);
       if(!alreadyTrusted && everTrustedHere){
-        window.__ftTrace('device check: signing out (device was forgotten)');
         await window.Trakka.signOutUser();
         setError('This device was signed out from Settings → Security on another device.');
         hideAuthLoading();
@@ -8503,17 +8488,29 @@ window.__ftStart = function(){
       // either silently bumping the oldest one or just blocking the sign-in
       // outright.
       if(!alreadyTrusted && trusted.length >= MAX_TRUSTED_DEVICES){
-        hideAuthLoading();
-        const chosenId = await new Promise(function(resolve){ openDeviceLimitGate(trusted, resolve); });
-        if(!chosenId){
-          await window.Trakka.signOutUser();
-          setError('You already have '+MAX_TRUSTED_DEVICES+' trusted devices. Remove one from Settings → Security, then sign in again.');
-          started = false;
-          window.__ftUid = null;
-          return;
+        // A slot held by a device that hasn't opened the app in a while is
+        // almost always dead weight (a cleared browser, an old phone, or the
+        // same browser from before the move to anchortrakk.com.ng, which
+        // gave every browser a fresh device ID). Free that one quietly
+        // rather than making someone pick from a list of look-alike entries;
+        // only ask when every slot is genuinely in recent use.
+        const stale = staleDeviceToEvict(trusted, Date.now());
+        if(stale){
+          await window.Trakka.forgetDevice(user.uid, stale.id).catch(function(){});
+          if(window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(user.uid, 'device_auto_removed', stale.label || 'Unknown device').catch(function(){});
+        } else {
+          hideAuthLoading();
+          const chosenId = await new Promise(function(resolve){ openDeviceLimitGate(trusted, resolve); });
+          if(!chosenId){
+            await window.Trakka.signOutUser();
+            setError('You already have '+MAX_TRUSTED_DEVICES+' trusted devices. Remove one from Settings → Security, then sign in again.');
+            started = false;
+            window.__ftUid = null;
+            return;
+          }
+          await window.Trakka.forgetDevice(user.uid, chosenId).catch(function(){});
+          showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
         }
-        await window.Trakka.forgetDevice(user.uid, chosenId).catch(function(){});
-        showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
       }
     }
     // ===== Post-password PIN challenge (extra security step) =====
@@ -8523,7 +8520,6 @@ window.__ftStart = function(){
     // the first place. A no-op if this device has no PIN configured yet
     // (openPinGate() below just resolves immediately in that case).
     const needsPinChallenge = pendingPasswordSignIn;
-    window.__ftTrace('begin: needsPinChallenge=' + needsPinChallenge);
     pendingPasswordSignIn = false;
     if(needsPinChallenge){
       hideAuthLoading();
@@ -8544,9 +8540,7 @@ window.__ftStart = function(){
     document.body.classList.remove('ft-locked');
     $('auth-pass').value = ''; $('auth-pass2').value = '';
     showRandomQuote();
-    window.__ftTrace('begin: starting tracker');
     window.__ftStart();
-    window.__ftTrace('begin: tracker started');
     // Fire-and-forget — neither should ever block getting into the app.
     if(window.Trakka && window.Trakka.registerDevice){
       window.Trakka.registerDevice(user.uid).then(function(){
@@ -8594,11 +8588,9 @@ window.__ftStart = function(){
       } else {
         showAuthLoading('Signing in…');
         pendingPasswordSignIn = true;
-        window.__ftTrace('submit: signIn start, remember=' + remember);
         await window.Trakka.signIn(name, pw, remember);
-        window.__ftTrace('submit: signIn resolved');
       }
-    }catch(e){ pendingPasswordSignIn = false; console.error(e); window.__ftTrace('submit: signIn FAILED ' + (e && (e.code||e.message))); setError(friendlyAuthError(e)); hideAuthLoading(); }
+    }catch(e){ pendingPasswordSignIn = false; console.error(e); setError(friendlyAuthError(e)); hideAuthLoading(); }
     finally{ btn.disabled = false; }
   }
 
@@ -9109,7 +9101,6 @@ window.__ftStart = function(){
     checkPinUnlockEligibility();
     window.Trakka.onAuthChange(function(user){
       authReported = true;
-      window.__ftTrace('auth state: ' + (user ? 'signed in' : 'signed out') + ', started=' + started);
       if(watchdogFired){ watchdogFired = false; setError(''); }
       if(user){
         begin(user).catch(function(e){
@@ -9130,7 +9121,6 @@ window.__ftStart = function(){
         started = false; window.__ftUid = null;
         let autoLogoutPin = false;
         try{ autoLogoutPin = sessionStorage.getItem('trakkaAutoLogoutPending') === '1'; }catch(e){}
-        window.__ftTrace('signed out while started -> ' + (autoLogoutPin ? 'reload' : 'signed-out.html'));
         if(autoLogoutPin) location.reload();
         else location.replace('signed-out.html');
       }

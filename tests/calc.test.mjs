@@ -211,3 +211,17 @@ test('net worth = balance + savings - debts + assets + investments, capped at to
   assert.equal(c.netWorthForMonth(2), 1650);
   assert.deepEqual(calls, [1]); // future month capped to month 1, so month-2 debt not counted
 });
+
+// ---------- trusted-device limit ----------
+test('stale device eviction: picks the least-recently-seen device only if 7+ days old', () => {
+  const c = loadApp(['staleDeviceToEvict'], { STALE_DEVICE_DAYS: 7 });
+  const DAY = 24 * 60 * 60 * 1000, now = 1_800_000_000_000;
+  const recent = [1, 2, 3].map((i) => ({ id: 'r' + i, lastSeen: now - i * DAY }));
+  assert.equal(c.staleDeviceToEvict(recent, now), null);                       // all in recent use -> ask the user
+  const mixed = [...recent, { id: 'old', lastSeen: now - 8 * DAY }, { id: 'older', lastSeen: now - 40 * DAY }];
+  assert.equal(c.staleDeviceToEvict(mixed, now).id, 'older');
+  assert.equal(c.staleDeviceToEvict([{ id: 'edge', lastSeen: now - 7 * DAY }], now).id, 'edge'); // exactly 7 days counts
+  assert.equal(c.staleDeviceToEvict([...recent, { id: 'nots' }], now).id, 'nots');              // missing lastSeen = oldest
+  assert.equal(c.staleDeviceToEvict([], now), null);
+  assert.equal(c.staleDeviceToEvict(undefined, now), null);
+});
