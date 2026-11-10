@@ -881,7 +881,7 @@ button,input,select,textarea{font-family:inherit;}
 .summary-card .subnote{font-size:9.5px; color:var(--muted); margin-top:3px;}
 
 /* ===== Sign-in gate ===== */
-body.ft-locked > *:not(#auth-overlay):not(script){display:none !important;}
+body.ft-locked > *:not(#auth-overlay):not(script):not(#ft-fatal-banner):not(#ft-trace-panel){display:none !important;}
 body.ft-locked{overflow:hidden;}
 #auth-overlay{display:none; position:fixed; inset:0; z-index:5000; align-items:center; justify-content:center; padding:15px; overflow-y:auto; background:var(--bg);}
 body.ft-locked #auth-overlay{display:flex;}
