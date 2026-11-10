@@ -184,8 +184,9 @@
   // — and that failure was console-only, meaning the user's last change before an auto-logout
   // could vanish with nothing shown. app.js exposes __ftFlushSave() (see save()/flushSave());
   // we wait on it, with a short ceiling so a dead connection can't block sign-out forever.
-  function forceLogout() {
+  function forceLogout(reason) {
     if (loggingOut) return;
+    try { window.__ftTrace && window.__ftTrace('auto-logout fired: ' + reason + ' (sessionAge=' + Math.round((Date.now() - sessionStartedAt) / 1000) + 's, idle=' + Math.round((Date.now() - lastActivityAt) / 1000) + 's)'); } catch (e) {}
     loggingOut = true;
     stopTracking();
     var flush;
