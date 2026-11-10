@@ -17,6 +17,13 @@
   Content-Type: application/manifest+json
   Cache-Control: no-cache
 
+# Kept out of search indexes the same way the robots.txt Disallow and the
+# page's own <meta name="robots"> already do — belt and suspenders, since
+# the real access control is Firebase Auth + firestore.rules' ADMIN_EMAIL
+# check, not secrecy of the URL itself.
+/admin.html
+  X-Robots-Tag: noindex, nofollow
+
 # Baseline security headers on every response. No Cross-Origin-Opener-Policy
 # here on purpose — COOP: same-origin breaks Firebase's signInWithPopup by
 # severing the popup's window.opener link back to this page, which is how

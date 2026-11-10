@@ -41,6 +41,54 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
     }
 
+    // Crash/error reports (see firebase-init.js's reportClientError() and
+    // admin.html) — anyone signed in can file one about themselves, but
+    // only the admin account can read, resolve, or delete any of them.
+    // Deliberately no update rule for the reporting user: a report can't be
+    // edited after the fact by the person it's about, only reviewed by the
+    // admin, who also needs delete (admin.html lets them clear out old
+    // resolved/dismissed reports).
+    //
+    // The create rule is this specific (exact field set, pinned email,
+    // fixed status, capped sizes) on purpose: admin.html renders several of
+    // these fields back into the DOM when the admin reviews a report, so
+    // this is the one collection where ANY signed-in caller gets to choose
+    // what gets shown inside the admin's own authenticated session the
+    // next time they open that page. Loosening this re-opens exactly that
+    // — reportClientError() in firebase-init.js has to keep writing this
+    // exact shape, or every report will simply fail to save.
+    match /errorReports/{reportId} {
+      // reportClientError() always writes through addDoc(), which lets
+      // Firestore pick an auto-ID (alphanumeric, ~20 chars) — nothing
+      // about the DATA above constrains the id itself, since that's a
+      // path segment, not a field. A caller going around this app
+      // entirely (a raw SDK/REST call) could otherwise choose any string
+      // as the document id, including one admin.html would render
+      // unescaped-looking if a future edit ever missed esc()-ing it (as
+      // happened with `status` above) — this closes that off at the one
+      // place it can be, independent of whatever admin.html does.
+      allow create: if request.auth != null
+        && reportId.matches('^[A-Za-z0-9_-]{1,64}$')
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'message', 'stack', 'context', 'page', 'userAgent', 'status', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'open'
+        && request.resource.data.message is string && request.resource.data.message.size() <= 2000
+        && request.resource.data.stack is string && request.resource.data.stack.size() <= 8000
+        && request.resource.data.context is string && request.resource.data.context.size() <= 200
+        && request.resource.data.page is string && request.resource.data.page.size() <= 500
+        && request.resource.data.userAgent is string && request.resource.data.userAgent.size() <= 500;
+      allow read, update, delete: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
+    }
+
+    // Admin action audit log (see firebase-init.js's logAdminActionImpl()
+    // and admin.html) — a record of every account fix the admin makes.
+    // Admin-only, both ways: nobody else should even know this collection
+    // exists, let alone read or write to it.
+    match /adminActions/{actionId} {
+      allow read, create: if request.auth != null && request.auth.token.email == "lolafalobi@gmail.com";
+    }
+
     // Feature flags (PRD-00): new features ship dark behind a flag in
     // featureFlags/global. Any signed-in user may read; only the admin
     // account (or the Admin SDK, which bypasses rules) may change them.

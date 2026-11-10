@@ -93,9 +93,13 @@ import {
   arrayUnion,
   arrayRemove,
   collection,
+  addDoc,
   query,
   where,
-  getDocs
+  orderBy,
+  limit,
+  getDocs,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyCTwklrfnEsMat8WhkwWPHLHV-YfFl_ono",
@@ -229,6 +233,28 @@ function stripForLocal(blob) {
   const copy = {};
   for (const k in blob) { if (k !== "updatedAt") copy[k] = blob[k]; }
   return copy;
+}
+
+// ============================================================
+// Admin action audit log
+//
+// A record of every one-off account fix ADMIN_EMAIL makes from admin.html
+// (clearing a stuck device list, clearing a PIN lock, approving/rejecting
+// a Premium request) — "who did what, to which account, when," the same
+// kind of trail any admin tool that can mutate someone else's data ought
+// to keep. Write-only from the action functions below; never lets a
+// logging failure block the action it's logging (see the catch below).
+async function logAdminActionImpl(action, targetUid, details) {
+  const admin = auth.currentUser;
+  try {
+    await addDoc(collection(db, "adminActions"), {
+      action: action,
+      targetUid: targetUid || "",
+      details: details || "",
+      adminEmail: (admin && admin.email) || "",
+      at: serverTimestamp()
+    });
+  } catch (e) { /* an audit-log write failing must never block the real action */ }
 }
 
 window.Trakka = {
@@ -795,6 +821,7 @@ window.Trakka = {
       },
       { merge: true }
     );
+    await logAdminActionImpl("approve-premium", uid, product || "premium");
   },
   async rejectPremiumRequest(uid, reason) {
     await setDoc(
@@ -802,6 +829,111 @@ window.Trakka = {
       { premiumRequest: { status: "rejected", reviewedAt: serverTimestamp(), reason: reason || "" } },
       { merge: true }
     );
+    await logAdminActionImpl("reject-premium", uid, reason || "");
+  },
+
+  // ============================================================
+  // Client error reporting (reviewed from admin.html)
+  //
+  // Nothing previously captured an uncaught crash or an already-user-facing
+  // failure anywhere but that one person's own browser console — admin had
+  // no way to know an error happened at all unless the user described it
+  // themselves. app.js's global window.onerror/unhandledrejection handlers,
+  // plus a handful of its own existing failure paths (a failed import, a
+  // failed photo upload), call this. It's a no-op when nobody's signed in
+  // (errorReports/{id}.uid has to match the writer's own auth.uid — see
+  // firestore.rules — and an anonymous error has nowhere useful to
+  // attribute itself to anyway), and it deliberately swallows its OWN
+  // failures: a reporting function that can itself throw and trigger
+  // another uncaught error would defeat the entire point of having one.
+  async reportClientError(info) {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      // Every field here, and its size cap, is enforced again server-side
+      // by firestore.rules' errorReports create rule (hasOnly + exact
+      // equality on uid/email/status + per-field size limits) — this
+      // client-side shape has to match that exactly, or every report
+      // would just fail to write. email is pinned to the signed-in
+      // token's own claim, never a value the caller could override,
+      // since this is the one field besides uid a report is identified
+      // by once admin.html reviews it.
+      await addDoc(collection(db, "errorReports"), {
+        uid: user.uid,
+        email: user.email || "",
+        message: String((info && info.message) || "Unknown error").slice(0, 2000),
+        stack: String((info && info.stack) || "").slice(0, 8000),
+        context: String((info && info.context) || "").slice(0, 200),
+        page: (typeof location !== "undefined" ? location.pathname : "").slice(0, 500),
+        userAgent: (typeof navigator !== "undefined" ? navigator.userAgent : "").slice(0, 500),
+        status: "open",
+        createdAt: serverTimestamp()
+      });
+    } catch (e) { /* reporting itself must never throw */ }
+  },
+
+  // ===== Admin: error reports (admin.html) =====
+  // Only ADMIN_EMAIL's token actually passes firestore.rules for read/update
+  // here — these come back empty (not an error) for anyone else, same
+  // "the rule is the real gate" pattern listPendingPremiumRequests() uses.
+  // Always the same single-field query (no composite index to create by
+  // hand in the Firebase console) — admin.html filters by status itself,
+  // client-side, after this comes back; a few hundred report docs is cheap
+  // enough to just filter in JS rather than needing a second Firestore index
+  // for every status/sort combination.
+  async listErrorReports() {
+    const snap = await getDocs(query(collection(db, "errorReports"), orderBy("createdAt", "desc"), limit(200)));
+    return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+  },
+  // No orderBy here on purpose — combining it with the where() below would
+  // need a composite index created by hand in the Firebase console before
+  // this would work at all. Sorted client-side instead (admin.html does
+  // this), since a single user's own report count is always small.
+  async listErrorReportsForUser(uid) {
+    const snap = await getDocs(query(collection(db, "errorReports"), where("uid", "==", uid), limit(50)));
+    return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+  },
+  async setErrorReportStatus(reportId, status, note) {
+    await updateDoc(doc(db, "errorReports", reportId), {
+      status: status,
+      note: note || "",
+      reviewedAt: serverTimestamp(),
+      reviewedBy: (auth.currentUser && auth.currentUser.email) || ""
+    });
+  },
+  async deleteErrorReport(reportId) {
+    await deleteDoc(doc(db, "errorReports", reportId));
+  },
+
+  // ===== Admin: one-off account fixes (admin.html) =====
+  // Both piggyback on the SAME "ADMIN_EMAIL can read/write any users/{uid}
+  // doc" firestore.rules override the Premium-review flow already relies
+  // on above — neither needed a rules change to ship.
+  async adminGetUser(uid) {
+    const snap = await getDoc(userDocRef(uid));
+    return snap.exists() ? Object.assign({ uid: uid }, snap.data()) : null;
+  },
+  async adminClearDevices(uid) {
+    await setDoc(userDocRef(uid), { trustedDevices: [] }, { merge: true });
+    await logAdminActionImpl("clear-devices", uid, "");
+  },
+  // Only clears the Firestore-side copy — see "Quick-unlock PIN" above: the
+  // actual PIN check happens against a cache on ONE device's own
+  // localStorage, which nothing server-side can reach. This stops any
+  // OTHER/future device from inheriting the same PIN requirement, and
+  // clears it account-wide the next time this account signs in fresh
+  // anywhere — a device already stuck at its own PIN screen still needs
+  // that device's own site data cleared, or its "sign in with password
+  // instead" option, if the lock screen offers one.
+  async adminClearPin(uid) {
+    await setDoc(userDocRef(uid), { pinAuth: deleteField() }, { merge: true });
+    await logAdminActionImpl("clear-pin", uid, "");
+  },
+
+  // ===== Admin action audit log (admin.html) =====
+  async listAdminActions() {
+    const snap = await getDocs(query(collection(db, "adminActions"), orderBy("at", "desc"), limit(100)));
+    return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
   }
 };
 
