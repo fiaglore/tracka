@@ -3029,7 +3029,8 @@ window.__ftStart = function(){
   const SECURITY_EVENT_LABELS = {
     signin: '🔓 Signed in', pin_setup: '🔢 PIN set up', pin_removed: '🔢 PIN removed',
     biometric_setup: '🫆 Biometric unlock set up', device_removed: '🗑️ Device removed',
-    password_changed: '🔑 Password changed'
+    password_changed: '🔑 Password changed',
+    device_auto_removed: '🧹 Inactive device removed to free a slot'
   };
   function fmtSecurityTs(ts){
     return new Date(ts).toLocaleString('en-GB', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
@@ -8402,6 +8403,18 @@ window.__ftStart = function(){
   }
 
   // Fires once per sign-in, from the Firebase auth-state listener below.
+  // The least-recently-seen trusted device, if it hasn't opened the app for
+  // STALE_DEVICE_DAYS or more; otherwise null. lastSeen is refreshed on every
+  // sign-in/page load (registerDevice()), so an entry this old is a device
+  // that has stopped using the app, not one that is merely idle today. A
+  // missing/invalid lastSeen counts as oldest.
+  const STALE_DEVICE_DAYS = 7;
+  function staleDeviceToEvict(devices, nowMs){
+    if(!Array.isArray(devices) || !devices.length) return null;
+    const seen = function(d){ const n = Number(d && d.lastSeen); return n > 0 ? n : 0; };
+    const oldest = devices.slice().sort(function(a,b){ return seen(a)-seen(b); })[0];
+    return (nowMs - seen(oldest)) >= STALE_DEVICE_DAYS*24*60*60*1000 ? oldest : null;
+  }
   // Fetches this user's Firestore document, then hands off to the tracker.
   async function begin(user){
     if(started) return;
@@ -8475,17 +8488,29 @@ window.__ftStart = function(){
       // either silently bumping the oldest one or just blocking the sign-in
       // outright.
       if(!alreadyTrusted && trusted.length >= MAX_TRUSTED_DEVICES){
-        hideAuthLoading();
-        const chosenId = await new Promise(function(resolve){ openDeviceLimitGate(trusted, resolve); });
-        if(!chosenId){
-          await window.Trakka.signOutUser();
-          setError('You already have '+MAX_TRUSTED_DEVICES+' trusted devices. Remove one from Settings → Security, then sign in again.');
-          started = false;
-          window.__ftUid = null;
-          return;
+        // A slot held by a device that hasn't opened the app in a while is
+        // almost always dead weight (a cleared browser, an old phone, or the
+        // same browser from before the move to anchortrakk.com.ng, which
+        // gave every browser a fresh device ID). Free that one quietly
+        // rather than making someone pick from a list of look-alike entries;
+        // only ask when every slot is genuinely in recent use.
+        const stale = staleDeviceToEvict(trusted, Date.now());
+        if(stale){
+          await window.Trakka.forgetDevice(user.uid, stale.id).catch(function(){});
+          if(window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(user.uid, 'device_auto_removed', stale.label || 'Unknown device').catch(function(){});
+        } else {
+          hideAuthLoading();
+          const chosenId = await new Promise(function(resolve){ openDeviceLimitGate(trusted, resolve); });
+          if(!chosenId){
+            await window.Trakka.signOutUser();
+            setError('You already have '+MAX_TRUSTED_DEVICES+' trusted devices. Remove one from Settings → Security, then sign in again.');
+            started = false;
+            window.__ftUid = null;
+            return;
+          }
+          await window.Trakka.forgetDevice(user.uid, chosenId).catch(function(){});
+          showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
         }
-        await window.Trakka.forgetDevice(user.uid, chosenId).catch(function(){});
-        showAuthLoading(window.__ftSettingsPage ? "Loading your tracker's settings…" : 'Loading your tracker…');
       }
     }
     // ===== Post-password PIN challenge (extra security step) =====
