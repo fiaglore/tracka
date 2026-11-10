@@ -8167,7 +8167,7 @@ window.__ftStart = function(){
 (function(){
   'use strict';
   const $ = id => document.getElementById(id);
-  let mode = 'signin', started = false, authReported = false;
+  let mode = 'signin', started = false, authReported = false, watchdogFired = false;
   // How many devices can be trusted at once per account — see begin()'s
   // trusted-device check below and openDeviceLimitGate() further down.
   const MAX_TRUSTED_DEVICES = 6;
@@ -8424,6 +8424,10 @@ window.__ftStart = function(){
       setError(e && e.message === 'timeout'
         ? 'This is taking longer than usual. Check your connection and reload the page.'
         : 'Could not reach the server. Check your connection and reload.');
+      // Also show the real reason (Firestore code such as permission-denied,
+      // unavailable, resource-exhausted, failed-precondition, or "timeout"),
+      // which the friendly line above hides and which is what support needs.
+      showFatalBanner('Could not load your data (' + ((e && (e.code || e.message)) || 'unknown error') + '). Reload to try again; if it keeps happening, send this message to support@anchortrakk.com.ng.');
       hideAuthLoading();
       started = false;
       window.__ftUid = null;
@@ -9072,6 +9076,7 @@ window.__ftStart = function(){
     checkPinUnlockEligibility();
     window.Trakka.onAuthChange(function(user){
       authReported = true;
+      if(watchdogFired){ watchdogFired = false; setError(''); }
       if(user){
         begin(user).catch(function(e){
           // begin() is async and nothing awaited it, so any error thrown after
@@ -9101,15 +9106,20 @@ window.__ftStart = function(){
   else window.addEventListener('trakka:ready', initAuth, { once:true });
   // Watchdog: if Firebase never reports an auth state (its scripts failed to
   // load, the network blocks Google, or the auth iframe hangs), the page used
-  // to sit on "Loading your tracker…" forever with no clue why. After 12s with
-  // nothing reported, say so and offer a reload instead.
+  // to sit on "Loading your tracker…" forever with no clue why. Slow mobile
+  // connections can legitimately take a while to fetch Firebase, so wait 30s
+  // before complaining, say which stage is missing, and clear the message by
+  // itself if Firebase does eventually report in.
   setTimeout(function(){
     if(authReported || started) return;
-    console.error('AnchorTrakk: Firebase did not report a sign-in state within 12s. window.Trakka defined:', !!window.Trakka, '| origin:', location.origin);
+    console.error('AnchorTrakk: Firebase did not report a sign-in state within 30s. window.Trakka defined:', !!window.Trakka, '| origin:', location.origin);
     hideAuthLoading();
     revealSignInGate();
-    setError('Sign-in could not start. Check your connection and reload the page. If it keeps happening, email support@anchortrakk.com.ng and tell us what device and browser you are using.');
-  }, 12000);
+    watchdogFired = true;
+    setError(window.Trakka
+      ? 'Sign-in is taking much longer than usual. Your connection may be slow or unstable. Wait a moment or reload the page.'
+      : 'Sign-in could not start because the app files did not finish loading. Check your connection and reload. If it keeps happening, email support@anchortrakk.com.ng and tell us what device and browser you are using.');
+  }, 30000);
 })();
 
 
