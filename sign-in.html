@@ -569,6 +569,7 @@
         <input type="number" id="debt-duration" placeholder="Duration (months)" min="1" style="width:130px;">
         <select id="debt-currency" class="item-currency-select" title="Currency this debt is denominated in — converted to your primary currency in totals"></select>
         <label class="recurring-toggle" title="Keeps this bill going every month you add, at the same amount, until you stop it — overrides the duration above"><input type="checkbox" id="debt-ongoing"> 🔁 Repeat monthly</label>
+        <label class="due-date-field" title="Exact date the first instalment is due (optional). Repeating or multi-month debts keep the same day each month.">Due date <input type="date" id="debt-due"></label>
         <button id="debt-add-btn">Add</button>
       </div>
       <div class="card-list" id="debt-list"></div>
@@ -593,6 +594,7 @@
         <input type="number" id="goal-months" placeholder="Months to save" min="1" max="13" style="width:110px;">
         <select id="goal-target"></select>
         <select id="goal-currency" class="item-currency-select" title="Currency this gift is priced in — converted to your primary currency in totals"></select>
+        <label class="due-date-field" title="Exact date of the gift (optional). Picks the target month for you.">Gift date <input type="date" id="goal-date"></label>
         <button id="goal-add-btn">Add goal 🎀</button>
       </div>
 

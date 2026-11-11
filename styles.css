@@ -1734,3 +1734,12 @@ body.settings-only-view .app-shell > footer{
 /* GRW-03: static Premium benefit list replaces the one-at-a-time rotator */
 .landing-premium-list{list-style:none; margin:0 auto 22px; padding:0; max-width:520px; text-align:left; display:grid; gap:10px;}
 .landing-premium-list li{font-size:14.5px; line-height:1.45; padding-left:2px;}
+
+/* Exact due dates (debts), gift date, and editable "ticked on" dates */
+.due-date-field{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); font-family:var(--font-display);}
+.due-date-field input[type=date]{font:inherit; padding:7px 8px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); color:var(--ink);}
+.item-row .sub.due-line{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.item-row .sub input[type=date]{font:inherit; font-size:11px; padding:1px 4px; border:1px solid var(--line); border-radius:6px; background:var(--surface); color:inherit; width:auto; min-width:0;}
+.item-row .sub.tick-date input[type=date]{color:var(--good);}
+.item-row .sub .overdue-badge{color:var(--bad); font-weight:700;}
+
