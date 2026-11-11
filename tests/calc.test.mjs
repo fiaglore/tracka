@@ -225,3 +225,27 @@ test('stale device eviction: picks the least-recently-seen device only if 7+ day
   assert.equal(c.staleDeviceToEvict([], now), null);
   assert.equal(c.staleDeviceToEvict(undefined, now), null);
 });
+
+// ---------- exact due dates ----------
+test('due date carries the day-of-month into each billing period, clamped to month length', () => {
+  const labels = ['Jan', 'Feb', 'Mar', 'Apr'], tags = ["'26", "'26", "'26", "'26"];
+  const c = loadApp(
+    ['fullYear', 'nextMonthLabelYear', 'monthOverrideKey', 'monthStartDayFor', 'periodBounds', 'dateKey', 'dueDateInPeriod'],
+    { PSTART: 1, monthNumMap, monthOrder, monthLabels: labels, yearTags: tags, state: { monthStartOverrides: {} } }
+  );
+  assert.equal(c.dueDateInPeriod(0, 31), '2026-01-31');
+  assert.equal(c.dueDateInPeriod(1, 31), '2026-02-28');   // Feb has no 31st
+  assert.equal(c.dueDateInPeriod(3, 31), '2026-04-30');
+  assert.equal(c.dueDateInPeriod(2, 15), '2026-03-15');
+});
+
+test('due date on a 25th payday period lands inside that period (25th to 24th)', () => {
+  const labels = ['Jan', 'Feb'], tags = ["'26", "'26"];
+  const c = loadApp(
+    ['fullYear', 'nextMonthLabelYear', 'monthOverrideKey', 'monthStartDayFor', 'periodBounds', 'dateKey', 'dueDateInPeriod'],
+    { PSTART: 25, monthNumMap, monthOrder, monthLabels: labels, yearTags: tags, state: { monthStartOverrides: {} } }
+  );
+  assert.equal(c.dueDateInPeriod(0, 28), '2026-01-28');   // after the 25th: same calendar month
+  assert.equal(c.dueDateInPeriod(0, 5), '2026-02-05');    // before the 25th: rolls into next calendar month
+  assert.equal(c.dueDateInPeriod(1, 25), '2026-02-25');
+});

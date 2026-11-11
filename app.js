@@ -978,6 +978,20 @@ window.__ftStart = function(){
     const [y,mo,da] = key.split('-').map(Number);
     return new Date(y, mo-1, da).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   }
+  // The date in billing period `mi` that falls on day-of-month `day`, clamped
+  // to that calendar month's length (31 -> 28/29/30 as needed). Used to carry
+  // an exact due date forward to the next instalment of a repeating or
+  // multi-month debt ("due on the 28th" stays the 28th).
+  function dueDateInPeriod(mi, day){
+    const {start} = periodBounds(mi);
+    const pick = function(y, m){
+      const last = new Date(y, m+1, 0).getDate();
+      return new Date(y, m, Math.min(Math.max(1, day), last));
+    };
+    let d = pick(start.getFullYear(), start.getMonth());
+    if(d < start) d = pick(start.getFullYear(), start.getMonth()+1);
+    return dateKey(d);
+  }
   function formatDateLong(ds){
     const [y,m,d] = ds.split('-').map(Number);
     return new Date(y,m-1,d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
@@ -2803,6 +2817,7 @@ window.__ftStart = function(){
       };
       const cur = (latest && latest.currency) || series.currency;
       if(cur) item.currency = cur;
+      if(latest && latest.dueDate) item.dueDate = dueDateInPeriod(mi, Number(latest.dueDate.slice(8,10)));
       state.months[mi][series.kind].push(item);
     });
     state.investments.forEach(inv=>{
@@ -2851,6 +2866,19 @@ window.__ftStart = function(){
     });
   }
 
+  // The "Due <date>" line under a debt row: an exact date picker, plus an
+  // Overdue / due-soon cue for unpaid instalments whose date has passed.
+  function dueLineHtml(item, kind, idx){
+    const today = todayKey();
+    let badge = '';
+    if(item.dueDate && !item.checked && !item.extraPayment){
+      const days = Math.round((new Date(item.dueDate+'T00:00:00') - new Date(today+'T00:00:00')) / 86400000);
+      if(days < 0) badge = ' <span class="overdue-badge">⚠ Overdue by '+(-days)+' day'+(days===-1?'':'s')+'</span>';
+      else if(days === 0) badge = ' <span class="overdue-badge">Due today</span>';
+      else if(days <= 3) badge = ' <span class="overdue-badge">Due in '+days+' day'+(days===1?'':'s')+'</span>';
+    }
+    return `<span class="sub due-line">📅 Due <input type="date" class="item-due" value="${item.dueDate||''}" data-kind="${kind}" data-idx="${idx}" aria-label="Due date">${badge}</span>`;
+  }
   function renderList(containerId, items, kind){
     const container = document.getElementById(containerId);
     container.innerHTML = '';
@@ -2868,7 +2896,8 @@ window.__ftStart = function(){
         <div class="item-label">
           <input type="text" class="item-label-input" value="${escapeAttr(item.label)}" data-kind="${kind}" data-idx="${idx}">
           ${item.sub? `<span class="sub">${item.sub}</span>`:''}
-          ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked ${fmtTickDate(item.lastTicked)}</span>`:''}
+          ${kind==='debts' ? dueLineHtml(item, kind, idx) : ''}
+          ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked <input type="date" class="tick-date-input" value="${item.lastTicked}" data-kind="${kind}" data-idx="${idx}" aria-label="Date ticked"></span>`:''}
           ${convertedSub}
         </div>
         <div class="currency-prefix">
@@ -3449,7 +3478,7 @@ window.__ftStart = function(){
         <div class="item-label">
           <input type="text" class="item-label-input" value="${escapeAttr(item.label)}" data-goal-id="${item.goalId}">
           ${item.sub? `<span class="sub">${item.sub}</span>`:''}
-          ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked ${fmtTickDate(item.lastTicked)}</span>`:''}
+          ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked <input type="date" class="tick-date-input" value="${item.lastTicked}" data-gift-key="${item.id}" aria-label="Date ticked"></span>`:''}
           ${convertedSub}
         </div>
         <div class="currency-prefix">
@@ -3494,7 +3523,7 @@ window.__ftStart = function(){
       card.innerHTML = `
         <div class="gname">
           <input type="text" class="gname-input" value="${escapeAttr(g.label)}" data-goal-id="${g.id}">
-          <span class="gmeta">${g.months}-month plan · target ${monthLabels[g.targetMonthIndex]} ${yearTags[g.targetMonthIndex]} · ${fmtIn(monthlyAmt, g.currency)}/mo${foreign ? ' <span class="item-currency-badge">'+g.currency+'</span>' : ''}</span>
+          <span class="gmeta">${g.months}-month plan · target ${g.date ? fmtTickDate(g.date) : monthLabels[g.targetMonthIndex]+' '+yearTags[g.targetMonthIndex]} · ${fmtIn(monthlyAmt, g.currency)}/mo${foreign ? ' <span class="item-currency-badge">'+g.currency+'</span>' : ''}</span>
         </div>
         <div class="gamt">${fmtIn(g.totalAmount, g.currency)}${convertedNote}</div>
         <button class="del" data-goal-id="${g.id}" title="Remove goal">✕</button>
@@ -3579,7 +3608,7 @@ window.__ftStart = function(){
         <div class="item-label">
           <input type="text" class="item-label-input" value="${escapeAttr(item.label)}" data-kind="savingsApps" data-idx="${idx}">
           ${subLine}
-          ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked ${fmtTickDate(item.lastTicked)}</span>`:''}
+          ${item.checked && item.lastTicked ? `<span class="sub tick-date">✔ Ticked <input type="date" class="tick-date-input" value="${item.lastTicked}" data-kind="savingsApps" data-idx="${idx}" aria-label="Date ticked"></span>`:''}
         </div>
         ${pctHtml}
         <div class="currency-prefix">
@@ -4570,6 +4599,21 @@ window.__ftStart = function(){
     // companion its own instant "nice!" pulse right here.
     if(e.target.matches('.checkbox') && e.target.checked){ playDing(); pulseCatCompanion('✨'); }
     else if(e.target.matches('.checkbox')) playPop();
+    if(e.target.matches('.item-due[data-kind]')){
+      const item = state.months[activeMonth][e.target.dataset.kind][+e.target.dataset.idx];
+      if(item){ if(/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) item.dueDate = e.target.value; else delete item.dueDate; save(); }
+      return;
+    }
+    if(e.target.matches('.tick-date-input[data-kind]')){
+      const item = state.months[activeMonth][e.target.dataset.kind][+e.target.dataset.idx];
+      if(item && item.checked && /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){ item.lastTicked = e.target.value; save(); }
+      return;
+    }
+    if(e.target.matches('.tick-date-input[data-gift-key]')){
+      const gp = state.giftProgress[e.target.dataset.giftKey];
+      if(gp && gp.checked && /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)){ gp.lastTicked = e.target.value; save(); }
+      return;
+    }
     if(e.target.matches('.checkbox[data-kind]')){
       const kind = e.target.dataset.kind, idx = +e.target.dataset.idx;
       const item = state.months[activeMonth][kind][idx];
@@ -4943,29 +4987,33 @@ window.__ftStart = function(){
   // source with no end date (rent, subscriptions, salary) — instead of asking upfront how many
   // months to stamp out, that registers the series in state.ongoingSeries so addMonth() keeps
   // extending it automatically every time the tracker grows, without having to re-add it by hand.
-  function addRecurringItem(kind, label, amount, duration, currency){
+  function addRecurringItem(kind, label, amount, duration, currency, firstDue){
     const seriesId = makeCustomId(kind);
+    // An exact due date decides which billing month the first instalment lands in.
+    const startMi = firstDue ? dateToMonthIndex(firstDue) : activeMonth;
+    const dueDay = firstDue ? Number(firstDue.slice(8,10)) : 0;
     const ongoing = duration === 'ongoing';
     const cur = (currency && currency!==currencyCode()) ? currency : null;
     // This used to clamp silently to whatever was left on the tracker, so asking for a
     // 12-month debt while sitting on the last tracked month gave you 1 month, with no
     // "Month 1 of 12" label (sub only renders when months>1) and no hint that 11 were dropped.
     // Offer to extend the tracker instead, and say so plainly if the user declines.
-    let months = ongoing ? Math.max(1, N - activeMonth) : Math.max(1, duration||1);
-    if(!ongoing && activeMonth + months > N){
-      const needed = activeMonth + months;
+    let months = ongoing ? Math.max(1, N - startMi) : Math.max(1, duration||1);
+    if(!ongoing && startMi + months > N){
+      const needed = startMi + months;
       if(confirm('This runs for '+months+' months, past the '+N+' months currently tracked.\n\nExtend the tracker to '+needed+' months?')){
         extendMonthsTo(needed);
       } else {
-        months = Math.max(1, N - activeMonth);
+        months = Math.max(1, N - startMi);
         alert('Added as '+months+' month'+(months>1?'s':'')+' only — the remaining months were dropped.');
       }
     }
     for(let k=0;k<months;k++){
-      const mi = activeMonth+k;
+      const mi = startMi+k;
       const sub = ongoing ? '🔁 Repeats monthly' : (months>1 ? `Month ${k+1} of ${months}` : '');
       const item = {id:makeCustomId(kind), label, sub, amount, checked:false, custom:true, seriesId};
       if(cur) item.currency = cur;
+      if(firstDue) item.dueDate = k===0 ? firstDue : dueDateInPeriod(mi, dueDay);
       state.months[mi][kind].push(item);
     }
     if(ongoing) state.ongoingSeries[seriesId] = {kind, label, amount, currency: cur};
@@ -5751,14 +5799,18 @@ window.__ftStart = function(){
     const durEl = document.getElementById('debt-duration');
     const ongoingEl = document.getElementById('debt-ongoing');
     const curEl = document.getElementById('debt-currency');
+    const dueEl = document.getElementById('debt-due');
+    const firstDue = (dueEl && /^\d{4}-\d{2}-\d{2}$/.test(dueEl.value)) ? dueEl.value : null;
     const desc = descEl.value.trim();
     const amt = Number(amtEl.value)||0;
     const cur = curEl ? curEl.value : null;
     if(!desc || amt<=0) return;
     if(!confirmNotTypo(amt)) return;
     if(atFreeItemCap('debts', state.months[activeMonth].debts.length)){ notifyItemCapReached('debts'); return; }
-    if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing', cur); }
-    else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur, cur); }
+    if(ongoingEl && ongoingEl.checked){ addRecurringItem('debts', desc, amt, 'ongoing', cur, firstDue); }
+    else{ const dur = Math.max(1, Number(durEl.value)||1); addRecurringItem('debts', desc, amt, dur, cur, firstDue); }
+    if(firstDue) activeMonth = dateToMonthIndex(firstDue);
+    if(dueEl) dueEl.value = '';
     descEl.value=''; amtEl.value=''; durEl.value=''; if(ongoingEl) ongoingEl.checked = false; if(curEl) curEl.value = currencyCode();
   });
 
@@ -5840,10 +5892,13 @@ window.__ftStart = function(){
     const monthsEl = document.getElementById('goal-months');
     const targetEl = document.getElementById('goal-target');
     const curEl = document.getElementById('goal-currency');
+    const dateEl = document.getElementById('goal-date');
+    const giftDate = (dateEl && /^\d{4}-\d{2}-\d{2}$/.test(dateEl.value)) ? dateEl.value : null;
     const name = nameEl.value.trim();
     const total = Number(totalEl.value)||0;
     const months = Math.max(1, Number(monthsEl.value)||0);
-    const target = Number(targetEl.value);
+    // An exact gift date picks the target month itself, overriding the dropdown.
+    const target = giftDate ? dateToMonthIndex(giftDate) : Number(targetEl.value);
     const cur = (curEl && curEl.value!==currencyCode()) ? curEl.value : null;
     if(!name || total<=0 || months<=0 || Number.isNaN(target)) return;
     if(months > target){ alert("Months to save can't exceed the number of months before the target date."); return; }
@@ -5852,7 +5907,9 @@ window.__ftStart = function(){
     const id = 'gift_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,24) + '_' + Date.now();
     const goal = {id, label:name, totalAmount:total, months, targetMonthIndex:target};
     if(cur) goal.currency = cur;
+    if(giftDate) goal.date = giftDate;
     state.giftGoals.push(goal);
+    if(dateEl) dateEl.value = '';
     nameEl.value=''; totalEl.value=''; monthsEl.value=''; if(curEl) curEl.value = currencyCode();
     save();
   });
@@ -5994,7 +6051,8 @@ window.__ftStart = function(){
       {key:'amount', h:'Amount', w:16, kind:'money'},
       {key:'done', h:'Paid?', w:13, kind:'yesno'},
       {key:'date', h:'Date paid', w:16, kind:'date'},
-      {key:'type', h:'Type', w:16, kind:'list', list:'"Instalment,Extra payment"'}]},
+      {key:'type', h:'Type', w:16, kind:'list', list:'"Instalment,Extra payment"'},
+      {key:'due', h:'Due date', w:16, kind:'date'}]},
     extra: {name:'Extra Income', cols:[
       {key:'month', h:'Month', w:14, kind:'month', dv:XL_MONTH_LIST},
       {key:'desc', h:'Description', w:36, kind:'text'},
@@ -6190,7 +6248,7 @@ window.__ftStart = function(){
       state.months[mi].debts.forEach(it=>{
         const key = seriesKeyOf(it);
         const name = debtName[key] || String(it.label||'').replace(/ — extra payment$/,'');
-        d.debts.push([mk(mi), name, Number(it.amount)||0, yn(it.checked), it.checked ? xlDateFromKey(it.lastTicked) : null, it.extraPayment ? 'Extra payment' : 'Instalment']);
+        d.debts.push([mk(mi), name, Number(it.amount)||0, yn(it.checked), it.checked ? xlDateFromKey(it.lastTicked) : null, it.extraPayment ? 'Extra payment' : 'Instalment', it.dueDate ? xlDateFromKey(it.dueDate) : null]);
       });
     }
     // Extra income
@@ -6422,6 +6480,7 @@ window.__ftStart = function(){
       const dk = xlPartsKey(xlDateParts(rec.date));
       const it = {id:makeCustomId('debts'), label: extraPay ? name+' — extra payment' : name, sub: extraPay ? '💥 Extra payment · '+tagOf(mi) : '', amount:xlNum(rec.amount), checked:done, custom:true, seriesId};
       if(extraPay) it.extraPayment = true;
+      const dueKey = xlPartsKey(xlDateParts(rec.due)); if(dueKey && !extraPay) it.dueDate = dueKey;
       if(done) it.lastTicked = dk || undefined;
       if(it.lastTicked===undefined) delete it.lastTicked;
       ns.months[mi].debts.push(it); counts.debts++;
