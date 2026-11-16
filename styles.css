@@ -1788,3 +1788,12 @@ body[data-privacy="on"] .app-shell > .sub-nav{filter:blur(9px); user-select:none
   .cat-companion{bottom:calc(82px + env(safe-area-inset-bottom, 0px));}
 }
 
+/* Download page + the "Take it with you" strip on the landing page */
+.download-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); padding:20px; text-align:center; margin-bottom:14px;}
+.download-note{font-size:13px; color:var(--muted); margin:12px 0 0; line-height:1.5;}
+.landing-getapp{padding:8px 0 28px;}
+.landing-getapp-inner{display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:20px 24px;}
+.landing-getapp-inner h2{font-size:clamp(18px,2.4vw,22px); margin:0 0 4px; font-weight:800;}
+.landing-getapp-inner p{margin:0; font-size:14px; color:var(--muted);}
+@media (max-width:640px){ .landing-getapp-inner{text-align:center; justify-content:center;} }
+

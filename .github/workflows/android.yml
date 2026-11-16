@@ -44,7 +44,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      # The Android SDK is preinstalled on GitHub's Ubuntu runners (ANDROID_HOME is set).
 
       - name: Restore signing key (if configured)
         env:
