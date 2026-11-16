@@ -258,114 +258,36 @@
 
   <div class="topbar">
     <div class="brand-row">
-      <a class="brand" href="index.html" title="Back to AnchorTrakk home">
-        <div class="brand-mark"><img src="icon-192.png" alt="AnchorTrakk"></div>
-        <div class="brand-text">
-          <h1>AnchorTrakk - Your Money Tracker</h1>
-          <div class="tag">One continuous log — switch months, nothing resets. <span id="period-desc"></span></div>
+      <div class="hello">
+        <span class="profile-avatar hello-avatar" id="hello-avatar" aria-hidden="true">🙂</span>
+        <div class="hello-text">
+          <div class="hello-greet" id="hello-greet">Hi, there.</div>
+          <div class="hello-sub"><span id="period-desc"></span></div>
         </div>
-      </a>
-      <div class="xl-user-wrap" style="margin-left:0;">
-        <div class="xl-actions-row">
-          <button class="xl-btn" id="privacy-toggle-btn" type="button" title="Show your data again">👁️ Show data</button>
-          <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
-          <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
-          <button class="xl-btn" id="settings-nav-btn" type="button" title="Settings">⚙️</button>
-          <div class="notif-wrap">
-            <button class="xl-btn" id="notif-bell-btn" type="button" title="Notifications" aria-haspopup="true" aria-expanded="false">🔔<span class="notif-badge" id="notif-badge" hidden>0</span></button>
-            <div class="notif-dropdown" id="notif-dropdown" hidden>
-              <div class="notif-dropdown-head">🔔 Notifications</div>
-              <div class="notif-list" id="notif-list"></div>
-            </div>
+      </div>
+      <div class="hello-actions">
+        <a class="xl-btn icon-btn" id="help-btn" href="faq.html" target="_blank" rel="noopener" title="Help &amp; FAQ" aria-label="Help and FAQ">❓</a>
+        <button class="xl-btn icon-btn" id="privacy-toggle-btn" type="button" title="Show your data again">👁️ Show data</button>
+        <div class="notif-wrap">
+          <button class="xl-btn icon-btn" id="notif-bell-btn" type="button" title="Notifications" aria-haspopup="true" aria-expanded="false">🔔<span class="notif-badge" id="notif-badge" hidden>0</span></button>
+          <div class="notif-dropdown" id="notif-dropdown" hidden>
+            <div class="notif-dropdown-head">🔔 Notifications</div>
+            <div class="notif-list" id="notif-list"></div>
           </div>
-          <span class="xl-user" id="xl-user"></span>
-          <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
+        </div>
+        <div class="more-wrap">
+          <button class="xl-btn icon-btn" id="more-menu-btn" type="button" title="More" aria-haspopup="true" aria-expanded="false" aria-label="More">⋯</button>
+          <div class="more-menu" id="more-menu" hidden>
+            <span class="xl-user" id="xl-user"></span>
+            <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
+            <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
+            <button class="xl-btn" id="settings-nav-btn" type="button" title="Settings">⚙️ Settings</button>
+            <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="profile-banner" id="profile-banner">
-      <span class="profile-avatar" id="profile-avatar">🙂</span>
-      <div class="profile-banner-text">
-        <div class="time-message" id="time-message">🌅 Loading...</div>
-        <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
-      </div>
-    </div>
-
-    <!-- Hidden by default (see initPremiumPromo() in app.js) — only shown
-         to a signed-in, non-premium account that hasn't dismissed it this
-         session, same "nothing for a Premium account to see" rule the
-         side banner below follows too. -->
-    <div class="premium-promo-banner" id="premium-promo-banner" hidden>
-      <button type="button" class="premium-promo-dismiss" id="premium-promo-dismiss" title="Dismiss" aria-label="Dismiss">✕</button>
-      <div class="premium-promo-content">
-        <div class="premium-promo-icon" id="premium-promo-icon">💎</div>
-        <div class="premium-promo-text">
-          <div class="premium-promo-eyebrow">💎 Premium — ₦3,500/month</div>
-          <div class="premium-promo-title" id="premium-promo-title">Go Premium</div>
-          <div class="premium-promo-desc" id="premium-promo-desc">Unlock the full AnchorTrakk experience.</div>
-        </div>
-        <button type="button" class="premium-promo-cta" id="premium-promo-cta">💎 Go Premium</button>
-      </div>
-      <div class="premium-promo-dots" id="premium-promo-dots"></div>
-    </div>
-
-    <div class="meta-chips">
-      <div class="chip" id="chip-clock">
-        <span class="lbl">⏰ Right now</span>
-        <span class="val" id="live-clock">--:--:--</span>
-      </div>
-      <div class="chip countdown" id="chip-countdown">
-        <span class="lbl">🎯 Days until debt-free</span>
-        <span class="val" id="countdown-days">—</span>
-      </div>
-      <div class="chip level" id="chip-level">
-        <span class="lbl">🌟 Level</span>
-        <span class="val" id="chip-level-val">1</span>
-      </div>
-      <div class="chip streak" id="chip-streak" title="Consecutive days you've opened AnchorTrakk">
-        <span class="lbl" id="chip-streak-lbl">🔥 Streak</span>
-        <span class="val" id="chip-streak-val">—</span>
-      </div>
-      <div class="chip outstanding" id="chip-outstanding" title="Total remaining on every debt, across all months">
-        <span class="lbl">💰 Still outstanding</span>
-        <span class="val" id="chip-outstanding-val">—</span>
-      </div>
-      <div class="chip net" id="chip-net" title="This month's checked income minus checked debts, living expenses & gifts">
-        <span class="lbl">📊 This month's net</span>
-        <span class="val" id="chip-net-val">—</span>
-      </div>
-      <div class="chip savings" id="chip-savings" title="Total saved across every month — the free-form savings ledger plus every savings app balance combined">
-        <span class="lbl">🐷 Total savings</span>
-        <span class="val" id="chip-savings-val">—</span>
-      </div>
-      <div class="chip gifts" id="chip-gifts" title="Total set aside for gifts across every month, checked off">
-        <span class="lbl">🎁 Total gifts</span>
-        <span class="val" id="chip-gifts-val">—</span>
-      </div>
-      <div class="chip investments" id="chip-investments" title="Current value of every investment holding, at the last price you logged">
-        <span class="lbl">💹 Total investments</span>
-        <span class="val" id="chip-investments-val">—</span>
-      </div>
-      <div class="chip networth" id="chip-networth" title="Cash + savings + investments + other assets, minus what's still owed on debts">
-        <span class="lbl">📈 Net worth</span>
-        <span class="val" id="chip-networth-val">—</span>
-      </div>
-    </div>
-
-    <div class="overall">
-      <div class="overall-head">
-        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
-        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
-      </div>
-      <div class="overall-nums">
-        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
-        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
-        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
-        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
-      </div>
-      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
-    </div>
   </div>
 
   <div class="month-bar">
@@ -427,6 +349,134 @@
 
   <!-- ============ OVERVIEW ============ -->
   <div class="app-page active" id="page-overview" data-page="overview">
+    <!-- Simple Home: the few things most people open the app for. Everything
+         that used to sit here is still one tap away under "Full overview". -->
+    <section class="home-hero" id="home-hero" aria-label="Your money at a glance">
+      <div class="home-hero-label" id="home-hero-label">Money left this month</div>
+      <div class="home-hero-amt" id="home-hero-amt">0</div>
+      <div class="home-hero-sub" id="home-hero-sub"></div>
+      <div class="home-hero-foot">
+        <div class="home-hero-second"><span id="home-hero2-label">Net worth</span> <b id="home-hero2-amt">—</b></div>
+        <button type="button" class="home-hero-cta" id="home-hero-cta">＋ Log expense</button>
+      </div>
+    </section>
+
+    <section class="home-next" id="home-next" aria-live="polite">
+      <div class="home-next-top"><span class="home-next-amt" id="home-next-amt">—</span><span class="home-next-when" id="home-next-when"></span></div>
+      <div class="home-next-label" id="home-next-label">Nothing due</div>
+    </section>
+
+    <div class="home-insight" id="home-insight" hidden>
+      <span class="home-insight-ic" id="home-insight-ic">🎯</span>
+      <span class="home-insight-text" id="home-insight-text"></span>
+      <button type="button" class="home-insight-close" id="home-insight-close" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- Hidden by default (see initPremiumPromo() in app.js) — only shown
+         to a signed-in, non-premium account that hasn't dismissed it this
+         session, same "nothing for a Premium account to see" rule the
+         side banner below follows too. -->
+    <div class="premium-promo-banner" id="premium-promo-banner" hidden>
+      <button type="button" class="premium-promo-dismiss" id="premium-promo-dismiss" title="Dismiss" aria-label="Dismiss">✕</button>
+      <div class="premium-promo-content">
+        <div class="premium-promo-icon" id="premium-promo-icon">💎</div>
+        <div class="premium-promo-text">
+          <div class="premium-promo-eyebrow">💎 Premium — ₦3,500/month</div>
+          <div class="premium-promo-title" id="premium-promo-title">Go Premium</div>
+          <div class="premium-promo-desc" id="premium-promo-desc">Unlock the full AnchorTrakk experience.</div>
+        </div>
+        <button type="button" class="premium-promo-cta" id="premium-promo-cta">💎 Go Premium</button>
+      </div>
+      <div class="premium-promo-dots" id="premium-promo-dots"></div>
+    </div>
+
+
+    <div class="home-tiles">
+      <button type="button" class="home-tile" id="home-tile-expense">
+        <span class="home-tile-ic">🧾</span>
+        <span class="home-tile-title">Log an expense</span>
+        <span class="home-tile-desc">Add what you just spent, on any date.</span>
+      </button>
+      <button type="button" class="home-tile" id="home-tile-debt">
+        <span class="home-tile-ic">💳</span>
+        <span class="home-tile-title">Add a debt</span>
+        <span class="home-tile-desc">Set a due date and watch the countdown.</span>
+      </button>
+    </div>
+
+    <section class="home-recent" id="home-recent">
+      <div class="home-recent-head"><h3>Recent expenses</h3><button type="button" class="link-btn" id="home-recent-all">See all</button></div>
+      <div class="home-recent-list" id="home-recent-list"></div>
+    </section>
+
+    <details class="home-details" id="home-details">
+      <summary>📊 Full overview</summary>
+      <div class="home-details-body">
+    <div class="profile-banner" id="profile-banner">
+      <span class="profile-avatar" id="profile-avatar">🙂</span>
+      <div class="profile-banner-text">
+        <div class="time-message" id="time-message">🌅 Loading...</div>
+        <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
+      </div>
+    </div>
+
+    <div class="meta-chips">
+      <div class="chip" id="chip-clock">
+        <span class="lbl">⏰ Right now</span>
+        <span class="val" id="live-clock">--:--:--</span>
+      </div>
+      <div class="chip countdown" id="chip-countdown">
+        <span class="lbl">🎯 Days until debt-free</span>
+        <span class="val" id="countdown-days">—</span>
+      </div>
+      <div class="chip level" id="chip-level">
+        <span class="lbl">🌟 Level</span>
+        <span class="val" id="chip-level-val">1</span>
+      </div>
+      <div class="chip streak" id="chip-streak" title="Consecutive days you've opened AnchorTrakk">
+        <span class="lbl" id="chip-streak-lbl">🔥 Streak</span>
+        <span class="val" id="chip-streak-val">—</span>
+      </div>
+      <div class="chip outstanding" id="chip-outstanding" title="Total remaining on every debt, across all months">
+        <span class="lbl">💰 Still outstanding</span>
+        <span class="val" id="chip-outstanding-val">—</span>
+      </div>
+      <div class="chip net" id="chip-net" title="This month's checked income minus checked debts, living expenses & gifts">
+        <span class="lbl">📊 This month's net</span>
+        <span class="val" id="chip-net-val">—</span>
+      </div>
+      <div class="chip savings" id="chip-savings" title="Total saved across every month — the free-form savings ledger plus every savings app balance combined">
+        <span class="lbl">🐷 Total savings</span>
+        <span class="val" id="chip-savings-val">—</span>
+      </div>
+      <div class="chip gifts" id="chip-gifts" title="Total set aside for gifts across every month, checked off">
+        <span class="lbl">🎁 Total gifts</span>
+        <span class="val" id="chip-gifts-val">—</span>
+      </div>
+      <div class="chip investments" id="chip-investments" title="Current value of every investment holding, at the last price you logged">
+        <span class="lbl">💹 Total investments</span>
+        <span class="val" id="chip-investments-val">—</span>
+      </div>
+      <div class="chip networth" id="chip-networth" title="Cash + savings + investments + other assets, minus what's still owed on debts">
+        <span class="lbl">📈 Net worth</span>
+        <span class="val" id="chip-networth-val">—</span>
+      </div>
+    </div>
+
+    <div class="overall">
+      <div class="overall-head">
+        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
+        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
+      </div>
+      <div class="overall-nums">
+        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
+        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
+        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
+        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
+      </div>
+      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
+    </div>
+
 
     <div class="global-search-wrap">
       <div class="global-search-row">
@@ -524,6 +574,10 @@
       <h3>🎯 Mini-quests</h3>
       <div id="quests-body"></div>
     </div>
+
+      </div>
+    </details>
+
 
   </div>
 
@@ -939,7 +993,13 @@
 
     <div class="settings-subpage" id="settings-page-topbar" data-settings-page="topbar" hidden>
       <button type="button" class="settings-back-btn">‹ Settings</button>
-      <div class="section-head"><h2>📌 Top bar cards</h2></div>
+      <div class="section-head"><h2>🏡 Home card</h2></div>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">The big number at the top of Home. The other one shows underneath it. Net worth needs Premium.</p>
+      <div class="toolbar">
+        <label class="xl-set">Big number shows <select id="set-home-hero"><option value="money">Money left this month</option><option value="networth">Net worth</option></select></label>
+      </div>
+
+      <div class="section-head" style="margin-top:18px;"><h2>📌 Top bar cards</h2></div>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which cards show in the bar at the top of every page. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again.</p>
       <div class="toolbar">
         <div class="chip-picker" id="chip-picker">
