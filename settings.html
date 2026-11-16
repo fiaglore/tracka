@@ -396,6 +396,18 @@ window.__ftSettingsPage = true;
     <button type="button" class="page-nav-btn page-nav-btn-right" id="page-nav-settings-btn"><span class="ic">⚙️</span>Settings</button>
   </nav>
 
+  <!-- Five top-level tabs. Each groups the detailed pages (the .page-nav-btn
+       buttons above stay in the DOM, hidden, as the source of truth for page
+       switching, tab visibility/order and theme icons). -->
+  <nav class="main-nav" id="main-nav" aria-label="Main">
+    <button type="button" class="main-nav-btn active" data-group="home"><span class="ic">🏡</span><span class="lbl">Home</span><span class="whatsnew-tab-dot" hidden></span></button>
+    <button type="button" class="main-nav-btn" data-group="budget"><span class="ic">💸</span><span class="lbl">Budget</span></button>
+    <button type="button" class="main-nav-btn" data-group="wealth"><span class="ic">🏦</span><span class="lbl">Wealth</span></button>
+    <button type="button" class="main-nav-btn" data-group="rewards"><span class="ic">🌟</span><span class="lbl">Rewards</span></button>
+    <button type="button" class="main-nav-btn" id="main-nav-settings-btn"><span class="ic">⚙️</span><span class="lbl">Settings</span></button>
+  </nav>
+  <div class="sub-nav" id="sub-nav" hidden></div>
+
   <!-- ============ OVERVIEW ============ -->
   <div class="app-page active" id="page-overview" data-page="overview">
 

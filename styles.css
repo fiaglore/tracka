@@ -1743,3 +1743,48 @@ body.settings-only-view .app-shell > footer{
 .item-row .sub.tick-date input[type=date]{color:var(--good);}
 .item-row .sub .overdue-badge{color:var(--bad); font-weight:700;}
 
+/* ============================================================
+   FIVE-TAB MAIN NAV (Home / Budget / Wealth / Rewards / Settings)
+   The old one-button-per-page .page-nav stays in the DOM, hidden, as the
+   source of truth; .main-nav groups it, .sub-nav switches between the pages
+   inside a group (Budget: Income/Expenses/Debts/Gifts, etc.).
+   ============================================================ */
+.page-nav{display:none !important;}
+.main-nav{display:flex; gap:4px; margin:12px 0 10px; border-bottom:1px solid var(--line); padding-bottom:2px;}
+.main-nav-btn{flex:1 1 0; font-family:var(--font-display); font-weight:700; font-size:13px; padding:8px 10px; border:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:10px 10px 0 0; display:inline-flex; align-items:center; justify-content:center; gap:6px; position:relative;}
+.main-nav-btn .ic{font-size:16px;}
+.main-nav-btn:hover{color:var(--ink); background:var(--bg-soft);}
+.main-nav-btn.active{color:var(--accent-ink); background:var(--surface); border:1px solid var(--line); border-bottom-color:var(--surface);}
+.main-nav-btn .whatsnew-tab-dot{position:absolute; top:6px; right:14px;}
+.main-nav-btn[hidden]{display:none;}
+.sub-nav{display:flex; gap:8px; overflow-x:auto; margin:0 0 14px; padding:2px 0 4px; scrollbar-width:none;}
+.sub-nav[hidden]{display:none;}
+.sub-nav::-webkit-scrollbar{display:none;}
+.sub-nav-btn{flex:0 0 auto; font-family:var(--font-display); font-weight:700; font-size:13px; padding:7px 14px; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; border-radius:999px; display:inline-flex; align-items:center; gap:6px; position:relative;}
+.sub-nav-btn:hover{color:var(--ink);}
+.sub-nav-btn.active{color:var(--accent-ink); background:var(--bg-soft); border-color:var(--accent);}
+.sub-nav-btn .whatsnew-tab-dot{margin-left:2px;}
+body.settings-only-view .main-nav,
+body.settings-only-view .sub-nav{display:none !important;}
+body[data-privacy="on"] .app-shell > .main-nav,
+body[data-privacy="on"] .app-shell > .sub-nav{filter:blur(9px); user-select:none;}
+@media (max-width:640px){
+  .main-nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    margin:0; border-bottom:none; border-top:1px solid var(--line);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom)) 6px; gap:2px;
+    background:var(--surface); box-shadow:0 -4px 14px rgba(0,0,0,.1);
+  }
+  .main-nav-btn{flex-direction:column; gap:3px; font-size:11.5px; padding:8px 4px; border-radius:var(--radius-sm);}
+  .main-nav-btn .ic{font-size:22px;}
+  .main-nav-btn.active{border:none; background:var(--bg-soft);}
+  .main-nav-btn .whatsnew-tab-dot{top:4px; right:calc(50% - 20px);}
+  .sub-nav{margin-top:12px;}
+}
+@media (max-width:640px){
+  /* Lift the floating companions clear of the fixed bottom tab bar so they
+     never sit on top of Home / Settings. */
+  .growth-tree{bottom:calc(82px + env(safe-area-inset-bottom, 0px));}
+  .cat-companion{bottom:calc(82px + env(safe-area-inset-bottom, 0px));}
+}
+
