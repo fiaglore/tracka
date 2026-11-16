@@ -369,6 +369,7 @@ window.__ftStart = function(){
     // rather than leaving a hidden page showing with no way back to it.
     const activeBtn = document.querySelector('.page-nav-btn.active');
     if(activeBtn && activeBtn.hidden && typeof showPage==='function') showPage('overview');
+    if(typeof window.__ftRenderNav === 'function') window.__ftRenderNav();
   }
   function setTabVisible(id, visible){
     visibleTabIds = visible ? ALL_TAB_IDS.filter(x=> x===id || visibleTabIds.includes(x)) : visibleTabIds.filter(x=>x!==id);
@@ -8041,6 +8042,7 @@ window.__ftStart = function(){
   function hasUnreadWhatsNew(){ return !!latestWhatsNewId && whatsNewLastSeenId !== latestWhatsNewId; }
   function applyWhatsNewDot(){
     document.querySelectorAll('.whatsnew-tab-dot').forEach(d=>{ d.hidden = !hasUnreadWhatsNew(); });
+    if(typeof window.__ftRenderNav === 'function') window.__ftRenderNav();
   }
   function markWhatsNewRead(){
     if(!latestWhatsNewId || whatsNewLastSeenId===latestWhatsNewId) return;
@@ -9597,10 +9599,89 @@ window.__ftStart = function(){
       b.classList.toggle('active', b.getAttribute('data-page') === name);
     });
     try{ sessionStorage.setItem('ftActivePage', name); }catch(e){}
-    var nav = document.getElementById('page-nav');
-    if(nav) nav.scrollIntoView({ block:'nearest' });
+    renderMainNav(name);
+    var nav = document.getElementById('main-nav');
+    if(nav && nav.offsetParent !== null) nav.scrollIntoView({ block:'nearest' });
   }
   window.showTrackerPage = showPage;
+
+  /* ---------------- Five-tab main nav ----------------
+     Home / Budget / Wealth / Rewards / Settings. Each group lists the real
+     pages inside it; the hidden .page-nav-btn buttons stay the source of
+     truth for which pages exist, their order (Settings -> Visible tabs) and
+     premium locks, so hiding or reordering a page there still works. */
+  var NAV_GROUPS = {
+    home:    ['overview','whatsnew'],
+    budget:  ['income','expenses','debts','gifts'],
+    wealth:  ['savings','investments','networth'],
+    rewards: ['xp']
+  };
+  var lastPageInGroup = {};
+  function groupOfPage(page){
+    for(var g in NAV_GROUPS){ if(NAV_GROUPS[g].indexOf(page) >= 0) return g; }
+    return 'home';
+  }
+  function pageBtn(page){ return document.querySelector('.page-nav-btn[data-page="'+page+'"]'); }
+  // Pages in a group that are currently available (not hidden in Settings -> Visible tabs, not premium-locked), in the group's fixed order.
+  function availablePages(group){
+    return NAV_GROUPS[group].filter(function(p){
+      var b = pageBtn(p);
+      return b && (!b.hidden || p === 'overview');
+    });
+  }
+  function renderMainNav(activePage){
+    var mainNav = document.getElementById('main-nav'), sub = document.getElementById('sub-nav');
+    if(!mainNav || !sub) return;
+    var activeGroup = groupOfPage(activePage);
+    lastPageInGroup[activeGroup] = activePage;
+    Array.prototype.forEach.call(mainNav.querySelectorAll('.main-nav-btn[data-group]'), function(b){
+      var g = b.getAttribute('data-group');
+      var pages = availablePages(g);
+      b.hidden = pages.length === 0;
+      b.classList.toggle('active', g === activeGroup);
+      if(g === activeGroup) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
+    });
+    var pages = availablePages(activeGroup);
+    if(pages.length < 2){ sub.hidden = true; sub.innerHTML = ''; return; }
+    sub.hidden = false;
+    sub.innerHTML = '';
+    pages.forEach(function(p){
+      var src = pageBtn(p);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sub-nav-btn' + (p === activePage ? ' active' : '');
+      btn.setAttribute('data-sub-page', p);
+      var ic = src.querySelector('.ic');
+      // Label = the old button's text without its icon / unread dot.
+      var label = (src.textContent || '').replace(ic ? ic.textContent : '', '').trim();
+      btn.innerHTML = '<span class="ic">'+(ic ? ic.textContent : '')+'</span>'+label.replace(/</g,'&lt;');
+      var srcDot = src.querySelector('.whatsnew-tab-dot');
+      if(srcDot && !srcDot.hidden){
+        var dot = document.createElement('span'); dot.className = 'whatsnew-tab-dot'; btn.appendChild(dot);
+      }
+      if(p === activePage) btn.setAttribute('aria-current','page');
+      sub.appendChild(btn);
+    });
+  }
+  window.__ftRenderNav = function(){
+    var active = document.querySelector('.app-page.active');
+    renderMainNav(active ? active.getAttribute('data-page') : 'overview');
+  };
+  document.addEventListener('click', function(e){
+    var g = e.target.closest && e.target.closest('.main-nav-btn[data-group]');
+    if(g){
+      var group = g.getAttribute('data-group');
+      var pages = availablePages(group);
+      if(!pages.length) return;
+      var target = pages.indexOf(lastPageInGroup[group]) >= 0 ? lastPageInGroup[group] : pages[0];
+      showPage(target);
+      return;
+    }
+    var sb = e.target.closest && e.target.closest('.sub-nav-btn[data-sub-page]');
+    if(sb) showPage(sb.getAttribute('data-sub-page'));
+  });
+  var mainNavSettings = document.getElementById('main-nav-settings-btn');
+  if(mainNavSettings) mainNavSettings.addEventListener('click', function(){ location.href = 'settings.html'; });
 
   document.addEventListener('click', function(e){
     var btn = e.target.closest && e.target.closest('.page-nav-btn');
