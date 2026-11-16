@@ -73,7 +73,8 @@ jobs:
           cp app/build/outputs/bundle/release/app-release.aab out/AnchorTrakk.aab
           ls -l out
           echo "---- Signing certificate of AnchorTrakk.apk ----"
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs out/AnchorTrakk.apk | grep -i "SHA-256" || true
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$APKSIGNER" verify --print-certs out/AnchorTrakk.apk | grep -i "SHA-256 digest" || echo "(could not read the signing certificate)"
 
       - uses: actions/upload-artifact@v4
         with:
