@@ -65,7 +65,7 @@ body[data-privacy="on"] .app-page:not(#page-settings):not(#page-whatsnew){
   --accent:#D98E2B; --accent-ink:#5C3B0E;
   --good:#4E8F5A; --bad:#D2603F; --info:#4E7FB8;
   --bg-image:none; --bg-size:auto;
-  --radius-sm:12px; --radius-md:18px; --radius-lg:26px;
+  --radius-sm:14px; --radius-md:20px; --radius-lg:28px;
   --shadow-sm:0 2px 8px rgba(60,42,10,0.06);
   --shadow-md:0 8px 24px rgba(60,42,10,0.10);
   --font-display:'Quicksand',sans-serif; --font-body:'Quicksand',sans-serif; --font-mono:'Quicksand',sans-serif;
@@ -1766,8 +1766,6 @@ body.settings-only-view .app-shell > footer{
 .sub-nav-btn .whatsnew-tab-dot{margin-left:2px;}
 body.settings-only-view .main-nav,
 body.settings-only-view .sub-nav{display:none !important;}
-body[data-privacy="on"] .app-shell > .main-nav,
-body[data-privacy="on"] .app-shell > .sub-nav{filter:blur(9px); user-select:none;}
 @media (max-width:640px){
   .main-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:40;
@@ -1786,5 +1784,129 @@ body[data-privacy="on"] .app-shell > .sub-nav{filter:blur(9px); user-select:none
      never sit on top of Home / Settings. */
   .growth-tree{bottom:calc(82px + env(safe-area-inset-bottom, 0px));}
   .cat-companion{bottom:calc(82px + env(safe-area-inset-bottom, 0px));}
+}
+
+/* Download page + the "Take it with you" strip on the landing page */
+.download-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); padding:20px; text-align:center; margin-bottom:14px;}
+.download-note{font-size:13px; color:var(--muted); margin:12px 0 0; line-height:1.5;}
+.landing-getapp{padding:8px 0 28px;}
+.landing-getapp-inner{display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:20px 24px;}
+.landing-getapp-inner h2{font-size:clamp(18px,2.4vw,22px); margin:0 0 4px; font-weight:800;}
+.landing-getapp-inner p{margin:0; font-size:14px; color:var(--muted);}
+@media (max-width:640px){ .landing-getapp-inner{text-align:center; justify-content:center;} }
+
+/* ============================================================
+   SIMPLE APP LOOK (greeting header, hero card, shortcut tiles,
+   floating bottom bar). Colours all come from the theme variables,
+   so every existing theme and dark mode keeps working.
+   ============================================================ */
+.topbar{padding:14px 0 4px;}
+.brand-row{position:static; background:transparent; box-shadow:none; border:none; padding:0; margin:0; flex-wrap:nowrap; gap:10px;}
+.hello{display:flex; align-items:center; gap:12px; min-width:0;}
+.hello-avatar{width:48px; height:48px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26px; flex:0 0 auto; overflow:hidden;}
+.hello-avatar img{width:48px; height:48px; border-radius:50%; object-fit:cover; display:block;}
+.hello-text{min-width:0;}
+.hello-greet{font-family:var(--font-display); font-weight:800; font-size:clamp(20px,5.2vw,26px); line-height:1.15; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.hello-sub{font-size:12px; color:var(--muted); margin-top:2px; display:none;}
+.hello-actions{display:flex; align-items:center; gap:8px; flex:0 0 auto;}
+.icon-btn{width:42px; height:42px; padding:0; border-radius:50%; justify-content:center; font-size:18px; background:var(--surface); box-shadow:var(--shadow-sm); text-decoration:none; position:relative;}
+.icon-btn .btn-lbl{display:none;}
+.more-wrap{position:relative; display:inline-flex;}
+.more-menu{position:absolute; top:calc(100% + 8px); right:0; z-index:70; min-width:210px; display:flex; flex-direction:column; gap:6px; padding:10px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); box-shadow:var(--shadow-md);}
+.more-menu[hidden]{display:none;}
+.more-menu .xl-btn{width:100%; justify-content:flex-start; padding:9px 12px; font-size:13.5px;}
+.more-menu .xl-user{padding:2px 4px 6px; border-bottom:1px solid var(--line); margin-bottom:2px;}
+
+.month-bar{margin:12px 0 0;}
+.month-meta{font-size:12px;}
+
+/* Home */
+.home-hero{margin:14px 0 12px; padding:20px 20px 16px; border-radius:var(--radius-lg); color:#fff; background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, #000), color-mix(in srgb, var(--accent) 45%, #000)); box-shadow:var(--shadow-md);}
+.home-hero-label{font-family:var(--font-display); font-weight:700; font-size:14px; opacity:.92;}
+.home-hero-amt{font-family:var(--font-display); font-weight:800; font-size:clamp(34px,10vw,46px); line-height:1.1; margin:6px 0 4px; word-break:break-word;}
+.home-hero-amt.neg{color:#FFD9D4;}
+.home-hero-sub{font-size:12.5px; opacity:.85; line-height:1.4;}
+.home-hero-foot{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; flex-wrap:wrap;}
+.home-hero-second{font-size:13px; opacity:.95;}
+.home-hero-second b{font-weight:800; margin-left:4px;}
+.home-hero-cta{font-family:var(--font-display); font-weight:800; font-size:14px; padding:11px 18px; border-radius:999px; border:none; background:rgba(255,255,255,.2); color:#fff; cursor:pointer;}
+.home-hero-cta:hover{background:rgba(255,255,255,.3);}
+.home-next{margin:0 0 12px; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); cursor:pointer;}
+.home-next-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;}
+.home-next-amt{font-family:var(--font-display); font-weight:800; font-size:22px; color:var(--ink);}
+.home-next-when{font-size:12.5px; font-weight:700; color:var(--muted);}
+.home-next.overdue{border-color:var(--bad);}
+.home-next.overdue .home-next-when{color:var(--bad);}
+.home-next-label{font-size:13px; color:var(--muted); margin-top:4px;}
+.home-insight{margin:0 0 12px; display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); font-size:13.5px; color:var(--ink);}
+.home-insight[hidden]{display:none;}
+.home-insight-ic{font-size:22px; flex:0 0 auto;}
+.home-insight-text{flex:1; line-height:1.4;}
+.home-insight-close{border:none; background:transparent; color:var(--muted); font-size:15px; cursor:pointer; padding:4px 6px;}
+.home-tiles{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 0 16px;}
+.home-tile{position:relative; text-align:left; padding:16px 14px 14px; min-height:132px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); box-shadow:var(--shadow-sm); cursor:pointer; display:flex; flex-direction:column; gap:6px; font-family:var(--font-display); color:var(--ink);}
+.home-tile:hover{border-color:var(--accent);}
+.home-tile-ic{font-size:30px; line-height:1; align-self:flex-end; margin-bottom:-6px;}
+.home-tile-title{font-weight:800; font-size:17px; line-height:1.2;}
+.home-tile-desc{font-size:12px; color:var(--muted); font-weight:600; line-height:1.35;}
+.home-recent{margin:0 0 14px;}
+.home-recent-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+.home-recent-head h3{font-size:16px; font-weight:800; margin:0;}
+.home-recent-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md); margin-bottom:8px;}
+.hr-desc{font-weight:700; font-size:14px;}
+.hr-sub{font-size:12px; color:var(--muted); margin-top:2px;}
+.hr-amt{font-family:var(--font-display); font-weight:800; font-size:15px; color:var(--bad); white-space:nowrap;}
+.home-recent-empty{font-size:13px; color:var(--muted); padding:12px 4px;}
+.home-details{margin:6px 0 10px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface);}
+.home-details > summary{cursor:pointer; list-style:none; padding:14px 16px; font-family:var(--font-display); font-weight:800; font-size:14.5px;}
+.home-details > summary::-webkit-details-marker{display:none;}
+.home-details > summary::after{content:"▾"; float:right; color:var(--muted);}
+.home-details[open] > summary::after{content:"▴";}
+.home-details-body{padding:0 12px 12px;}
+
+/* Underline tabs inside a group (Budget: Income / Expenses / Debts / Gifts) */
+.sub-nav{gap:22px; border-bottom:1px solid var(--line); margin:6px 0 14px; padding:0;}
+.sub-nav-btn{border:none; border-radius:0; background:transparent; padding:10px 2px; font-size:15px; font-weight:700; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-1px;}
+.sub-nav-btn .ic{display:none;}
+.sub-nav-btn.active{background:transparent; border-color:transparent; border-bottom-color:var(--ink); color:var(--ink);}
+
+/* Desktop: five tabs across the top, centred underline style */
+@media (min-width:641px){
+  .main-nav{margin:10px 0 8px;}
+  .home-tiles{max-width:640px;}
+  .home-hero{max-width:640px;}
+  .home-next,.home-insight,.home-recent{max-width:640px;}
+  .hello-sub{display:block;}
+}
+
+/* Phone: floating rounded bottom bar. Only the active tab shows its name. */
+@media (max-width:640px){
+  .main-nav{
+    left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom));
+    border:1px solid var(--line); border-radius:30px; padding:8px; gap:4px;
+    background:var(--surface); box-shadow:0 10px 28px rgba(0,0,0,.18);
+  }
+  .main-nav-btn{flex:1 1 0; flex-direction:row; justify-content:center; gap:6px; min-height:46px; padding:0 6px; border-radius:24px; font-size:13.5px;}
+  .main-nav-btn .ic{font-size:22px;}
+  .main-nav-btn .lbl{display:none;}
+  .main-nav-btn.active{flex:2.2 1 0; background:var(--accent); color:#fff; border:none;}
+  .main-nav-btn.active .lbl{display:inline;}
+  .main-nav-btn .whatsnew-tab-dot{top:6px; right:calc(50% - 16px);}
+  .app-shell{padding-bottom:calc(98px + env(safe-area-inset-bottom));}
+  .growth-tree{bottom:calc(98px + env(safe-area-inset-bottom, 0px));}
+  .cat-companion{bottom:calc(98px + env(safe-area-inset-bottom, 0px));}
+  .home-tiles{gap:10px;}
+}
+
+/* polish */
+.hello-avatar{width:44px; height:44px; font-size:24px;}
+.hello-avatar img{width:44px; height:44px;}
+.icon-btn{width:38px; height:38px; font-size:16px;}
+.hello-actions{gap:6px;}
+.hello-greet{font-size:clamp(19px,5vw,25px);}
+.month-bar{gap:8px 12px;}
+@media (min-width:641px){
+  .home-hero,.home-next,.home-insight,.home-tiles,.home-recent,.home-details,.premium-promo-banner{max-width:720px; margin-left:auto; margin-right:auto;}
+  .home-hero{margin-top:18px;}
 }
 

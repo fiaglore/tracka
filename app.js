@@ -2043,6 +2043,160 @@ window.__ftStart = function(){
     if(e.target && e.target.id==='balance-asof-date') renderBalanceAsOf();
   });
 
+  // ===== Simple Home =====
+  // The first screen: one headline figure, what's due next, a one-line tip,
+  // two shortcut tiles and the last few expenses. Everything the old busy
+  // Overview showed is still there under "Full overview".
+  let homeHero = (cloud.homeHero === 'networth') ? 'networth' : 'money';
+  function fmtSigned(v){ return (v<0?'-':'') + fmt(Math.abs(v)); }
+  function firstNameForGreeting(){
+    let n = (profile && (profile.firstName || profile.username)) || cloud.displayName || '';
+    n = String(n).trim();
+    if(n.indexOf('@') > 0) n = n.split('@')[0];
+    n = n.split(/[\s._-]+/)[0] || '';
+    return n ? n.charAt(0).toUpperCase() + n.slice(1) : '';
+  }
+  // The soonest unpaid instalment. An exact due date wins; an instalment with
+  // none counts as due by the end of its own billing period.
+  function nextDueDebt(){
+    let best = null;
+    for(let i=0;i<N;i++){
+      const m = state.months[i];
+      if(!m || !m.debts) continue;
+      m.debts.forEach(function(it){
+        if(it.checked || it.extraPayment || !(Number(it.amount)>0)) return;
+        const exact = !!it.dueDate;
+        const due = exact ? it.dueDate : dateKey(periodBounds(i).end);
+        if(!best || due < best.due) best = {item:it, mi:i, due:due, exact:exact};
+      });
+    }
+    return best;
+  }
+  function daysFromToday(key){
+    const t = todayKey();
+    return Math.round((new Date(key+'T00:00:00') - new Date(t+'T00:00:00')) / 86400000);
+  }
+  function homeInsightDismissed(text){
+    try{ return localStorage.getItem('ftHomeInsightDismissedV1') === todayKey()+'|'+text; }catch(e){ return false; }
+  }
+  function renderHome(){
+    if(!document.getElementById('home-hero')) return;
+    // greeting
+    const greet = document.getElementById('hello-greet');
+    if(greet){ const fn = firstNameForGreeting(); greet.textContent = fn ? 'Hi, '+fn+'.' : 'Hi there.'; }
+
+    // headline figure
+    const mi = activeMonth, p = periodBounds(mi);
+    const t = todayKey(), startK = dateKey(p.start), endK = dateKey(p.end);
+    const asOf = t < startK ? startK : (t > endK ? endK : t);
+    const left = netForMonthUpToDate(mi, asOf);
+    const nwOK = isFeatureUnlocked('netWorth');
+    const nw = nwOK ? netWorthForMonth(mi) : null;
+    const wantNW = homeHero === 'networth' && nwOK;
+    const isThisMonth = (mi === dateToMonthIndex(t));
+    const monthName = monthLabels[mi]+' '+yearTags[mi];
+    const leftLabel = isThisMonth ? 'Money left this month' : 'Money left in '+monthName;
+    const setText = function(id, v){ const e = document.getElementById(id); if(e) e.textContent = v; };
+    const amtEl = document.getElementById('home-hero-amt');
+    if(wantNW){
+      setText('home-hero-label', 'Net worth');
+      setText('home-hero-amt', fmtSigned(nw));
+      setText('home-hero-sub', 'Cash + savings + investments + assets, minus what you still owe');
+      setText('home-hero2-label', leftLabel);
+      setText('home-hero2-amt', fmtSigned(left));
+    } else {
+      setText('home-hero-label', leftLabel);
+      setText('home-hero-amt', fmtSigned(left));
+      setText('home-hero-sub', 'Income received minus what you have paid and spent so far');
+      setText('home-hero2-label', 'Net worth');
+      setText('home-hero2-amt', nwOK ? fmtSigned(nw) : '💎 Premium');
+    }
+    if(amtEl){ amtEl.classList.toggle('neg', (wantNW ? nw : left) < 0); }
+
+    // what's due next
+    const nd = nextDueDebt();
+    const nextBox = document.getElementById('home-next');
+    if(nextBox){
+      if(!nd){
+        const hadDebts = anyDebtEverEntered();
+        setText('home-next-amt', hadDebts ? '🎉 All clear' : 'Nothing due');
+        setText('home-next-when', '');
+        setText('home-next-label', hadDebts ? 'Nothing left to pay on your debts.' : 'No debts added yet. Add one to see what is due next.');
+        nextBox.classList.remove('overdue');
+      } else {
+        const days = daysFromToday(nd.due);
+        let when;
+        if(!nd.exact) when = 'Due in '+monthLabels[nd.mi]+' '+yearTags[nd.mi];
+        else if(days < 0) when = 'Overdue by '+(-days)+' day'+(days===-1?'':'s');
+        else if(days === 0) when = 'Due today';
+        else if(days === 1) when = 'Due tomorrow';
+        else if(days <= 14) when = 'Due in '+days+' days';
+        else when = 'Due '+fmtTickDate(nd.due);
+        setText('home-next-amt', fmtIn(nd.item.amount, nd.item.currency));
+        setText('home-next-when', when);
+        setText('home-next-label', 'Next payment · ' + (nd.item.label || 'Debt') + (nd.exact ? ' · ' + fmtTickDate(nd.due) : ''));
+        nextBox.classList.toggle('overdue', nd.exact && days < 0);
+      }
+    }
+
+    // one-line tip
+    const insBox = document.getElementById('home-insight');
+    if(insBox){
+      let icon = '💡', text = '';
+      const dfd = debtFreeDate();
+      if(nd && nd.exact && daysFromToday(nd.due) < 0){
+        icon = '⚠️'; text = (nd.item.label || 'A debt')+' was due on '+fmtTickDate(nd.due)+'. Pay it when you can to stay on track.';
+      } else if(dfd){
+        const dl = daysFromToday(dateKey(dfd));
+        icon = '🎯'; text = dl > 0 ? 'You are on track to be debt-free on '+shortDate(dfd)+', '+dl.toLocaleString()+' day'+(dl===1?'':'s')+' to go.' : 'Your debt-free date is '+shortDate(dfd)+'.';
+      } else if(!anyDebtEverEntered()){
+        text = 'Add a debt with its due date to see your debt-free date.';
+      }
+      insBox.hidden = !text || homeInsightDismissed(text);
+      setText('home-insight-ic', icon);
+      setText('home-insight-text', text);
+      insBox.dataset.text = text;
+    }
+
+    // recent expenses
+    const list = document.getElementById('home-recent-list');
+    if(list){
+      const rows = state.livingEntries.slice().sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).slice(0,3);
+      list.innerHTML = rows.length ? rows.map(function(e){
+        const cat = livingCategoryById(e.categoryId);
+        return '<div class="home-recent-row"><div><div class="hr-desc">'+escapeAttr(e.desc || (cat && cat.name) || 'Expense')+'</div><div class="hr-sub">'+escapeAttr(cat ? cat.name : '')+' · '+fmtTickDate(e.date)+'</div></div><div class="hr-amt">-'+fmt(Number(e.amount)||0)+'</div></div>';
+      }).join('') : '<div class="home-recent-empty">No expenses yet. Tap "Log an expense" to add your first.</div>';
+    }
+
+    // settings control
+    const sel = document.getElementById('set-home-hero');
+    if(sel && sel.value !== homeHero) sel.value = homeHero;
+  }
+  (function wireHome(){
+    const go = function(page, focusId){
+      if(typeof window.showTrackerPage === 'function') window.showTrackerPage(page);
+      setTimeout(function(){ const el = focusId && document.getElementById(focusId); if(el){ try{ el.scrollIntoView({block:'center'}); el.focus(); }catch(e){} } }, 120);
+    };
+    const on = function(id, fn){ const el = document.getElementById(id); if(el) el.addEventListener('click', fn); };
+    on('home-tile-expense', function(){ go('expenses', 'living-entry-amt'); });
+    on('home-hero-cta', function(){ go('expenses', 'living-entry-amt'); });
+    on('home-tile-debt', function(){ go('debts', 'debt-desc'); });
+    on('home-recent-all', function(){ go('expenses'); });
+    on('home-insight-close', function(){
+      const box = document.getElementById('home-insight');
+      try{ localStorage.setItem('ftHomeInsightDismissedV1', todayKey()+'|'+((box && box.dataset.text)||'')); }catch(e){}
+      if(box) box.hidden = true;
+    });
+    const sel = document.getElementById('set-home-hero');
+    if(sel) sel.addEventListener('change', function(){
+      homeHero = this.value === 'networth' ? 'networth' : 'money';
+      saveCloudField('homeHero', homeHero);
+      renderHome();
+    });
+    const nextBox = document.getElementById('home-next');
+    if(nextBox) nextBox.addEventListener('click', function(){ go('debts'); });
+  })();
+
   // ===== Balance reconciliation =====
   // For whenever real-world spending has gotten ahead of what's actually been logged (a day,
   // or a few, with nothing entered) — rather than reconstructing every missed purchase from
@@ -3719,6 +3873,7 @@ window.__ftStart = function(){
     renderMonthPicker();
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
     renderMonthStartOverride();
+    try{ renderHome(); }catch(e){ console.error('renderHome failed', e); }
     const footerCoverageEl = document.getElementById('footer-coverage');
     if(footerCoverageEl) footerCoverageEl.textContent = monthLabels[0]+' '+yearTags[0]+' through '+monthLabels[N-1]+' '+yearTags[N-1];
     const overallMonthCountEl = document.getElementById('overall-month-count');
@@ -9494,7 +9649,8 @@ window.__ftStart = function(){
     document.body.setAttribute('data-privacy', on ? 'on' : 'off');
     var btn = document.getElementById('privacy-toggle-btn');
     if(btn){
-      btn.textContent = on ? '👁️ Show data' : '🙈 Hide data';
+      btn.innerHTML = (on ? '👁️' : '🙈') + '<span class="btn-lbl"> ' + (on ? 'Show data' : 'Hide data') + '</span>';
+      btn.setAttribute('aria-label', on ? 'Show data' : 'Hide data');
       btn.title = on ? 'Show your data again' : 'Hide all data from view';
     }
   }
@@ -9517,6 +9673,18 @@ window.__ftStart = function(){
     });
   }
   applyPrivacyMode(true);
+
+  // "⋯" menu in the header: Undo, Redo, Settings and Sign out live here so the
+  // header can stay a clean greeting with just help, eye and bell.
+  (function wireMoreMenu(){
+    var btn = document.getElementById('more-menu-btn'), menu = document.getElementById('more-menu');
+    if(!btn || !menu) return;
+    function setOpen(open){ menu.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    btn.addEventListener('click', function(e){ e.stopPropagation(); setOpen(menu.hidden); });
+    document.addEventListener('click', function(e){ if(!menu.hidden && !menu.contains(e.target)) setOpen(false); });
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') setOpen(false); });
+    menu.addEventListener('click', function(e){ if(e.target.closest && e.target.closest('button')) setOpen(false); });
+  })();
 
   function refreshThemeForCurrentUser(){
     buildSwatches();

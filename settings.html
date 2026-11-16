@@ -253,38 +253,139 @@ window.__ftSettingsPage = true;
 
   <div class="topbar">
     <div class="brand-row">
-      <a class="brand" href="index.html" title="Back to AnchorTrakk home">
-        <div class="brand-mark"><img src="icon-192.png" alt="AnchorTrakk"></div>
-        <div class="brand-text">
-          <h1>AnchorTrakk - Your Money Tracker</h1>
-          <div class="tag">One continuous log — switch months, nothing resets. <span id="period-desc"></span></div>
+      <div class="hello">
+        <span class="profile-avatar hello-avatar" id="hello-avatar" aria-hidden="true">🙂</span>
+        <div class="hello-text">
+          <div class="hello-greet" id="hello-greet">Hi, there.</div>
+          <div class="hello-sub"><span id="period-desc"></span></div>
         </div>
-      </a>
-      <div class="xl-user-wrap" style="margin-left:0;">
-        <div class="xl-actions-row">
-          <button class="xl-btn" id="privacy-toggle-btn" type="button" title="Show your data again">👁️ Show data</button>
-          <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
-          <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
-          <div class="notif-wrap">
-            <button class="xl-btn" id="notif-bell-btn" type="button" title="Notifications" aria-haspopup="true" aria-expanded="false">🔔<span class="notif-badge" id="notif-badge" hidden>0</span></button>
-            <div class="notif-dropdown" id="notif-dropdown" hidden>
-              <div class="notif-dropdown-head">🔔 Notifications</div>
-              <div class="notif-list" id="notif-list"></div>
-            </div>
+      </div>
+      <div class="hello-actions">
+        <a class="xl-btn icon-btn" id="help-btn" href="faq.html" target="_blank" rel="noopener" title="Help &amp; FAQ" aria-label="Help and FAQ">❓</a>
+        <button class="xl-btn icon-btn" id="privacy-toggle-btn" type="button" title="Show your data again">👁️ Show data</button>
+        <div class="notif-wrap">
+          <button class="xl-btn icon-btn" id="notif-bell-btn" type="button" title="Notifications" aria-haspopup="true" aria-expanded="false">🔔<span class="notif-badge" id="notif-badge" hidden>0</span></button>
+          <div class="notif-dropdown" id="notif-dropdown" hidden>
+            <div class="notif-dropdown-head">🔔 Notifications</div>
+            <div class="notif-list" id="notif-list"></div>
           </div>
-          <!-- This document's whole purpose is to be the Settings page, so
-               the gear that opens it on sign-in.html is replaced here with
-               a way back to the tracker instead (wired at the bottom of
-               this file — settings-nav-btn's shared app.js click handler
-               would just navigate to this same page again, so it isn't
-               reused with a different id here). -->
-          <button class="xl-btn" id="back-to-tracker-btn" type="button" title="Back to your tracker">🏡 Back to tracker</button>
-          <span class="xl-user" id="xl-user"></span>
-          <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
+        </div>
+        <div class="more-wrap">
+          <button class="xl-btn icon-btn" id="more-menu-btn" type="button" title="More" aria-haspopup="true" aria-expanded="false" aria-label="More">⋯</button>
+          <div class="more-menu" id="more-menu" hidden>
+            <span class="xl-user" id="xl-user"></span>
+            <button class="xl-btn" id="undo-btn" type="button" title="Undo the last change (Ctrl+Z)" disabled>↩️ Undo</button>
+            <button class="xl-btn" id="redo-btn" type="button" title="Redo (Ctrl+Shift+Z)" disabled>↪️ Redo</button>
+            <button class="xl-btn" id="settings-nav-btn" type="button" title="Settings">⚙️ Settings</button>
+            <button class="xl-btn" id="auth-signout" type="button" title="Lock the tracker and return to the sign-in page">🔒 Sign out</button>
+          </div>
         </div>
       </div>
     </div>
 
+  </div>
+
+  <div class="month-bar">
+    <!-- Replaces the old scrolling row of one-tab-per-month buttons — with
+         a year or more tracked that row just kept growing sideways. A
+         prev/next pair plus a dropdown (built in renderMonthPicker() in
+         app.js) covers the same jump-to-any-month + at-a-glance-status
+         need in a fixed-width control instead. -->
+    <div class="month-picker">
+      <button type="button" class="month-nav-btn" id="month-prev-btn" title="Previous month" aria-label="Previous month">‹</button>
+      <div class="month-picker-wrap">
+        <button type="button" class="month-picker-toggle" id="month-picker-toggle" aria-haspopup="listbox" aria-expanded="false">
+          <span class="dot" id="month-picker-dot"></span>
+          <span id="month-picker-label">Loading…</span>
+          <span class="caret">▾</span>
+        </button>
+        <div class="month-picker-menu" id="month-picker-menu" role="listbox" hidden></div>
+      </div>
+      <button type="button" class="month-nav-btn" id="month-next-btn" title="Next month" aria-label="Next month">›</button>
+    </div>
+    <div class="month-meta">
+      <div class="month-period" id="month-period"></div>
+      <div class="month-start-override">
+        <label for="month-start-override-select">This month starts on</label>
+        <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
+      </div>
+    </div>
+  </div>
+
+  <nav class="page-nav" id="page-nav">
+    <button type="button" class="page-nav-btn active" data-page="overview"><span class="ic">🏡</span>Overview</button>
+    <button type="button" class="page-nav-btn" data-page="networth"><span class="ic">📈</span>Net Worth</button>
+    <button type="button" class="page-nav-btn" data-page="income"><span class="ic">💸</span>Income</button>
+    <button type="button" class="page-nav-btn" data-page="debts"><span class="ic">💳</span>Debts</button>
+    <button type="button" class="page-nav-btn" data-page="gifts"><span class="ic">🎁</span>Gifts</button>
+    <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
+    <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
+    <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
+    <button type="button" class="page-nav-btn" data-page="investments"><span class="ic">💹</span>Investments</button>
+    <button type="button" class="page-nav-btn" data-page="whatsnew"><span class="ic">✨</span>What's New<span class="whatsnew-tab-dot" hidden></span></button>
+    <!-- Mobile bottom tab bar only (desktop still uses the ⚙️ button in the
+         top bar — see #settings-nav-btn above) — a real navigation to
+         settings.html, not an in-place tab swap, same reasoning as
+         #settings-nav-btn's own click handler in app.js. -->
+    <button type="button" class="page-nav-btn page-nav-btn-right" id="page-nav-settings-btn"><span class="ic">⚙️</span>Settings</button>
+  </nav>
+
+  <!-- Five top-level tabs. Each groups the detailed pages (the .page-nav-btn
+       buttons above stay in the DOM, hidden, as the source of truth for page
+       switching, tab visibility/order and theme icons). -->
+  <nav class="main-nav" id="main-nav" aria-label="Main">
+    <button type="button" class="main-nav-btn active" data-group="home"><span class="ic">🏡</span><span class="lbl">Home</span><span class="whatsnew-tab-dot" hidden></span></button>
+    <button type="button" class="main-nav-btn" data-group="budget"><span class="ic">💸</span><span class="lbl">Budget</span></button>
+    <button type="button" class="main-nav-btn" data-group="wealth"><span class="ic">🏦</span><span class="lbl">Wealth</span></button>
+    <button type="button" class="main-nav-btn" data-group="rewards"><span class="ic">🌟</span><span class="lbl">Rewards</span></button>
+    <button type="button" class="main-nav-btn" id="main-nav-settings-btn"><span class="ic">⚙️</span><span class="lbl">Settings</span></button>
+  </nav>
+  <div class="sub-nav" id="sub-nav" hidden></div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div class="app-page active" id="page-overview" data-page="overview">
+    <section class="home-hero" id="home-hero" aria-label="Your money at a glance">
+      <div class="home-hero-label" id="home-hero-label">Money left this month</div>
+      <div class="home-hero-amt" id="home-hero-amt">0</div>
+      <div class="home-hero-sub" id="home-hero-sub"></div>
+      <div class="home-hero-foot">
+        <div class="home-hero-second"><span id="home-hero2-label">Net worth</span> <b id="home-hero2-amt">—</b></div>
+        <button type="button" class="home-hero-cta" id="home-hero-cta">＋ Log expense</button>
+      </div>
+    </section>
+
+    <section class="home-next" id="home-next" aria-live="polite">
+      <div class="home-next-top"><span class="home-next-amt" id="home-next-amt">—</span><span class="home-next-when" id="home-next-when"></span></div>
+      <div class="home-next-label" id="home-next-label">Nothing due</div>
+    </section>
+
+    <div class="home-insight" id="home-insight" hidden>
+      <span class="home-insight-ic" id="home-insight-ic">🎯</span>
+      <span class="home-insight-text" id="home-insight-text"></span>
+      <button type="button" class="home-insight-close" id="home-insight-close" aria-label="Dismiss">✕</button>
+    </div>
+
+    <div class="home-tiles">
+      <button type="button" class="home-tile" id="home-tile-expense">
+        <span class="home-tile-ic">🧾</span>
+        <span class="home-tile-title">Log an expense</span>
+        <span class="home-tile-desc">Add what you just spent, on any date.</span>
+      </button>
+      <button type="button" class="home-tile" id="home-tile-debt">
+        <span class="home-tile-ic">💳</span>
+        <span class="home-tile-title">Add a debt</span>
+        <span class="home-tile-desc">Set a due date and watch the countdown.</span>
+      </button>
+    </div>
+
+    <section class="home-recent" id="home-recent">
+      <div class="home-recent-head"><h3>Recent expenses</h3><button type="button" class="link-btn" id="home-recent-all">See all</button></div>
+      <div class="home-recent-list" id="home-recent-list"></div>
+    </section>
+
+    <details class="home-details" id="home-details">
+      <summary>📊 Full overview</summary>
+      <div class="home-details-body">
     <div class="profile-banner" id="profile-banner">
       <span class="profile-avatar" id="profile-avatar">🙂</span>
       <div class="profile-banner-text">
@@ -349,67 +450,7 @@ window.__ftSettingsPage = true;
       </div>
       <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
     </div>
-  </div>
 
-  <div class="month-bar">
-    <!-- Replaces the old scrolling row of one-tab-per-month buttons — with
-         a year or more tracked that row just kept growing sideways. A
-         prev/next pair plus a dropdown (built in renderMonthPicker() in
-         app.js) covers the same jump-to-any-month + at-a-glance-status
-         need in a fixed-width control instead. -->
-    <div class="month-picker">
-      <button type="button" class="month-nav-btn" id="month-prev-btn" title="Previous month" aria-label="Previous month">‹</button>
-      <div class="month-picker-wrap">
-        <button type="button" class="month-picker-toggle" id="month-picker-toggle" aria-haspopup="listbox" aria-expanded="false">
-          <span class="dot" id="month-picker-dot"></span>
-          <span id="month-picker-label">Loading…</span>
-          <span class="caret">▾</span>
-        </button>
-        <div class="month-picker-menu" id="month-picker-menu" role="listbox" hidden></div>
-      </div>
-      <button type="button" class="month-nav-btn" id="month-next-btn" title="Next month" aria-label="Next month">›</button>
-    </div>
-    <div class="month-meta">
-      <div class="month-period" id="month-period"></div>
-      <div class="month-start-override">
-        <label for="month-start-override-select">This month starts on</label>
-        <select id="month-start-override-select" title="Override which day just this month starts on — handy for a month where salary lands early or late"></select>
-      </div>
-    </div>
-  </div>
-
-  <nav class="page-nav" id="page-nav">
-    <button type="button" class="page-nav-btn active" data-page="overview"><span class="ic">🏡</span>Overview</button>
-    <button type="button" class="page-nav-btn" data-page="networth"><span class="ic">📈</span>Net Worth</button>
-    <button type="button" class="page-nav-btn" data-page="income"><span class="ic">💸</span>Income</button>
-    <button type="button" class="page-nav-btn" data-page="debts"><span class="ic">💳</span>Debts</button>
-    <button type="button" class="page-nav-btn" data-page="gifts"><span class="ic">🎁</span>Gifts</button>
-    <button type="button" class="page-nav-btn" data-page="savings"><span class="ic">🐷</span>Savings</button>
-    <button type="button" class="page-nav-btn" data-page="expenses"><span class="ic">🏠</span>Expenses</button>
-    <button type="button" class="page-nav-btn" data-page="xp"><span class="ic">🌟</span>XP</button>
-    <button type="button" class="page-nav-btn" data-page="investments"><span class="ic">💹</span>Investments</button>
-    <button type="button" class="page-nav-btn" data-page="whatsnew"><span class="ic">✨</span>What's New<span class="whatsnew-tab-dot" hidden></span></button>
-    <!-- Mobile bottom tab bar only (desktop still uses the ⚙️ button in the
-         top bar — see #settings-nav-btn above) — a real navigation to
-         settings.html, not an in-place tab swap, same reasoning as
-         #settings-nav-btn's own click handler in app.js. -->
-    <button type="button" class="page-nav-btn page-nav-btn-right" id="page-nav-settings-btn"><span class="ic">⚙️</span>Settings</button>
-  </nav>
-
-  <!-- Five top-level tabs. Each groups the detailed pages (the .page-nav-btn
-       buttons above stay in the DOM, hidden, as the source of truth for page
-       switching, tab visibility/order and theme icons). -->
-  <nav class="main-nav" id="main-nav" aria-label="Main">
-    <button type="button" class="main-nav-btn active" data-group="home"><span class="ic">🏡</span><span class="lbl">Home</span><span class="whatsnew-tab-dot" hidden></span></button>
-    <button type="button" class="main-nav-btn" data-group="budget"><span class="ic">💸</span><span class="lbl">Budget</span></button>
-    <button type="button" class="main-nav-btn" data-group="wealth"><span class="ic">🏦</span><span class="lbl">Wealth</span></button>
-    <button type="button" class="main-nav-btn" data-group="rewards"><span class="ic">🌟</span><span class="lbl">Rewards</span></button>
-    <button type="button" class="main-nav-btn" id="main-nav-settings-btn"><span class="ic">⚙️</span><span class="lbl">Settings</span></button>
-  </nav>
-  <div class="sub-nav" id="sub-nav" hidden></div>
-
-  <!-- ============ OVERVIEW ============ -->
-  <div class="app-page active" id="page-overview" data-page="overview">
 
     <div class="global-search-wrap">
       <div class="global-search-row">
@@ -485,6 +526,9 @@ window.__ftSettingsPage = true;
       <h3>🎯 Mini-quests</h3>
       <div id="quests-body"></div>
     </div>
+
+      </div>
+    </details>
 
   </div>
 
@@ -903,7 +947,13 @@ window.__ftSettingsPage = true;
 
     <div class="settings-subpage" id="settings-page-topbar" data-settings-page="topbar" hidden>
       <button type="button" class="settings-back-btn">‹ Settings</button>
-      <div class="section-head"><h2>📌 Top bar cards</h2></div>
+      <div class="section-head"><h2>🏡 Home card</h2></div>
+      <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">The big number at the top of Home. The other one shows underneath it. Net worth needs Premium.</p>
+      <div class="toolbar">
+        <label class="xl-set">Big number shows <select id="set-home-hero"><option value="money">Money left this month</option><option value="networth">Net worth</option></select></label>
+      </div>
+
+      <div class="section-head" style="margin-top:18px;"><h2>📌 Top bar cards</h2></div>
       <p style="font-size:12px;color:var(--muted);margin:-6px 0 10px;max-width:600px;">Choose which cards show in the bar at the top of every page. Turning one off just hides it — nothing is deleted, and it's back the moment you check it again.</p>
       <div class="toolbar">
         <div class="chip-picker" id="chip-picker">
