@@ -249,3 +249,55 @@ test('due date on a 25th payday period lands inside that period (25th to 24th)',
   assert.equal(c.dueDateInPeriod(0, 5), '2026-02-05');    // before the 25th: rolls into next calendar month
   assert.equal(c.dueDateInPeriod(1, 25), '2026-02-25');
 });
+
+// ---------- savings suggestion ----------
+test('savings suggestion: half the typical surplus, capped by what is safely left, rounded down', () => {
+  const c = loadApp(['suggestSavingsTopUp']);
+  const hist = [
+    { income: 300000, spent: 220000 },   // surplus 80,000
+    { income: 300000, spent: 240000 },   // 60,000
+    { income: 320000, spent: 220000 },   // 100,000
+  ];
+  // avg surplus 80,000 -> half = 40,000; plenty left -> 40,000
+  let r = c.suggestSavingsTopUp(hist, 150000, 20000, 0, 300000);
+  assert.equal(r.kind, 'suggest'); assert.equal(r.amount, 40000); assert.equal(r.capped, false);
+  assert.equal(r.basis.months, 3);
+  // only 20,000 safely left after due debts and what is already saved -> capped to 20,000
+  r = c.suggestSavingsTopUp(hist, 60000, 30000, 10000, 300000);
+  assert.equal(r.kind, 'suggest'); assert.equal(r.amount, 20000); assert.equal(r.capped, true);
+  // uses only the last 3 months
+  r = c.suggestSavingsTopUp([{ income: 100000, spent: 0 }, ...hist], 500000, 0, 0, 300000);
+  assert.equal(r.basis.months, 3); assert.equal(r.amount, 40000);
+});
+
+test('savings suggestion: rounds down to tidy amounts', () => {
+  const c = loadApp(['suggestSavingsTopUp']);
+  const r = c.suggestSavingsTopUp([{ income: 100000, spent: 66000 }], 80000, 0, 0, 100000); // half of 34,000 = 17,000
+  assert.equal(r.amount, 17000);
+  const r2 = c.suggestSavingsTopUp([{ income: 100000, spent: 61234 }], 80000, 0, 0, 100000); // half of 38,766 = 19,383 -> 19,000
+  assert.equal(r2.amount, 19000);
+});
+
+test('savings suggestion: no history uses 10% of income so far; nothing safe says tight; no data says none', () => {
+  const c = loadApp(['suggestSavingsTopUp']);
+  let r = c.suggestSavingsTopUp([], 250000, 0, 0, 200000);
+  assert.equal(r.kind, 'suggest'); assert.equal(r.basis.kind, 'starter'); assert.equal(r.amount, 20000);
+  r = c.suggestSavingsTopUp([{ income: 300000, spent: 100000 }], 20000, 20000, 0, 300000);
+  assert.equal(r.kind, 'tight');
+  r = c.suggestSavingsTopUp([], 0, 0, 0, 0);
+  assert.equal(r.kind, 'none'); assert.equal(r.reason, 'nodata');
+  // always overspending: no suggestion
+  r = c.suggestSavingsTopUp([{ income: 100000, spent: 120000 }], 50000, 0, 0, 100000);
+  assert.equal(r.kind, 'none'); assert.equal(r.reason, 'spending');
+});
+
+test('savings suggestion: money already saved counts towards the target', () => {
+  const c = loadApp(['suggestSavingsTopUp']);
+  const hist = [{ income: 300000, spent: 220000 }]; // target = 40,000
+  let r = c.suggestSavingsTopUp(hist, 150000, 0, 15000, 300000);
+  assert.equal(r.kind, 'suggest'); assert.equal(r.amount, 25000);   // 40,000 - 15,000
+  r = c.suggestSavingsTopUp(hist, 150000, 0, 40000, 300000);
+  assert.equal(r.kind, 'done');
+  r = c.suggestSavingsTopUp(hist, 150000, 0, 60000, 300000);
+  assert.equal(r.kind, 'done');
+});

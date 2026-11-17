@@ -2043,6 +2043,117 @@ window.__ftStart = function(){
     if(e.target && e.target.id==='balance-asof-date') renderBalanceAsOf();
   });
 
+
+  // ===== Savings suggestion =====
+  // Looks at what actually happened in your recent finished months (income
+  // received vs. what went out) and suggests a sensible top-up for THIS month.
+  // It all runs on this device from your own numbers; nothing is sent anywhere.
+  //   history: [{income, spent}] for past months, oldest first
+  //   left:    money left this month so far
+  //   due:     unpaid debt instalments still to pay this month
+  //   saved:   already put into savings this month
+  // Rule of thumb: save about half of your typical surplus, never more than what
+  // is safely left after the debts still due, rounded down to a tidy amount.
+  function suggestSavingsTopUp(history, left, due, saved, incomeSoFar){
+    const usable = (history||[]).filter(function(h){ return h && h.income > 0; }).slice(-3);
+    const step = function(x){ return x >= 100000 ? 5000 : x >= 20000 ? 1000 : x >= 5000 ? 500 : x >= 1000 ? 100 : 50; };
+    const floorTo = function(x){ const s = step(x); return Math.floor(x / s) * s; };
+    const safe = Math.max(0, (left||0) - (due||0) - (saved||0));
+    let basis, target;
+    if(usable.length){
+      const surplus = usable.map(function(h){ return Math.max(0, h.income - h.spent); });
+      const avgSurplus = surplus.reduce(function(a,b){ return a+b; }, 0) / usable.length;
+      const avgIncome = usable.reduce(function(a,h){ return a+h.income; }, 0) / usable.length;
+      target = avgSurplus * 0.5;
+      basis = {kind:'history', months: usable.length, avgSurplus: avgSurplus, avgIncome: avgIncome};
+      if(avgSurplus <= 0) return {kind:'none', reason:'spending', basis: basis};
+    } else if(incomeSoFar > 0){
+      target = incomeSoFar * 0.1;
+      basis = {kind:'starter', months: 0, avgSurplus: 0, avgIncome: incomeSoFar};
+    } else {
+      return {kind:'none', reason:'nodata'};
+    }
+    // What you have already put aside this month counts towards the target.
+    const remaining = target - (saved||0);
+    if(remaining < 50) return {kind:'done', saved: saved||0, target: target, basis: basis};
+    const capped = Math.min(remaining, safe);
+    if(capped < 50) return {kind:'tight', safe: safe, basis: basis};
+    const amount = floorTo(capped);
+    if(amount < 50) return {kind:'tight', safe: safe, basis: basis};
+    return {kind:'suggest', amount: amount, capped: safe < remaining, basis: basis};
+  }
+  function monthIncomeSpentAt(mi, dateKeyStr){
+    const mm = state.months[mi];
+    if(!mm) return {income:0, spent:0};
+    const income = sumCheckedUpToDate(mm.income, dateKeyStr) + sumExtraForMonthUpToDate(mi, dateKeyStr);
+    const spent = sumCheckedUpToDate(mm.debts, dateKeyStr) + sumLivingForMonthUpToDate(mi, dateKeyStr) + sumCheckedUpToDate(giftItemsForMonth(mi), dateKeyStr);
+    return {income:income, spent:spent};
+  }
+  function saveSuggestDismissed(){
+    try{ return localStorage.getItem('ftSaveSuggestDismissedV1') === monthLabels[activeMonth]+yearTags[activeMonth]; }catch(e){ return false; }
+  }
+  function renderSaveSuggest(){
+    const boxes = document.querySelectorAll('.save-suggest');
+    if(!boxes.length) return;
+    const t = todayKey(), cur = dateToMonthIndex(t);
+    // Only the real current month gets a suggestion (not a past or future one).
+    let res = {kind:'none', reason:'month'};
+    if(activeMonth === cur){
+      const history = [];
+      for(let i=0;i<cur;i++){ history.push(monthIncomeSpentAt(i, dateKey(periodBounds(i).end))); }
+      const now = monthIncomeSpentAt(cur, t);
+      let due = 0;
+      (state.months[cur].debts||[]).forEach(function(it){ if(!it.checked && !it.extraPayment) due += convertToPrimary(it.amount, it.currency); });
+      let saved = sumSavingsForMonth(cur);
+      (state.months[cur].savingsApps||[]).forEach(function(a){ if(a.checked && !a.withdrawal) saved += convertToPrimary(a.amount, a.currency); });
+      res = suggestSavingsTopUp(history, now.income - now.spent, due, saved, now.income);
+    }
+    boxes.forEach(function(box){
+      const q = function(k){ return box.querySelector('[data-ss="'+k+'"]'); };
+      const show = (res.kind === 'suggest' || res.kind === 'tight' || res.kind === 'done') && !saveSuggestDismissed();
+      box.hidden = !show;
+      if(!show) return;
+      box.dataset.amount = res.kind === 'suggest' ? String(res.amount) : '';
+      if(res.kind === 'suggest'){
+        q('title').textContent = 'Save smart this month';
+        q('amt').textContent = fmt(res.amount);
+        const b = res.basis;
+        const why = b.kind === 'history'
+          ? 'In your last '+b.months+' finished month'+(b.months===1?'':'s')+' you typically had about '+fmt(Math.round(b.avgSurplus))+' left over. Putting aside half keeps a cushion.'
+          : 'Based on '+fmt(Math.round(b.avgIncome))+' received so far this month, 10% is a good start.';
+        q('why').textContent = why + (res.capped ? ' Capped at what is safely left after the debts still due this month.' : '');
+        q('go').hidden = false; q('go').textContent = 'Add '+fmt(res.amount)+' to savings';
+      } else if(res.kind === 'done'){
+        q('title').textContent = 'Savings goal for this month';
+        q('amt').textContent = '✅ Done';
+        q('why').textContent = 'You have put aside '+fmt(res.saved)+' this month, which is on target. Well done!';
+        q('go').hidden = true;
+      } else {
+        q('title').textContent = 'Savings check-in';
+        q('amt').textContent = 'Not yet';
+        q('why').textContent = 'After the debts still due this month there is nothing safe to put aside yet. Pay what is due first, then check back.';
+        q('go').hidden = true;
+      }
+    });
+  }
+  (function wireSaveSuggest(){
+    document.addEventListener('click', function(e){
+      const go = e.target.closest && e.target.closest('.save-suggest [data-ss="go"]');
+      const skip = e.target.closest && e.target.closest('.save-suggest [data-ss="skip"]');
+      if(go){
+        const box = go.closest('.save-suggest');
+        const amt = Number(box && box.dataset.amount) || 0;
+        if(amt <= 0) return;
+        state.savings.push({desc:'Suggested top-up', amount:amt, monthIndex:activeMonth});
+        save();
+        try{ showAppNotification('🐷 Nice one', fmt(amt)+' added to your savings for '+monthLabels[activeMonth]+'.'); }catch(err){}
+      } else if(skip){
+        try{ localStorage.setItem('ftSaveSuggestDismissedV1', monthLabels[activeMonth]+yearTags[activeMonth]); }catch(err){}
+        renderSaveSuggest();
+      }
+    });
+  })();
+
   // ===== Simple Home =====
   // The first screen: one headline figure, what's due next, a one-line tip,
   // two shortcut tiles and the last few expenses. Everything the old busy
@@ -3874,6 +3985,7 @@ window.__ftStart = function(){
     document.getElementById('month-period').textContent = '📅 Billing period: ' + monthPeriodLabel(activeMonth) + ' ('+periodShort()+')';
     renderMonthStartOverride();
     try{ renderHome(); }catch(e){ console.error('renderHome failed', e); }
+    try{ renderSaveSuggest(); }catch(e){ console.error('renderSaveSuggest failed', e); }
     const footerCoverageEl = document.getElementById('footer-coverage');
     if(footerCoverageEl) footerCoverageEl.textContent = monthLabels[0]+' '+yearTags[0]+' through '+monthLabels[N-1]+' '+yearTags[N-1];
     const overallMonthCountEl = document.getElementById('overall-month-count');
@@ -9866,6 +9978,17 @@ window.__ftStart = function(){
   function renderMainNav(activePage){
     var mainNav = document.getElementById('main-nav'), sub = document.getElementById('sub-nav');
     if(!mainNav || !sub) return;
+    if(window.__ftSettingsPage){
+      // Settings is its own page: highlight the Settings tab, no page strip.
+      Array.prototype.forEach.call(mainNav.querySelectorAll('.main-nav-btn[data-group]'), function(b){
+        b.hidden = availablePages(b.getAttribute('data-group')).length === 0;
+        b.classList.remove('active'); b.removeAttribute('aria-current');
+      });
+      var sb0 = document.getElementById('main-nav-settings-btn');
+      if(sb0){ sb0.classList.add('active'); sb0.setAttribute('aria-current','page'); }
+      sub.hidden = true; sub.innerHTML = '';
+      return;
+    }
     var activeGroup = groupOfPage(activePage);
     lastPageInGroup[activeGroup] = activePage;
     Array.prototype.forEach.call(mainNav.querySelectorAll('.main-nav-btn[data-group]'), function(b){
@@ -9908,6 +10031,12 @@ window.__ftStart = function(){
       var pages = availablePages(group);
       if(!pages.length) return;
       var target = pages.indexOf(lastPageInGroup[group]) >= 0 ? lastPageInGroup[group] : pages[0];
+      if(window.__ftSettingsPage){
+        // From Settings, a tab takes you back to the tracker on that page.
+        try{ sessionStorage.setItem('ftActivePage', target); }catch(e){}
+        location.href = 'sign-in.html';
+        return;
+      }
       showPage(target);
       return;
     }
