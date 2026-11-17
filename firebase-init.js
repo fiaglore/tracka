@@ -538,6 +538,29 @@ window.Trakka = {
     try { return !!localStorage.getItem(BIO_LOCAL_KEY); } catch (e) { return false; }
   },
 
+  // Which lock is actually in force on THIS device. Biometric unlock, when set
+  // up, takes over from the PIN: the PIN stays stored (nothing is deleted, so
+  // removing biometric unlock brings it straight back) but is not asked for.
+  biometricActive() { return window.Trakka.hasBiometricConfigured(); },
+  pinActive() { return window.Trakka.hasPinConfigured() && !window.Trakka.hasBiometricConfigured(); },
+  lockActive() { return window.Trakka.hasBiometricConfigured() || window.Trakka.hasPinConfigured(); },
+
+  // Re-checks the signed-in user's password against Firebase (nothing is
+  // changed or stored). The fallback for the security gates when biometrics
+  // can't be used (sensor problem, cancelled prompt), so nobody gets locked
+  // out of their own data now that the PIN is switched off.
+  async verifyPassword(password) {
+    const user = auth.currentUser;
+    if (!user) return { ok: false, reason: "no-session" };
+    try {
+      const email = user.email || usernameToEmail(user.displayName || "");
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(email, password));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: "wrong-password" };
+    }
+  },
+
   async biometricSupported() {
     if (!(window.PublicKeyCredential && window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable)) return false;
     try { return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { return false; }

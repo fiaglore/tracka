@@ -87,7 +87,7 @@ window.__ftSettingsPage = true;
       <div class="auth-error" id="pin-unlock-error" role="alert"></div>
       <button type="submit" class="auth-submit" id="pin-unlock-submit">Unlock</button>
     </form>
-    <button type="button" class="auth-link" id="pin-unlock-biometric-btn" hidden>🫆 Use biometric unlock instead</button>
+    <button type="button" class="auth-submit" id="pin-unlock-biometric-btn" hidden>🫆 Use biometric unlock</button>
     <button type="button" class="auth-link" id="pin-unlock-fallback">Not you? Sign in with password instead</button>
   </div>
 </div>
@@ -143,7 +143,12 @@ window.__ftSettingsPage = true;
       <div class="auth-error" id="pin-gate-error" role="alert"></div>
       <button type="submit" class="auth-submit" id="pin-gate-submit">Confirm</button>
     </form>
-    <button type="button" class="auth-link" id="pin-gate-biometric-btn" hidden>🫆 Use biometric unlock instead</button>
+    <button type="button" class="auth-submit" id="pin-gate-biometric-btn" hidden>🫆 Use biometric unlock instead</button>
+    <form id="pin-gate-password-form" autocomplete="off" novalidate hidden>
+      <label class="auth-field">Account password<input id="pin-gate-password" type="password" autocomplete="current-password"></label>
+      <button type="submit" class="auth-submit" id="pin-gate-password-submit">Confirm</button>
+    </form>
+    <button type="button" class="auth-link" id="pin-gate-password-btn" hidden>Use my account password instead</button>
     <button type="button" class="auth-link" id="pin-gate-cancel">Cancel</button>
   </div>
 </div>
