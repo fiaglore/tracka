@@ -204,7 +204,7 @@
       // on where this lands. Only set here, never by the manual "🔒 Sign
       // out" button, so that one keeps landing on the plain sign-in form.
       var canOfferPin = false;
-      try { canOfferPin = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured()); } catch (e) {}
+      try { canOfferPin = !!(window.Trakka && ((window.Trakka.lockActive && window.Trakka.lockActive()) || (window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured()))); } catch (e) {}
       if (canOfferPin) { try { sessionStorage.setItem("trakkaAutoLogoutPending", "1"); } catch (e) {} }
       var out = (window.Trakka && typeof window.Trakka.signOutUser === "function")
         ? window.Trakka.signOutUser()

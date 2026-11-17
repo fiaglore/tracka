@@ -8324,7 +8324,7 @@ window.__ftStart = function(){
       // two full-screen overlays — so once the tour's done (finished or
       // skipped), pick up that dropped nudge here instead, same "still no
       // PIN configured" check the nudge itself uses.
-      if(window.__ftOpenPinSetup && !(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+      if(window.__ftOpenPinSetup && !(window.Trakka && window.Trakka.lockActive && window.Trakka.lockActive())){
         window.__ftOpenPinSetup(true);
       }
     }
@@ -8780,7 +8780,7 @@ window.__ftStart = function(){
     // two full-screen overlays fighting for the same spot isn't a choice
     // anyone needs to make. Nothing here remembers that skip, so the PIN
     // nudge still nags as usual on every sign-in after this first one.
-    if(!window.__ftOnboardingShown && !(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+    if(!window.__ftOnboardingShown && !(window.Trakka && window.Trakka.lockActive && window.Trakka.lockActive())){
       openPinSetup(true);
     }
   }
@@ -8849,12 +8849,24 @@ window.__ftStart = function(){
     formCard.hidden = true;
     pinCard.hidden = false;
     var bioBtn = $('pin-unlock-biometric-btn');
-    if(bioBtn) bioBtn.hidden = !(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+    var bioOn = !!(window.Trakka && window.Trakka.biometricActive && window.Trakka.biometricActive());
+    if(bioBtn) bioBtn.hidden = !bioOn;
+    // Biometric unlock, when set up, is the default and the PIN is off: show
+    // only the biometric button (and the password fallback below) and start
+    // the prompt straight away.
+    $('pin-unlock-form').hidden = bioOn;
+    $('pin-unlock-sub').textContent = bioOn
+      ? 'You were signed out. Use your fingerprint, face or screen lock to continue.'
+      : 'You were signed out. Enter your security PIN to continue.';
     // Also hides #auth-loading-box directly (settings.html starts with it
     // showing — see revealSignInGate()) so the two never overlap, rather
     // than waiting on the later onAuthChange callback to do it.
     if(loadingBox) loadingBox.hidden = true;
-    setTimeout(function(){ $('pin-unlock-input').focus(); }, 50);
+    if(bioOn){
+      setTimeout(function(){ if(bioBtn && !pinCard.hidden) attemptBiometricUnlock(bioBtn, $('pin-unlock-error'), 'password', true); }, 250);
+    } else {
+      setTimeout(function(){ $('pin-unlock-input').focus(); }, 50);
+    }
   }
   function showPlainSignInForm(msg){
     var formCard = $('auth-form-card'), pinCard = $('pin-unlock-card');
@@ -8873,7 +8885,7 @@ window.__ftStart = function(){
     try{ flagged = sessionStorage.getItem('trakkaAutoLogoutPending') === '1'; }catch(e){}
     if(!flagged) return;
     try{ sessionStorage.removeItem('trakkaAutoLogoutPending'); }catch(e){}
-    if(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured()){
+    if(window.Trakka && window.Trakka.lockActive && window.Trakka.lockActive()){
       showPinUnlockCard();
     }
   }
@@ -8914,7 +8926,7 @@ window.__ftStart = function(){
   // Either way, a successful unlockWithBiometric() fires the same
   // onAuthChange listener below as a normal sign-in — begin() takes it from
   // there, so this never needs to do anything on success itself.
-  async function attemptBiometricUnlock(btn, errEl, fallbackLabel){
+  async function attemptBiometricUnlock(btn, errEl, fallbackLabel, auto){
     if(errEl) errEl.textContent = '';
     btn.disabled = true;
     try{
@@ -8922,7 +8934,8 @@ window.__ftStart = function(){
       if(!result || !result.ok){
         var msg = result && result.reason==='no-biometric'
           ? 'Biometric unlock isn’t set up on this device.'
-          : 'Biometric check failed or was cancelled — try your '+fallbackLabel+' instead.';
+          : (auto ? 'Tap “Use biometric unlock” to continue, or sign in with your password.'
+                  : 'Biometric check failed or was cancelled — try your '+fallbackLabel+' instead.');
         if(errEl) errEl.textContent = msg; else setError(msg);
       }
     }catch(e){
@@ -8961,6 +8974,14 @@ window.__ftStart = function(){
     var btn = $('pin-setup-open');
     if(!btn) return;
     var already = !!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured());
+    var bioOn = !!(window.Trakka && window.Trakka.biometricActive && window.Trakka.biometricActive());
+    // Biometric unlock takes over from the PIN on this device while it is on.
+    btn.disabled = bioOn;
+    if(bioOn){
+      btn.textContent = '🔢 Security PIN: off while biometric unlock is on';
+      btn.title = 'Biometric unlock is your lock on this device, so the PIN is switched off. Remove biometric unlock to use the PIN again.';
+      return;
+    }
     btn.textContent = already ? '🔢 Reset PIN' : '🔢 Set up security PIN';
     btn.title = already
       ? 'Change your security PIN (you’ll need your current password)'
@@ -9066,6 +9087,10 @@ window.__ftStart = function(){
       await window.Trakka.setupBiometric(password);
       if(window.__ftUid && window.Trakka.logSecurityEvent) window.Trakka.logSecurityEvent(window.__ftUid, 'biometric_setup', window.Trakka.deviceLabel()).catch(function(){});
       closeBioSetup();
+      updatePinSetupOpenButton();
+      if(window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured()){
+        alert('Biometric unlock is on. It now replaces your PIN on this device. Your PIN is switched off, not deleted, and comes back if you remove biometric unlock.');
+      }
     }catch(e){
       console.error(e);
       errEl.textContent = friendlyAuthError(e);
@@ -9076,6 +9101,7 @@ window.__ftStart = function(){
   $('bio-setup-remove').addEventListener('click', function(){
     if(window.Trakka && window.Trakka.clearBiometric) window.Trakka.clearBiometric();
     closeBioSetup();
+    updatePinSetupOpenButton();
   });
 
   // ----- recovery email (the address password resets actually go to) -----
@@ -9213,20 +9239,33 @@ window.__ftStart = function(){
   // a much more disruptive change than what was asked for here.
   var pinGateResolve = null;
   function openPinGate(message, resolve){
-    if(!(window.Trakka && window.Trakka.hasPinConfigured && window.Trakka.hasPinConfigured())){
+    if(!(window.Trakka && window.Trakka.lockActive && window.Trakka.lockActive())){
       resolve(true);
       return;
     }
     var overlay = $('pin-gate-overlay');
     if(!overlay){ resolve(true); return; } // markup missing somehow — fail open rather than hard-block the app
+    var bioOn = !!(window.Trakka.biometricActive && window.Trakka.biometricActive());
     $('pin-gate-message').textContent = message;
     $('pin-gate-input').value = '';
     $('pin-gate-error').textContent = '';
+    // Biometric unlock, when set up, is the default and the PIN is off: the
+    // PIN field is hidden, the biometric prompt opens by itself, and the
+    // account password is the fallback if the sensor can't be used.
+    $('pin-gate-title').textContent = bioOn ? 'Confirm it’s you' : 'Confirm with your PIN';
+    $('pin-gate-form').hidden = bioOn;
     var bioBtn = $('pin-gate-biometric-btn');
-    if(bioBtn) bioBtn.hidden = !(window.Trakka && window.Trakka.hasBiometricConfigured && window.Trakka.hasBiometricConfigured());
+    if(bioBtn){ bioBtn.hidden = !bioOn; bioBtn.textContent = '🫆 Use biometric unlock'; }
+    var pwForm = $('pin-gate-password-form'), pwBtn = $('pin-gate-password-btn');
+    if(pwForm){ pwForm.hidden = true; $('pin-gate-password').value = ''; }
+    if(pwBtn) pwBtn.hidden = !bioOn;
     pinGateResolve = resolve;
     overlay.hidden = false;
-    setTimeout(function(){ $('pin-gate-input').focus(); }, 50);
+    if(bioOn){
+      setTimeout(function(){ if(!overlay.hidden && bioBtn) bioBtn.click(); }, 200);
+    } else {
+      setTimeout(function(){ $('pin-gate-input').focus(); }, 50);
+    }
   }
   function closePinGate(passed){
     var overlay = $('pin-gate-overlay');
@@ -9300,12 +9339,39 @@ window.__ftStart = function(){
     try{
       var result = await window.Trakka.verifyBiometricPresence();
       if(result && result.ok) closePinGate(true);
-      else errEl.textContent = 'Biometric check failed or was cancelled — try your PIN instead.';
+      else { errEl.textContent = 'Biometric check failed or was cancelled. Tap the button to try again, or use your account password.'; pinGateBioBtn.textContent = '🫆 Try biometric again'; }
     }catch(e){
       console.error(e);
-      errEl.textContent = 'Something went wrong — try your PIN instead.';
+      errEl.textContent = 'Something went wrong. Try again, or use your account password.';
     }finally{
       pinGateBioBtn.disabled = false;
+    }
+  });
+  // Password fallback for the biometric-first gate.
+  var pinGatePwBtn = $('pin-gate-password-btn');
+  if(pinGatePwBtn) pinGatePwBtn.addEventListener('click', function(){
+    $('pin-gate-password-form').hidden = false;
+    pinGatePwBtn.hidden = true;
+    setTimeout(function(){ $('pin-gate-password').focus(); }, 50);
+  });
+  var pinGatePwForm = $('pin-gate-password-form');
+  if(pinGatePwForm) pinGatePwForm.addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var errEl = $('pin-gate-error');
+    errEl.textContent = '';
+    var pw = $('pin-gate-password').value;
+    if(!pw){ errEl.textContent = 'Enter your account password.'; return; }
+    var btn = $('pin-gate-password-submit');
+    btn.disabled = true;
+    try{
+      var result = await window.Trakka.verifyPassword(pw);
+      if(result && result.ok){ closePinGate(true); }
+      else { errEl.textContent = 'Incorrect password.'; $('pin-gate-password').value = ''; $('pin-gate-password').focus(); }
+    }catch(e){
+      console.error(e);
+      errEl.textContent = 'Something went wrong. Try again.';
+    }finally{
+      btn.disabled = false;
     }
   });
   var pinGateCancelBtn = $('pin-gate-cancel');
