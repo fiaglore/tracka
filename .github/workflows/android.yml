@@ -76,6 +76,27 @@ jobs:
           APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
           "$APKSIGNER" verify --print-certs out/AnchorTrakk.apk | grep -i "SHA-256 digest" || echo "(could not read the signing certificate)"
 
+      # Safety net: never ship an app Android could not trust as AnchorTrakk.
+      # Publishing needs the real key, and the key's fingerprint must be the
+      # one listed in .well-known/assetlinks.json (otherwise the app would
+      # show a browser bar, and users could not update over an older install).
+      - name: Check the signing key (release builds)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_PATH" ]; then
+            echo "::error::Refusing to publish: no release signing key. Add the ANDROID_KEYSTORE_* secrets (see android/README.md)."
+            exit 1
+          fi
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          BUILT="$("$APKSIGNER" verify --print-certs out/AnchorTrakk.apk | sed -n 's/.*certificate SHA-256 digest: *//p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')"
+          LISTED="$(python3 -c "import json;print(' '.join(f.replace(':','').lower() for e in json.load(open('../.well-known/assetlinks.json')) for f in e['target']['sha256_cert_fingerprints']))")"
+          echo "APK signing fingerprint : $BUILT"
+          echo "assetlinks.json lists   : $LISTED"
+          case " $LISTED " in
+            *" $BUILT "*) echo "Fingerprint matches assetlinks.json." ;;
+            *) echo "::error::The APK's signing fingerprint is not listed in .well-known/assetlinks.json. Add it there first."; exit 1 ;;
+          esac
+
       - uses: actions/upload-artifact@v4
         with:
           name: AnchorTrakk-android
