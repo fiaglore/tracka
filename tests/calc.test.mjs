@@ -301,3 +301,76 @@ test('savings suggestion: money already saved counts towards the target', () => 
   r = c.suggestSavingsTopUp(hist, 150000, 0, 60000, 300000);
   assert.equal(r.kind, 'done');
 });
+
+// ---------- monthly plan ----------
+const planNames = ['planMean', 'planFloorTo', 'planPlural', 'planGoals', 'planGoalStatus'];
+const planCtx = () => loadApp(planNames, { fmt: (n) => '₦' + Math.round(n).toLocaleString('en-US') });
+const baseMonth = (o = {}) => ({ income: 300000, expectedIncome: 300000, spent: 220000, debtDue: 60000, newLoans: 0, late: 0, expenseDays: 14, cats: {}, ...o });
+const baseNow = (o = {}) => ({ income: 0, newLoans: 0, late: 0, overdueNow: 0, expenseDays: 0, saved: 0, extraPaid: 0, catSpend: {}, totalSpent: 0, ...o });
+
+test('plan: many loans last month caps new loans at 2 this month', () => {
+  const c = planCtx();
+  const r = c.planGoals([baseMonth({ newLoans: 5 })], baseNow({ newLoans: 1 }), []);
+  const g = r.goals.find((x) => x.id === 'loans');
+  assert.ok(g); assert.equal(g.target, 2); assert.equal(g.mode, 'max'); assert.equal(g.value, 1);
+  assert.match(g.title, /at most 2 new loans/);
+  assert.equal(c.planGoalStatus(g), 'ok');
+  assert.equal(c.planGoalStatus({ ...g, value: 3 }), 'over');
+  assert.equal(r.goals[0].id, 'loans');                       // highest priority first
+});
+
+test('plan: 3 loans -> at most 1; a heavy debt load -> no new loans; light borrowing -> no loan goal', () => {
+  const c = planCtx();
+  assert.equal(c.planGoals([baseMonth({ newLoans: 3 })], baseNow(), []).goals.find((x) => x.id === 'loans').target, 1);
+  const heavy = c.planGoals([baseMonth({ debtDue: 150000 })], baseNow(), []);   // 50% of income
+  const hg = heavy.goals.find((x) => x.id === 'loans');
+  assert.equal(hg.target, 0); assert.match(hg.title, /no new loans/i); assert.match(heavy.headline, /heavy/);
+  assert.equal(c.planGoals([baseMonth({ newLoans: 1 })], baseNow(), []).goals.find((x) => x.id === 'loans'), undefined);
+});
+
+test('plan: late payments last month or overdue now give an on-time goal', () => {
+  const c = planCtx();
+  let r = c.planGoals([baseMonth({ late: 2 })], baseNow(), []);
+  assert.ok(r.goals.find((x) => x.id === 'ontime'));
+  r = c.planGoals([baseMonth()], baseNow({ overdueNow: 1 }), []);
+  const g = r.goals.find((x) => x.id === 'ontime');
+  assert.ok(g); assert.match(g.detail, /overdue right now/); assert.equal(g.value, 1);
+});
+
+test('plan: a category over budget gets a spending limit; overspending overall gets a total cap', () => {
+  const c = planCtx();
+  let r = c.planGoals([baseMonth({ cats: { food: { name: 'Food', spent: 90000, budget: 60000 } } })], baseNow({ catSpend: { food: 20000 } }), []);
+  let g = r.goals.find((x) => x.id === 'spend');
+  assert.ok(g); assert.equal(g.target, 60000); assert.equal(g.value, 20000); assert.match(g.title, /Food under/);
+  r = c.planGoals([baseMonth({ income: 200000, spent: 260000 })], baseNow({ totalSpent: 50000 }), []);
+  g = r.goals.find((x) => x.id === 'spendall');
+  assert.ok(g); assert.equal(g.target, 180000);
+});
+
+test('plan: saving goal is half the typical surplus; extra goal targets the smallest debt; goals capped at 5', () => {
+  const c = planCtx();
+  const hist = [baseMonth({ newLoans: 4, late: 1, expenseDays: 3, cats: { food: { name: 'Food', spent: 90000, budget: 60000 } } })];
+  const r = c.planGoals(hist, baseNow(), [{ label: 'Phone loan', remaining: 40000 }, { label: 'Car', remaining: 900000 }]);
+  assert.ok(r.goals.length <= 5); assert.equal(r.goals.length, 5);
+  assert.deepEqual([...r.goals.map((g) => g.score)], [...r.goals.map((g) => g.score)].sort((a, b) => b - a)); // (arrays from the sandbox are copied first)
+  const save = c.planGoals([baseMonth()], baseNow(), []).goals.find((x) => x.id === 'save');
+  assert.equal(save.target, 40000);                          // surplus 80,000 -> half
+  const ex = c.planGoals([baseMonth()], baseNow({ extraPaid: 5000 }), [{ label: 'Phone loan', remaining: 40000 }]).goals.find((x) => x.id === 'extra');
+  assert.equal(ex.target, 20000); assert.match(ex.title, /Phone loan/); assert.equal(c.planGoalStatus(ex), 'going');
+});
+
+test('plan: no history gives starter goals; a calm month still gets encouraging goals', () => {
+  const c = planCtx();
+  const s = c.planGoals([], baseNow({ income: 200000 }), []);
+  assert.equal(s.starter, true); assert.ok(s.goals.length >= 2); assert.match(s.headline, /starter/);
+  assert.equal(s.goals.find((x) => x.id === 'save').target, 20000);
+  const calm = c.planGoals([baseMonth({ expenseDays: 20 })], baseNow(), []);
+  assert.ok(calm.goals.length >= 1); assert.doesNotMatch(calm.headline, /heavy/);
+});
+
+test('plan: extra payment never exceeds what is owed; it becomes a "clear this debt" goal', () => {
+  const c = planCtx();
+  const r = c.planGoals([baseMonth()], baseNow(), [{ label: 'Small loan', remaining: 12000 }]);   // 25% of surplus would be 20,000
+  const g = r.goals.find((x) => x.id === 'extra');
+  assert.equal(g.target, 12000); assert.match(g.title, /Clear Small loan/);
+});

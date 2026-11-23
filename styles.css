@@ -2006,3 +2006,29 @@ body.settings-only-view .settings-backbar{display:block; margin:0 0 10px;}
   .profile-banner,.budget-health,.global-search-wrap{max-width:720px; margin-left:auto; margin-right:auto;}
 }
 
+/* Monthly money plan */
+.home-plan{margin:0 0 14px; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm);}
+.home-plan[hidden]{display:none;}
+.plan-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px;}
+.plan-eyebrow{font-family:var(--font-display); font-weight:800; font-size:17px; color:var(--ink);}
+.plan-headline{font-size:13.5px; color:var(--muted); line-height:1.45; margin-top:4px;}
+.plan-count{font-family:var(--font-display); font-weight:800; font-size:12px; color:var(--accent-ink); background:var(--bg-soft); border-radius:999px; padding:5px 10px; white-space:nowrap;}
+.plan-goals{display:grid; grid-template-columns:1fr; gap:10px;}
+.plan-goal{padding:14px; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--bg);}
+.plan-goal.done{background:color-mix(in srgb, var(--good) 10%, var(--surface)); border-color:color-mix(in srgb, var(--good) 40%, var(--line));}
+.plan-goal.over{background:color-mix(in srgb, var(--bad) 8%, var(--surface)); border-color:color-mix(in srgb, var(--bad) 40%, var(--line));}
+.pg-top{display:flex; gap:12px; align-items:flex-start;}
+.pg-ic{font-size:28px; line-height:1; flex:0 0 auto;}
+.pg-title{font-family:var(--font-display); font-weight:800; font-size:15px; color:var(--ink); line-height:1.25;}
+.pg-detail{font-size:12.5px; color:var(--muted); line-height:1.45; margin-top:3px;}
+.pg-bar{height:8px; border-radius:999px; background:var(--bg-soft); margin:12px 0 8px; overflow:hidden;}
+.pg-fill{height:100%; border-radius:999px; background:var(--accent);}
+.plan-goal.done .pg-fill,.plan-goal.ok .pg-fill{background:var(--good);}
+.plan-goal.over .pg-fill{background:var(--bad);}
+.pg-foot{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; color:var(--muted); font-weight:700;}
+.pg-chip{font-family:var(--font-display); font-weight:800; font-size:11.5px; padding:3px 9px; border-radius:999px; background:var(--bg-soft); color:var(--ink);}
+.plan-goal.done .pg-chip,.plan-goal.ok .pg-chip{background:color-mix(in srgb, var(--good) 18%, var(--surface)); color:var(--good);}
+.plan-goal.over .pg-chip{background:color-mix(in srgb, var(--bad) 16%, var(--surface)); color:var(--bad);}
+.plan-foot{font-size:11.5px; color:var(--muted); margin-top:12px;}
+@media (min-width:641px){ .home-plan{max-width:720px; margin-left:auto; margin-right:auto;} .plan-goals{grid-template-columns:1fr 1fr;} }
+
