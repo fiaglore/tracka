@@ -2044,6 +2044,214 @@ window.__ftStart = function(){
   });
 
 
+
+  // ===== Monthly money plan =====
+  // Reads your own recent finished months (all on this device, nothing sent
+  // anywhere) and turns what it sees into advice plus up to 5 goals for the
+  // current month, for example "take at most 2 new loans" after a month where you
+  // took many. planGoals() is pure so the rules can be tested on their own.
+  function planMean(list){ return list.length ? list.reduce(function(a,b){ return a+b; }, 0) / list.length : 0; }
+  function planFloorTo(x){
+    const step = x >= 100000 ? 5000 : x >= 20000 ? 1000 : x >= 5000 ? 500 : x >= 1000 ? 100 : 50;
+    return Math.floor(x / step) * step;
+  }
+  function planPlural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
+  //   history: finished months with activity, oldest first (at most 3 used)
+  //     {income, expectedIncome, spent, debtDue, newLoans, late, expenseDays, cats:{id:{name,spent,budget}}}
+  //   current: this month so far
+  //     {income, newLoans, late, overdueNow, expenseDays, saved, extraPaid, catSpend:{id:spent}, totalSpent}
+  //   openDebts: unpaid debts, smallest balance first: [{label, remaining}]
+  function planGoals(history, current, openDebts){
+    const hist = (history || []).slice(-3);
+    const goals = [];
+    const add = function(g){ goals.push(g); };
+    if(!hist.length){
+      // No finished month yet: a few starter goals, and a note that the plan gets sharper.
+      add({id:'log', icon:'📝', score:60, title:'Log your spending on at least 10 days', detail:'The more you log this month, the better your advice will be next month.', value:current.expenseDays||0, target:10, mode:'min', unit:'days'});
+      add({id:'ontime', icon:'⏰', score:55, title:'Pay every instalment on or before its due date', detail:'Add a due date to each debt so AnchorTrakk can remind you.', value:(current.late||0)+(current.overdueNow||0), target:0, mode:'max', unit:'late'});
+      if(current.income > 0){
+        const t = planFloorTo(current.income * 0.1);
+        if(t >= 50) add({id:'save', icon:'🐷', score:50, title:'Save '+fmt(t)+' this month', detail:'A simple start: 10% of the income you have received so far.', value:current.saved||0, target:t, mode:'min', unit:'amount'});
+      }
+      return {headline:'Your plan gets sharper after your first full month. Here are some starter goals.', goals:goals.slice(0,5), months:0, starter:true};
+    }
+    const last = hist[hist.length-1];
+    const avgSurplus = planMean(hist.map(function(h){ return Math.max(0, (h.income||0) - (h.spent||0)); }));
+    const avgNewLoans = planMean(hist.map(function(h){ return h.newLoans||0; }));
+    const loadLast = last.expectedIncome > 0 ? last.debtDue / last.expectedIncome : 0;
+    const heavy = loadLast >= 0.4;
+    let headlineKey = null;
+
+    // 1. Borrowing
+    if((last.newLoans||0) >= 3 || heavy || avgNewLoans >= 2.5){
+      const cap = heavy ? 0 : Math.min(2, Math.max(1, Math.floor((last.newLoans||0) / 2)));
+      const why = [];
+      if((last.newLoans||0) > 0) why.push('Last month you took '+planPlural(last.newLoans, 'new loan')+'.');
+      if(loadLast >= 0.25) why.push('Your instalments used '+Math.round(loadLast*100)+'% of your income.');
+      add({id:'loans', icon:'🚦', score: heavy ? 95 : 90,
+        title: cap === 0 ? 'Take no new loans this month' : 'Take at most '+planPlural(cap, 'new loan')+' this month',
+        detail: why.join(' ') + ' A lighter month of borrowing keeps your debt-free date close.',
+        value: current.newLoans||0, target: cap, mode:'max', unit:'loans'});
+      headlineKey = heavy ? 'heavy' : 'loans';
+    }
+    // 2. Paying on time
+    if((last.late||0) >= 1 || (current.overdueNow||0) > 0){
+      const now = current.overdueNow||0;
+      add({id:'ontime', icon:'⏰', score: now > 0 ? 92 : 85, title:'Pay every instalment on or before its due date',
+        detail: (last.late > 0 ? planPlural(last.late, 'payment')+' slipped last month. ' : '') + (now > 0 ? planPlural(now, 'payment')+' overdue right now: clear that first.' : 'Late payments cost you in fees and stress.'),
+        value:(current.late||0)+now, target:0, mode:'max', unit:'late'});
+      if(!headlineKey) headlineKey = 'ontime';
+    }
+    // 3. Spending
+    let worst = null;
+    Object.keys(last.cats || {}).forEach(function(id){
+      const c = last.cats[id];
+      if(!(c.spent > 0)) return;
+      let cap = 0, over = 0, why = '';
+      if(c.budget > 0 && c.spent > c.budget){ cap = c.budget; over = c.spent - c.budget; why = c.name+' came to '+fmt(c.spent)+' last month, over your '+fmt(c.budget)+' budget.'; }
+      else if(hist.length >= 2){
+        const prev = hist.slice(0, -1).map(function(h){ const x = h.cats && h.cats[id]; return x ? x.spent : 0; });
+        const avgPrev = planMean(prev);
+        if(avgPrev > 0 && c.spent > avgPrev * 1.25 && c.spent > (last.income||0) * 0.05){ cap = planFloorTo(avgPrev); over = c.spent - avgPrev; why = c.name+' came to '+fmt(c.spent)+' last month, well above your usual '+fmt(Math.round(avgPrev))+'.'; }
+      }
+      if(cap > 0 && over > 0 && (!worst || over > worst.over)) worst = {id:id, name:c.name, cap:cap, over:over, why:why};
+    });
+    if(worst){
+      add({id:'spend', icon:'🧾', score:75, title:'Keep '+worst.name+' under '+fmt(worst.cap)+' this month', detail:worst.why,
+        value:(current.catSpend && current.catSpend[worst.id])||0, target:worst.cap, mode:'max', unit:'amount'});
+      if(!headlineKey) headlineKey = 'spend';
+    } else if((last.spent||0) > (last.income||0) && last.income > 0){
+      const cap = planFloorTo((last.income||0) * 0.9);
+      add({id:'spendall', icon:'🧾', score:80, title:'Keep your total spending under '+fmt(cap)+' this month',
+        detail:'Last month you spent '+fmt(last.spent)+' against '+fmt(last.income)+' coming in. Spending a little less than you earn is the foundation.',
+        value:current.totalSpent||0, target:cap, mode:'max', unit:'amount'});
+      if(!headlineKey) headlineKey = 'spend';
+    }
+    // 4. Saving
+    const saveTarget = planFloorTo(avgSurplus * 0.5);
+    if(saveTarget >= 50){
+      add({id:'save', icon:'🐷', score:70, title:'Save '+fmt(saveTarget)+' this month',
+        detail:'You usually have about '+fmt(Math.round(avgSurplus))+' left over each month. Putting aside half keeps a cushion.',
+        value:current.saved||0, target:saveTarget, mode:'min', unit:'amount'});
+      if(!headlineKey) headlineKey = 'save';
+    }
+    // 5. Extra on the smallest debt (never more than what is still owed on it)
+    if(openDebts && openDebts.length && avgSurplus > 0){
+      const d = openDebts[0];
+      const extra = planFloorTo(avgSurplus * 0.25);
+      const clears = extra >= d.remaining;
+      const amt = clears ? Math.ceil(d.remaining) : extra;
+      if(amt >= 50){
+        add({id:'extra', icon:'💥', score:55,
+          title: clears ? 'Clear '+d.label+' by paying '+fmt(amt) : 'Pay '+fmt(amt)+' extra on '+d.label,
+          detail: clears ? 'You can afford to finish your smallest debt this month. That frees up its instalment for good.'
+                         : 'Clearing your smallest debt first frees up its instalment. It has '+fmt(Math.round(d.remaining))+' left.',
+          value:current.extraPaid||0, target:amt, mode:'min', unit:'amount'});
+      }
+    }
+    // 6. Logging habit
+    if((last.expenseDays||0) < 10){
+      add({id:'log', icon:'📝', score:40, title:'Log your spending on at least 15 days',
+        detail: last.expenseDays > 0 ? 'Last month you logged expenses on '+planPlural(last.expenseDays, 'day')+'. More entries mean sharper advice.' : 'Nothing was logged last month. A few entries a week is enough to get useful advice.',
+        value:current.expenseDays||0, target:15, mode:'min', unit:'days'});
+    }
+    goals.sort(function(a,b){ return b.score - a.score; });
+    const top = goals.slice(0, 5);
+    const HEADLINES = {
+      heavy:'Your debt payments are heavy right now, so borrowing less is the best move this month.',
+      loans:'You borrowed a lot recently, so go easy on new loans this month.',
+      ontime:'A few payments slipped. Paying on time is the quickest win this month.',
+      spend:'Your spending ran ahead of plan, so a few limits will help this month.',
+      save:'You have room to save. A steady top-up each month adds up.'
+    };
+    return {headline: headlineKey ? HEADLINES[headlineKey] : 'You are in good shape. Keep your habits going and try these goals.',
+            goals: top, months: hist.length, starter:false};
+  }
+  function planGoalStatus(g){
+    if(g.mode === 'max') return g.value > g.target ? 'over' : 'ok';
+    return g.value >= g.target ? 'done' : 'going';
+  }
+  // Gathers the numbers planGoals() needs from the tracker state for one month.
+  function planMonthMetrics(mi, endKey){
+    const mm = state.months[mi];
+    const conv = function(it){ return convertToPrimary(it.amount, it.currency); };
+    const debts = (mm.debts||[]).filter(function(d){ return !d.extraPayment; });
+    const m = {income:0, expectedIncome:0, spent:0, debtDue:0, newLoans:0, late:0, overdueNow:0, expenseDays:0, saved:0, extraPaid:0, totalSpent:0, cats:{}, catSpend:{}};
+    const inc = monthIncomeSpentAt(mi, endKey);
+    m.income = inc.income; m.spent = inc.spent; m.totalSpent = inc.spent;
+    m.expectedIncome = (mm.income||[]).reduce(function(s,i){ return s+conv(i); }, 0) + sumExtraForMonth(mi);
+    m.debtDue = debts.reduce(function(s,d){ return s+conv(d); }, 0);
+    debts.forEach(function(d){
+      if(!d.dueDate) return;
+      if(d.checked){ if(d.lastTicked && d.lastTicked > d.dueDate) m.late++; }
+      else if(d.dueDate < endKey) m.overdueNow++;
+    });
+    (mm.debts||[]).forEach(function(d){ if(d.extraPayment && d.checked) m.extraPaid += conv(d); });
+    const days = {};
+    livingEntriesForMonth(mi).forEach(function(e){
+      if(e.date && e.date <= endKey){
+        days[e.date] = true;
+        const id = e.categoryId;
+        const cat = livingCategoryById(id);
+        if(!m.cats[id]) m.cats[id] = {name:cat.name, spent:0, budget:Number(cat.budget)||0};
+        m.cats[id].spent += Number(e.amount)||0;
+        m.catSpend[id] = (m.catSpend[id]||0) + (Number(e.amount)||0);
+      }
+    });
+    m.expenseDays = Object.keys(days).length;
+    m.saved = sumSavingsForMonth(mi);
+    (mm.savingsApps||[]).forEach(function(a){ if(a.checked && !a.withdrawal) m.saved += conv(a); });
+    // New loans: debt series whose first instalment sits in this month. Month 0 is
+    // the baseline (debts that already existed when tracking began), so it never counts.
+    const startOf = {};
+    for(let i=0;i<N;i++){ ((state.months[i]||{}).debts||[]).forEach(function(d){ if(!d.extraPayment && d.seriesId && !(d.seriesId in startOf)) startOf[d.seriesId] = i; }); }
+    Object.keys(startOf).forEach(function(sid){ if(startOf[sid] === mi && mi > 0) m.newLoans++; });
+    return m;
+  }
+  function planOpenDebts(){
+    const out = [];
+    try{
+      debtSeriesList().forEach(function(s){ if(s.remaining > 0.01) out.push({label:s.label || 'your smallest debt', remaining:s.remaining}); });
+    }catch(e){}
+    out.sort(function(a,b){ return a.remaining - b.remaining; });
+    return out;
+  }
+  function renderPlan(){
+    const box = document.getElementById('home-plan');
+    if(!box) return;
+    const t = todayKey(), cur = dateToMonthIndex(t);
+    if(activeMonth !== cur){ box.hidden = true; return; }
+    const history = [];
+    for(let i=0;i<cur;i++){
+      const m = planMonthMetrics(i, dateKey(periodBounds(i).end));
+      if(m.income > 0 || m.spent > 0 || m.debtDue > 0) history.push(m);
+    }
+    const plan = planGoals(history, planMonthMetrics(cur, t), planOpenDebts());
+    if(!plan.goals.length){ box.hidden = true; return; }
+    box.hidden = false;
+    let done = 0;
+    const list = document.getElementById('plan-goals');
+    list.innerHTML = plan.goals.map(function(g){
+      const st = planGoalStatus(g);
+      if(st === 'done') done++;
+      const fmtVal = function(v){ return g.unit === 'amount' ? fmt(Math.round(v)) : String(v); };
+      const pct = g.target > 0 ? Math.min(100, Math.round(g.value / g.target * 100)) : (g.value > 0 ? 100 : 0);
+      const chip = st === 'done' ? '✅ Done' : st === 'over' ? 'Over' : st === 'ok' ? 'On track' : 'In progress';
+      const progressText = g.mode === 'max'
+        ? (g.target === 0 ? (g.value === 0 ? 'None so far' : fmtVal(g.value)+' so far') : fmtVal(g.value)+' of '+fmtVal(g.target)+' limit')
+        : fmtVal(g.value)+' of '+fmtVal(g.target);
+      return '<article class="plan-goal '+st+'"><div class="pg-top"><span class="pg-ic">'+g.icon+'</span><div class="pg-main"><div class="pg-title">'+escapeAttr(g.title)+'</div><div class="pg-detail">'+escapeAttr(g.detail)+'</div></div></div>'
+        + '<div class="pg-bar"><div class="pg-fill" style="width:'+pct+'%"></div></div>'
+        + '<div class="pg-foot"><span>'+escapeAttr(progressText)+'</span><span class="pg-chip">'+chip+'</span></div></article>';
+    }).join('');
+    // Goals you stay under (loans, late payments, spending limits) count as met once they are
+    // on track at month end; here "done" counts the goals you have reached.
+    document.getElementById('plan-count').textContent = done+' of '+plan.goals.length+' reached';
+    document.getElementById('plan-month').textContent = 'Your plan for '+monthLabels[activeMonth];
+    document.getElementById('plan-headline').textContent = plan.headline;
+    document.getElementById('plan-foot').textContent = plan.starter ? 'Based on this month so far.' : 'Based on your last '+planPlural(plan.months, 'finished month')+'. Calculated on your device only.';
+  }
+
   // ===== Savings suggestion =====
   // Looks at what actually happened in your recent finished months (income
   // received vs. what went out) and suggests a sensible top-up for THIS month.
@@ -3990,6 +4198,7 @@ window.__ftStart = function(){
     renderMonthStartOverride();
     try{ renderHome(); }catch(e){ console.error('renderHome failed', e); }
     try{ renderSaveSuggest(); }catch(e){ console.error('renderSaveSuggest failed', e); }
+    try{ renderPlan(); }catch(e){ console.error('renderPlan failed', e); }
     const footerCoverageEl = document.getElementById('footer-coverage');
     if(footerCoverageEl) footerCoverageEl.textContent = monthLabels[0]+' '+yearTags[0]+' through '+monthLabels[N-1]+' '+yearTags[N-1];
     const overallMonthCountEl = document.getElementById('overall-month-count');
