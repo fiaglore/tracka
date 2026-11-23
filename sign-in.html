@@ -264,9 +264,9 @@
   <div class="topbar">
     <div class="brand-row">
       <div class="hello">
-        <span class="profile-avatar hello-avatar" id="hello-avatar" aria-hidden="true">🙂</span>
+        <a class="profile-avatar hello-avatar" id="hello-avatar" href="settings.html#profile" title="Change your profile picture" aria-label="Your profile, tap to change picture">🙂</a>
         <div class="hello-text">
-          <div class="hello-greet" id="hello-greet">Hi, there.</div>
+          <div class="hello-greet" id="hello-greet"><span class="hello-when" id="hello-when">Hello</span><span class="hello-name" id="hello-name">there</span></div>
           <div class="hello-sub"><span id="period-desc"></span></div>
         </div>
       </div>
@@ -356,6 +356,15 @@
   <div class="app-page active" id="page-overview" data-page="overview">
     <!-- Simple Home: the few things most people open the app for. Everything
          that used to sit here is still one tap away under "Full overview". -->
+    <div class="profile-banner" id="profile-banner">
+      <span class="profile-avatar" id="profile-avatar">🙂</span>
+      <div class="profile-banner-text">
+        <div class="time-message" id="time-message">🌅 Loading...</div>
+        <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
+      </div>
+    </div>
+
+
     <section class="home-hero" id="home-hero" aria-label="Your money at a glance">
       <div class="home-hero-label" id="home-hero-label">Money left this month</div>
       <div class="home-hero-amt" id="home-hero-amt">0</div>
@@ -396,6 +405,48 @@
     </div>
 
 
+    <section class="home-stats" aria-label="Your key numbers">
+      <div class="chip countdown" id="chip-countdown">
+        <span class="lbl">🎯 Days until debt-free</span>
+        <span class="val" id="countdown-days">—</span>
+      </div>
+      <div class="chip outstanding" id="chip-outstanding" title="Total remaining on every debt, across all months">
+        <span class="lbl">💰 Still outstanding</span>
+        <span class="val" id="chip-outstanding-val">—</span>
+      </div>
+      <div class="chip savings" id="chip-savings" title="Total saved across every month — the free-form savings ledger plus every savings app balance combined">
+        <span class="lbl">🐷 Total savings</span>
+        <span class="val" id="chip-savings-val">—</span>
+      </div>
+      <div class="chip level" id="chip-level">
+        <span class="lbl">🌟 Level</span>
+        <span class="val" id="chip-level-val">1</span>
+      </div>
+      <div class="chip streak" id="chip-streak" title="Consecutive days you've opened AnchorTrakk">
+        <span class="lbl" id="chip-streak-lbl">🔥 Streak</span>
+        <span class="val" id="chip-streak-val">—</span>
+      </div>
+      <div class="chip networth" id="chip-networth" title="Cash + savings + investments + other assets, minus what's still owed on debts">
+        <span class="lbl">📈 Net worth</span>
+        <span class="val" id="chip-networth-val">—</span>
+      </div>
+    </section>
+
+    <div class="budget-health" id="budget-health">
+      <div class="bh-left">
+        <div class="bh-icon" id="bh-icon">✅</div>
+        <div>
+          <div class="bh-status" id="bh-status">Within budget</div>
+          <div class="bh-sub" id="bh-sub"></div>
+        </div>
+      </div>
+      <div class="bh-right">
+        <div class="bh-amt" id="bh-amt">0</div>
+        <div class="bh-amt-lbl" id="bh-amt-lbl">surplus</div>
+      </div>
+      <div class="bh-breakdown" id="bh-breakdown"></div>
+    </div>
+
     <section class="save-suggest" id="home-save-suggest" hidden>
       <div class="ss-top"><span class="ss-ic">🐷</span><div><div class="ss-title" data-ss="title">Save smart this month</div><div class="ss-amt" data-ss="amt">—</div></div></div>
       <p class="ss-why" data-ss="why"></p>
@@ -423,75 +474,6 @@
       <div class="home-recent-list" id="home-recent-list"></div>
     </section>
 
-    <details class="home-details" id="home-details">
-      <summary>📊 Full overview</summary>
-      <div class="home-details-body">
-    <div class="profile-banner" id="profile-banner">
-      <span class="profile-avatar" id="profile-avatar">🙂</span>
-      <div class="profile-banner-text">
-        <div class="time-message" id="time-message">🌅 Loading...</div>
-        <div class="quote-banner" id="quote-banner">"Every bit you save today is a step toward freedom."</div>
-      </div>
-    </div>
-
-    <div class="meta-chips">
-      <div class="chip" id="chip-clock">
-        <span class="lbl">⏰ Right now</span>
-        <span class="val" id="live-clock">--:--:--</span>
-      </div>
-      <div class="chip countdown" id="chip-countdown">
-        <span class="lbl">🎯 Days until debt-free</span>
-        <span class="val" id="countdown-days">—</span>
-      </div>
-      <div class="chip level" id="chip-level">
-        <span class="lbl">🌟 Level</span>
-        <span class="val" id="chip-level-val">1</span>
-      </div>
-      <div class="chip streak" id="chip-streak" title="Consecutive days you've opened AnchorTrakk">
-        <span class="lbl" id="chip-streak-lbl">🔥 Streak</span>
-        <span class="val" id="chip-streak-val">—</span>
-      </div>
-      <div class="chip outstanding" id="chip-outstanding" title="Total remaining on every debt, across all months">
-        <span class="lbl">💰 Still outstanding</span>
-        <span class="val" id="chip-outstanding-val">—</span>
-      </div>
-      <div class="chip net" id="chip-net" title="This month's checked income minus checked debts, living expenses & gifts">
-        <span class="lbl">📊 This month's net</span>
-        <span class="val" id="chip-net-val">—</span>
-      </div>
-      <div class="chip savings" id="chip-savings" title="Total saved across every month — the free-form savings ledger plus every savings app balance combined">
-        <span class="lbl">🐷 Total savings</span>
-        <span class="val" id="chip-savings-val">—</span>
-      </div>
-      <div class="chip gifts" id="chip-gifts" title="Total set aside for gifts across every month, checked off">
-        <span class="lbl">🎁 Total gifts</span>
-        <span class="val" id="chip-gifts-val">—</span>
-      </div>
-      <div class="chip investments" id="chip-investments" title="Current value of every investment holding, at the last price you logged">
-        <span class="lbl">💹 Total investments</span>
-        <span class="val" id="chip-investments-val">—</span>
-      </div>
-      <div class="chip networth" id="chip-networth" title="Cash + savings + investments + other assets, minus what's still owed on debts">
-        <span class="lbl">📈 Net worth</span>
-        <span class="val" id="chip-networth-val">—</span>
-      </div>
-    </div>
-
-    <div class="overall">
-      <div class="overall-head">
-        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
-        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
-      </div>
-      <div class="overall-nums">
-        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
-        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
-        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
-        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
-      </div>
-      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
-    </div>
-
-
     <div class="global-search-wrap">
       <div class="global-search-row">
         <input type="search" id="global-search-input" class="global-search-input" placeholder="🔎 Search income, debts, gifts &amp; expenses across every month…">
@@ -513,6 +495,44 @@
       <div class="global-search-results" id="global-search-results" hidden></div>
     </div>
 
+    <details class="home-details" id="home-details">
+      <summary>📊 More numbers</summary>
+      <div class="home-details-body">
+    <div class="meta-chips">
+      <div class="chip" id="chip-clock">
+        <span class="lbl">⏰ Right now</span>
+        <span class="val" id="live-clock">--:--:--</span>
+      </div>
+      <div class="chip net" id="chip-net" title="This month's checked income minus checked debts, living expenses & gifts">
+        <span class="lbl">📊 This month's net</span>
+        <span class="val" id="chip-net-val">—</span>
+      </div>
+      <div class="chip gifts" id="chip-gifts" title="Total set aside for gifts across every month, checked off">
+        <span class="lbl">🎁 Total gifts</span>
+        <span class="val" id="chip-gifts-val">—</span>
+      </div>
+      <div class="chip investments" id="chip-investments" title="Current value of every investment holding, at the last price you logged">
+        <span class="lbl">💹 Total investments</span>
+        <span class="val" id="chip-investments-val">—</span>
+      </div>
+    </div>
+
+    <div class="overall">
+      <div class="overall-head">
+        <h2>Overall progress — all <span id="overall-month-count">6</span> months</h2>
+        <span class="mono" style="font-size:12px;color:var(--muted)" id="overall-pct">0%</span>
+      </div>
+      <div class="overall-nums">
+        <div class="n"><div class="lbl">Income received (all-time)</div><div class="val" style="color:var(--good)" id="ov-income">0</div></div>
+        <div class="n"><div class="lbl">Expenses paid (all-time)</div><div class="val" style="color:var(--bad)" id="ov-expense">0</div></div>
+        <div class="n"><div class="lbl">Extra income logged (all-time)</div><div class="val" id="ov-extra">0</div></div>
+        <div class="n"><div class="lbl">Months fully complete</div><div class="val" style="color:var(--accent)" id="ov-complete">0 / 6</div></div>
+      </div>
+      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:0%"></div></div>
+    </div>
+
+
+
     <div class="spotify-embed-wrap" id="spotify-embed-wrap-overview" hidden>
       <iframe id="spotify-embed-frame-overview" src="" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" title="Spotify playlist"></iframe>
     </div>
@@ -526,20 +546,6 @@
       <div class="badge-row" id="badge-row"></div>
     </div>
 
-    <div class="budget-health" id="budget-health">
-      <div class="bh-left">
-        <div class="bh-icon" id="bh-icon">✅</div>
-        <div>
-          <div class="bh-status" id="bh-status">Within budget</div>
-          <div class="bh-sub" id="bh-sub"></div>
-        </div>
-      </div>
-      <div class="bh-right">
-        <div class="bh-amt" id="bh-amt">0</div>
-        <div class="bh-amt-lbl" id="bh-amt-lbl">surplus</div>
-      </div>
-      <div class="bh-breakdown" id="bh-breakdown"></div>
-    </div>
 
     <div class="summary-grid">
       <div class="summary-row row1">

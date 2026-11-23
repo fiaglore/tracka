@@ -2193,8 +2193,12 @@ window.__ftStart = function(){
   function renderHome(){
     if(!document.getElementById('home-hero')) return;
     // greeting
-    const greet = document.getElementById('hello-greet');
-    if(greet){ const fn = firstNameForGreeting(); greet.textContent = fn ? 'Hi, '+fn+'.' : 'Hi there.'; }
+    const whenEl = document.getElementById('hello-when'), nameEl = document.getElementById('hello-name');
+    if(whenEl && nameEl){
+      const hr = new Date().getHours();
+      whenEl.textContent = hr < 5 ? '🌙 Good night' : hr < 12 ? '🌅 Good morning' : hr < 17 ? '☀️ Good afternoon' : hr < 21 ? '🌇 Good evening' : '🌙 Good night';
+      nameEl.textContent = firstNameForGreeting() || 'there';
+    }
 
     // headline figure
     const mi = activeMonth, p = periodBounds(mi);
